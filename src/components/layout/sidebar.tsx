@@ -1,0 +1,96 @@
+import { NavLink } from "react-router-dom";
+import { Shirt, X } from "lucide-react";
+import { cn } from "@/utils/cn";
+import { NAVIGATION } from "@/app/navigation";
+
+function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4 scrollbar-thin">
+      {NAVIGATION.map((group, gi) => (
+        <div key={gi} className="space-y-1">
+          {group.title && (
+            <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-muted">
+              {group.title}
+            </p>
+          )}
+          {group.items.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === "/"}
+                onClick={onNavigate}
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
+                    "text-sidebar-foreground/80 hover:bg-white/10 hover:text-sidebar-foreground",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                    isActive && "bg-primary/90 text-white hover:bg-primary hover:text-white",
+                  )
+                }
+              >
+                {Icon && <Icon className="h-4 w-4 shrink-0" />}
+                <span className="truncate">{item.label}</span>
+              </NavLink>
+            );
+          })}
+        </div>
+      ))}
+    </nav>
+  );
+}
+
+function Brand() {
+  return (
+    <div className="flex items-center gap-2.5 border-b border-white/10 px-4 py-4">
+      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white">
+        <Shirt className="h-4 w-4" />
+      </span>
+      <div className="leading-tight">
+        <p className="text-sm font-semibold tracking-tight text-sidebar-foreground">APPAREL ERP</p>
+        <p className="text-[10px] text-sidebar-muted">Import &amp; Export</p>
+      </div>
+    </div>
+  );
+}
+
+/** Desktop sidebar (fixed) + mobile drawer. */
+export function Sidebar({
+  mobileOpen,
+  onCloseMobile,
+}: {
+  mobileOpen: boolean;
+  onCloseMobile: () => void;
+}) {
+  return (
+    <>
+      {/* Desktop */}
+      <aside className="hidden w-60 shrink-0 flex-col bg-sidebar lg:flex">
+        <Brand />
+        <NavLinks />
+        <div className="border-t border-white/10 px-4 py-3">
+          <p className="text-[10px] text-sidebar-muted">Powered by ERPNext / Frappe</p>
+        </div>
+      </aside>
+
+      {/* Mobile drawer */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="absolute inset-0 bg-black/50" onClick={onCloseMobile} aria-hidden="true" />
+          <aside className="relative flex h-full w-64 animate-slide-in-right flex-col bg-sidebar">
+            <button
+              onClick={onCloseMobile}
+              className="absolute right-3 top-4 rounded p-1 text-sidebar-muted hover:text-sidebar-foreground"
+              aria-label="Close menu"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <Brand />
+            <NavLinks onNavigate={onCloseMobile} />
+          </aside>
+        </div>
+      )}
+    </>
+  );
+}
