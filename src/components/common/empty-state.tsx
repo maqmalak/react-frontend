@@ -31,7 +31,7 @@ export function EmptyState({
       </div>
       {actionLabel && onAction && (
         <Button variant="outline" size="sm" onClick={onAction}>
-          <Plus className="h-4 w-4" /> {actionLabel}
+          {!Icon && <Plus className="h-4 w-4" />} {actionLabel}
         </Button>
       )}
       {children}

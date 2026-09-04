@@ -32,28 +32,29 @@
   }
 
   .dark {
-    --background: 224 47% 8%;
-    --foreground: 210 40% 96%;
-    --card: 224 47% 10%;
-    --card-foreground: 210 40% 96%;
-    --popover: 224 47% 10%;
-    --popover-foreground: 210 40% 96%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 217 32% 16%;
-    --secondary-foreground: 210 40% 96%;
-    --muted: 217 32% 16%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 217 32% 16%;
-    --accent-foreground: 210 40% 96%;
-    --destructive: 0 70% 50%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217 32% 18%;
-    --input: 217 32% 18%;
-    --ring: 217 91% 60%;
-    --sidebar: 224 47% 6%;
-    --sidebar-foreground: 210 40% 96%;
-    --sidebar-muted: 215 20% 65%;
+    /* Deep-navy / teal enterprise theme */
+    --background: 221 66% 6%;
+    --foreground: 220 13% 91%;
+    --card: 216 67% 9%;
+    --card-foreground: 220 13% 91%;
+    --popover: 216 67% 9%;
+    --popover-foreground: 220 13% 91%;
+    --primary: 173 80% 40%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 66% 14%;
+    --secondary-foreground: 220 13% 91%;
+    --muted: 217 62% 7%;
+    --muted-foreground: 220 25% 68%;
+    --accent: 220 66% 14%;
+    --accent-foreground: 220 13% 91%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 40% 20%;
+    --input: 220 40% 20%;
+    --ring: 173 80% 40%;
+    --sidebar: 221 67% 5%;
+    --sidebar-foreground: 220 13% 91%;
+    --sidebar-muted: 220 25% 68%;
 
     color-scheme: dark;
   }
@@ -72,9 +73,48 @@
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
+
+  /* Ambient teal/indigo/amber glow over the deep-navy base, echoed by the
+     glass panels (Card/Dialog/DropdownMenu) so they read as frosted surfaces
+     floating above it rather than flat rectangles. */
+  .dark body {
+    background-image:
+      radial-gradient(1000px 520px at 18% 0%, rgb(20 184 166 / 0.16), transparent 55%),
+      radial-gradient(920px 520px at 86% 12%, rgb(99 102 241 / 0.1), transparent 50%),
+      radial-gradient(920px 520px at 50% 100%, rgb(245 158 11 / 0.06), transparent 55%);
+    background-attachment: fixed;
+  }
 }
 
 @layer utilities {
+  /* Reusable card-hover patterns (mirrors the reference dashboard's
+     .hover-lift / .hover-outline classes). Put on any Card-based tile:
+     - hover-lift: elevates the whole card (metric/summary tiles you'd
+       plausibly click through to something).
+     - hover-outline: glowing ring + shadow only, no movement (larger
+       panels like chart cards, where a lift would feel like noise). */
+  .hover-lift {
+    transition: transform 250ms ease-out, filter 250ms ease-out;
+    will-change: transform, filter;
+  }
+  .hover-lift:hover {
+    transform: translateY(-6px);
+  }
+  .dark .hover-lift:hover {
+    filter: brightness(1.08);
+  }
+
+  .hover-outline {
+    transition: border-color 250ms ease-out, box-shadow 250ms ease-out;
+  }
+  .hover-outline:hover {
+    border-color: hsl(var(--ring) / 0.4);
+  }
+  .dark .hover-outline:hover {
+    border-color: rgb(255 255 255 / 0.18);
+    box-shadow: 0 0 0 4px hsl(var(--ring) / 0.32), 0 18px 60px rgb(2 6 23 / 0.4);
+  }
+
   .scrollbar-thin {
     scrollbar-width: thin;
   }
@@ -84,6 +124,13 @@
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
     @apply rounded-full bg-muted;
+  }
+  .dark ::-webkit-scrollbar-thumb {
+    background: rgb(148 163 184 / 0.22);
+    border-radius: 999px;
+  }
+  .dark ::-webkit-scrollbar-track {
+    background: rgb(2 6 23 / 0.35);
   }
   .tabular-nums {
     font-variant-numeric: tabular-nums;

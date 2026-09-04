@@ -45,6 +45,7 @@ export function DropdownMenu({ trigger, items, align = "end", width = "w-48" }: 
         <div
           className={cn(
             "absolute z-40 mt-1 animate-fade-in rounded-md border border-border bg-popover p-1 shadow-lg",
+            "dark:border-white/10 dark:bg-white/5 dark:shadow-[0_18px_60px_rgb(2_6_23_/_0.45)] dark:backdrop-blur-xl",
             align === "end" ? "right-0" : "left-0",
             width,
           )}

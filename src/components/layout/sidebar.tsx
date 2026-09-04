@@ -2,11 +2,18 @@ import { NavLink } from "react-router-dom";
 import { Shirt, X } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { NAVIGATION } from "@/app/navigation";
+import { useAuth } from "@/hooks/useAuth";
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+  const { hasRole } = useAuth();
+  const visibleGroups = NAVIGATION.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => !item.roles || item.roles.length === 0 || hasRole(...item.roles)),
+  })).filter((group) => group.items.length > 0);
+
   return (
     <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4 scrollbar-thin">
-      {NAVIGATION.map((group, gi) => (
+      {visibleGroups.map((group, gi) => (
         <div key={gi} className="space-y-1">
           {group.title && (
             <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-muted">

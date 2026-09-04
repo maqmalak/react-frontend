@@ -27,7 +27,8 @@ export function KpiCard({ label, value, hint, icon: Icon, tone = "default", load
       onClick={onClick}
       className={cn(
         "p-4 transition-shadow",
-        onClick && "cursor-pointer hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        onClick &&
+          "cursor-pointer hover-lift hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
       )}
       tabIndex={onClick ? 0 : undefined}
       role={onClick ? "button" : undefined}

@@ -11,7 +11,7 @@ export function AppShell() {
   const { open: searchOpen, setOpen: setSearchOpen } = useGlobalSearchShortcut();
 
   return (
-    <div className="flex h-full min-h-screen bg-background">
+    <div className="flex h-full min-h-screen bg-background dark:bg-transparent">
       <Sidebar mobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)} />
 
       <div className="flex min-w-0 flex-1 flex-col">

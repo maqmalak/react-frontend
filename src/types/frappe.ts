@@ -410,16 +410,32 @@ export interface Company {
 
 // ------------------------------------------------------------- Misc / users
 
+export interface FrappeUserRoleRow {
+  role: string;
+}
+
 export interface FrappeUser {
   name: string;
   full_name?: string;
+  first_name?: string;
+  last_name?: string;
   user_image?: string;
   email?: string;
   language?: string;
   time_zone?: string;
+  user_type?: string;
   enabled?: number;
-  roles?: string[];
+  last_login?: string;
+  creation?: string;
+  /** Child table (`Has Role`) — only present when the full doc is loaded via get_doc. */
+  roles?: FrappeUserRoleRow[];
   default_company?: string;
+}
+
+export interface FrappeRole {
+  name: string;
+  disabled?: 0 | 1;
+  desk_access?: 0 | 1;
 }
 
 // ---------------------------------------------------- Purchase Receipt / Invoice

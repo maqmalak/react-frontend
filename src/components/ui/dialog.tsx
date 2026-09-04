@@ -52,6 +52,7 @@ export function Dialog({ open, onClose, title, description, children, className,
         aria-label={title}
         className={cn(
           "relative z-10 mt-10 w-full animate-fade-in rounded-lg border border-border bg-card p-5 shadow-xl sm:mt-16",
+          "dark:border-white/10 dark:bg-white/5 dark:shadow-[0_18px_60px_rgb(2_6_23_/_0.45)] dark:backdrop-blur-xl",
           sizeClasses[size],
           className,
         )}

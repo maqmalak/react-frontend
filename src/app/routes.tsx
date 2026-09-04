@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { LoginPage } from "@/pages/Auth/LoginPage";
+import { DesktopPage } from "@/pages/Desktop/DesktopPage";
 import { DashboardPage } from "@/pages/Dashboard/DashboardPage";
 import { LCProformaListPage } from "@/pages/LCProforma/LCProformaListPage";
 import { LCProformaFormPage } from "@/pages/LCProforma/LCProformaFormPage";
@@ -9,6 +10,7 @@ import { ItemsPage } from "@/pages/Masters/ItemsPage";
 import { CustomersPage } from "@/pages/Masters/CustomersPage";
 import { SuppliersPage } from "@/pages/Masters/SuppliersPage";
 import { ComingSoonPage, FullPageLoader } from "@/pages/common/ComingSoonPage";
+import { RequireRole } from "@/components/common/require-role";
 
 // Heavier / less-frequently visited modules are code-split.
 const ExportOrdersPage = lazy(() => import("@/pages/Export/ExportOrdersPage").then((m) => ({ default: m.ExportOrdersPage })));
@@ -34,6 +36,11 @@ const LandedCostVouchersPage = lazy(() => import("@/pages/Purchase/LandedCostVou
 const LandedCostVoucherFormPage = lazy(() => import("@/pages/Purchase/LandedCostVoucherFormPage").then((m) => ({ default: m.LandedCostVoucherFormPage })));
 const LandedCostVoucherDetailPage = lazy(() => import("@/pages/Purchase/LandedCostVoucherDetailPage").then((m) => ({ default: m.LandedCostVoucherDetailPage })));
 const WorkOrdersPage = lazy(() => import("@/pages/Production/WorkOrdersPage").then((m) => ({ default: m.WorkOrdersPage })));
+const UsersPage = lazy(() => import("@/pages/Admin/UsersPage").then((m) => ({ default: m.UsersPage })));
+const UserFormPage = lazy(() => import("@/pages/Admin/UserFormPage").then((m) => ({ default: m.UserFormPage })));
+const UserDetailPage = lazy(() => import("@/pages/Admin/UserDetailPage").then((m) => ({ default: m.UserDetailPage })));
+const RolesPage = lazy(() => import("@/pages/Admin/RolesPage").then((m) => ({ default: m.RolesPage })));
+const RoleDetailPage = lazy(() => import("@/pages/Admin/RoleDetailPage").then((m) => ({ default: m.RoleDetailPage })));
 
 
 /**
@@ -51,7 +58,8 @@ export function AppRoutes() {
 
       {/* Authenticated shell */}
       <Route element={<AppShell />}>
-        <Route index element={<DashboardPage />} />
+        <Route index element={<DesktopPage />} />
+        <Route path="dashboard" element={<DashboardPage />} />
 
         {/* Import */}
         <Route path="import/purchase-orders" element={<Suspense fallback={<FullPageLoader />}><PurchaseOrdersPage /></Suspense>} />
@@ -112,6 +120,58 @@ export function AppRoutes() {
 
         {/* Settings */}
         <Route path="settings" element={<ComingSoonPage title="Settings" description="Company defaults and workspace preferences" />} />
+
+        {/* Administration */}
+        <Route
+          path="admin/users"
+          element={
+            <RequireRole roles={["System Manager"]}>
+              <Suspense fallback={<FullPageLoader />}>
+                <UsersPage />
+              </Suspense>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="admin/users/new"
+          element={
+            <RequireRole roles={["System Manager"]}>
+              <Suspense fallback={<FullPageLoader />}>
+                <UserFormPage />
+              </Suspense>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="admin/users/:name"
+          element={
+            <RequireRole roles={["System Manager"]}>
+              <Suspense fallback={<FullPageLoader />}>
+                <UserDetailPage />
+              </Suspense>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="admin/roles"
+          element={
+            <RequireRole roles={["System Manager"]}>
+              <Suspense fallback={<FullPageLoader />}>
+                <RolesPage />
+              </Suspense>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="admin/roles/:name"
+          element={
+            <RequireRole roles={["System Manager"]}>
+              <Suspense fallback={<FullPageLoader />}>
+                <RoleDetailPage />
+              </Suspense>
+            </RequireRole>
+          }
+        />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

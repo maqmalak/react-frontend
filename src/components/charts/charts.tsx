@@ -67,10 +67,10 @@ export function BarChart({ data, series, xKey, height = 260, money, currency = "
     <ResponsiveContainer width="100%" height={height}>
       <RCBar data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" />
-        <XAxis dataKey={xKey} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+        <XAxis dataKey={xKey} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
         <YAxis
           tickFormatter={(v: number) => axisFormatter(!!money, currency, v)}
-          tick={{ fontSize: 12 }}
+          tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
           tickLine={false}
           axisLine={false}
         />
@@ -99,8 +99,8 @@ export function LineChart({ data, series, xKey, height = 260, money, currency = 
     <ResponsiveContainer width="100%" height={height}>
       <RCLine data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" />
-        <XAxis dataKey={xKey} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
-        <YAxis tickFormatter={(v: number) => axisFormatter(!!money, currency, v)} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+        <XAxis dataKey={xKey} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+        <YAxis tickFormatter={(v: number) => axisFormatter(!!money, currency, v)} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
         <Tooltip content={<ChartTooltip formatter={money ? (v: number) => formatMoney(v, currency) : undefined} />} />
         {legend && <Legend wrapperStyle={{ fontSize: 12 }} />}
         {series.map((s, i) => (
@@ -131,8 +131,8 @@ export function AreaChart({ data, series, xKey, height = 260, money, currency = 
           ))}
         </defs>
         <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" />
-        <XAxis dataKey={xKey} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
-        <YAxis tickFormatter={(v: number) => axisFormatter(!!money, currency, v)} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+        <XAxis dataKey={xKey} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+        <YAxis tickFormatter={(v: number) => axisFormatter(!!money, currency, v)} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
         <Tooltip content={<ChartTooltip formatter={money ? (v: number) => formatMoney(v, currency) : undefined} />} />
         {series.map((s, i) => (
           <Area

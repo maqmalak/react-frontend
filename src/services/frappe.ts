@@ -49,10 +49,16 @@ http.interceptors.request.use((config) => {
  * below whenever a request is rejected for a stale token — the cached token
  * is fetched once per page load, so it goes stale the moment the session's
  * real token rotates (a re-login, a cache clear, a backend restart, ...).
+ *
+ * `frappe.sessions.get_csrf_token` (what Frappe injects server-side into
+ * pages it renders itself) is not whitelisted for direct API access, and
+ * this SPA is served by Vite in dev — not by Frappe — so it has no such
+ * injection point. `apparel.api.get_csrf_token_for_session` is a minimal
+ * whitelisted wrapper added to the `apparel` app for exactly this.
  */
 export async function refreshCSRFToken(): Promise<void> {
   try {
-    const res = await fetch("/api/method/frappe.auth.get_csrf_token", {
+    const res = await fetch("/api/method/apparel.api.get_csrf_token_for_session", {
       credentials: "include",
     });
     if (!res.ok) return;

@@ -23,16 +23,20 @@ function Breadcrumbs() {
       {segments.map((seg, i) => {
         const to = `/${segments.slice(0, i + 1).join("/")}`;
         const isLast = i === segments.length - 1;
+        // Dynamic segments (doc names) may be URL-encoded, e.g. a User's name
+        // is its email ("%40" -> "@") — decode before titleForSegment's
+        // ROUTE_TITLES lookup / fallback title-casing runs on it.
+        const decoded = decodeURIComponent(seg);
         return (
           <span key={to} className="flex items-center gap-1">
             <ChevronRight className="h-3 w-3" />
             {isLast ? (
               <span className="max-w-[16rem] truncate font-medium text-foreground">
-                {titleForSegment(seg)}
+                {titleForSegment(decoded)}
               </span>
             ) : (
               <Link to={to} className="transition-colors hover:text-foreground">
-                {titleForSegment(seg)}
+                {titleForSegment(decoded)}
               </Link>
             )}
           </span>
@@ -81,7 +85,7 @@ export function Header({
   const fullName = user?.full_name ?? currentUser ?? "User";
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-4">
+    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 dark:border-white/10 dark:bg-white/[0.03] dark:supports-[backdrop-filter]:bg-white/[0.03] sm:px-4">
       <Button variant="ghost" size="icon" className="lg:hidden" onClick={onOpenSidebar} aria-label="Open menu">
         <Menu className="h-5 w-5" />
       </Button>

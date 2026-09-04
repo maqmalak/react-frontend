@@ -1,5 +1,6 @@
 import {
   LayoutDashboard,
+  LayoutGrid,
   Ship,
   FileText,
   Package,
@@ -15,6 +16,7 @@ import {
   Truck,
   ArrowLeftRight,
   Users,
+  ShieldCheck,
   Receipt,
   Coins,
   type LucideIcon,
@@ -37,7 +39,10 @@ export interface NavGroup {
 /** Sidebar information architecture for the Apparel ERP workspace. */
 export const NAVIGATION: NavGroup[] = [
   {
-    items: [{ label: "Dashboard", to: "/", icon: LayoutDashboard }],
+    items: [
+      { label: "Desktop", to: "/", icon: LayoutGrid },
+      { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard },
+    ],
   },
   {
     title: "Import",
@@ -96,13 +101,24 @@ export const NAVIGATION: NavGroup[] = [
     ],
   },
   {
+    title: "Administration",
+    items: [
+      { label: "Users", to: "/admin/users", icon: Users, roles: ["System Manager"] },
+      { label: "Roles", to: "/admin/roles", icon: ShieldCheck, roles: ["System Manager"] },
+    ],
+  },
+  {
     items: [{ label: "Settings", to: "/settings", icon: Settings }],
   },
 ];
 
 /** Human-readable breadcrumb segments for a pathname. */
 export const ROUTE_TITLES: Record<string, string> = {
-  "": "Dashboard",
+  "": "Desktop",
+  dashboard: "Dashboard",
+  admin: "Administration",
+  users: "Users",
+  roles: "Roles",
   import: "Import",
   export: "Export",
   production: "Production",
