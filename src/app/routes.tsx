@@ -41,6 +41,23 @@ const UserFormPage = lazy(() => import("@/pages/Admin/UserFormPage").then((m) =>
 const UserDetailPage = lazy(() => import("@/pages/Admin/UserDetailPage").then((m) => ({ default: m.UserDetailPage })));
 const RolesPage = lazy(() => import("@/pages/Admin/RolesPage").then((m) => ({ default: m.RolesPage })));
 const RoleDetailPage = lazy(() => import("@/pages/Admin/RoleDetailPage").then((m) => ({ default: m.RoleDetailPage })));
+const AccountProfilePage = lazy(() => import("@/pages/Account/AccountProfilePage").then((m) => ({ default: m.AccountProfilePage })));
+
+// Accounting
+const AccountingDashboardPage = lazy(() => import("@/pages/Accounting/AccountingDashboardPage").then((m) => ({ default: m.AccountingDashboardPage })));
+const GettingStartedPage = lazy(() => import("@/pages/Accounting/GettingStartedPage").then((m) => ({ default: m.GettingStartedPage })));
+const ChartOfAccountsPage = lazy(() => import("@/pages/Accounting/ChartOfAccountsPage").then((m) => ({ default: m.ChartOfAccountsPage })));
+const CostCentersPage = lazy(() => import("@/pages/Accounting/CostCentersPage").then((m) => ({ default: m.CostCentersPage })));
+const FiscalYearsPage = lazy(() => import("@/pages/Accounting/FiscalYearsPage").then((m) => ({ default: m.FiscalYearsPage })));
+const PaymentTermsPage = lazy(() => import("@/pages/Accounting/PaymentTermsPage").then((m) => ({ default: m.PaymentTermsPage })));
+const ModeOfPaymentPage = lazy(() => import("@/pages/Accounting/ModeOfPaymentPage").then((m) => ({ default: m.ModeOfPaymentPage })));
+const TaxTemplatesPage = lazy(() => import("@/pages/Accounting/TaxTemplatesPage").then((m) => ({ default: m.TaxTemplatesPage })));
+const JournalEntriesPage = lazy(() => import("@/pages/Accounting/JournalEntriesPage").then((m) => ({ default: m.JournalEntriesPage })));
+const JournalEntryFormPage = lazy(() => import("@/pages/Accounting/JournalEntryFormPage").then((m) => ({ default: m.JournalEntryFormPage })));
+const ReportGeneralLedgerPage = lazy(() => import("@/pages/Accounting/ReportGeneralLedgerPage").then((m) => ({ default: m.ReportGeneralLedgerPage })));
+const ReportTrialBalancePage = lazy(() => import("@/pages/Accounting/ReportTrialBalancePage").then((m) => ({ default: m.ReportTrialBalancePage })));
+const ReportBalanceSheetPage = lazy(() => import("@/pages/Accounting/ReportBalanceSheetPage").then((m) => ({ default: m.ReportBalanceSheetPage })));
+const ReportProfitAndLossPage = lazy(() => import("@/pages/Accounting/ReportProfitAndLossPage").then((m) => ({ default: m.ReportProfitAndLossPage })));
 
 
 /**
@@ -118,8 +135,64 @@ export function AppRoutes() {
         <Route path="masters/customers" element={<CustomersPage />} />
         <Route path="masters/suppliers" element={<SuppliersPage />} />
 
+        {/* Accounting */}
+        <Route path="accounting" element={<Suspense fallback={<FullPageLoader />}><AccountingDashboardPage /></Suspense>} />
+        <Route path="accounting/getting-started" element={<Suspense fallback={<FullPageLoader />}><GettingStartedPage /></Suspense>} />
+        <Route path="accounting/chart-of-accounts" element={<Suspense fallback={<FullPageLoader />}><ChartOfAccountsPage /></Suspense>} />
+        <Route path="accounting/cost-centers" element={<Suspense fallback={<FullPageLoader />}><CostCentersPage /></Suspense>} />
+        <Route path="accounting/fiscal-years" element={<Suspense fallback={<FullPageLoader />}><FiscalYearsPage /></Suspense>} />
+        <Route path="accounting/payment-terms" element={<Suspense fallback={<FullPageLoader />}><PaymentTermsPage /></Suspense>} />
+        <Route path="accounting/mode-of-payment" element={<Suspense fallback={<FullPageLoader />}><ModeOfPaymentPage /></Suspense>} />
+        <Route
+          path="accounting/tax-templates/sales"
+          element={
+            <Suspense fallback={<FullPageLoader />}>
+              <TaxTemplatesPage doctype="Sales Taxes and Charges Template" title="Sales Tax Templates" subtitle="Taxes and charges applied on sales invoices and export orders" />
+            </Suspense>
+          }
+        />
+        <Route
+          path="accounting/tax-templates/purchase"
+          element={
+            <Suspense fallback={<FullPageLoader />}>
+              <TaxTemplatesPage doctype="Purchase Taxes and Charges Template" title="Purchase Tax Templates" subtitle="Taxes and charges applied on purchase invoices" />
+            </Suspense>
+          }
+        />
+        <Route path="accounting/journal-entries" element={<Suspense fallback={<FullPageLoader />}><JournalEntriesPage /></Suspense>} />
+        <Route path="accounting/journal-entries/new" element={<Suspense fallback={<FullPageLoader />}><JournalEntryFormPage /></Suspense>} />
+        <Route path="accounting/journal-entries/:name" element={<Suspense fallback={<FullPageLoader />}><JournalEntryFormPage /></Suspense>} />
+        <Route path="accounting/reports/general-ledger" element={<Suspense fallback={<FullPageLoader />}><ReportGeneralLedgerPage /></Suspense>} />
+        <Route path="accounting/reports/trial-balance" element={<Suspense fallback={<FullPageLoader />}><ReportTrialBalancePage /></Suspense>} />
+        <Route path="accounting/reports/profit-and-loss" element={<Suspense fallback={<FullPageLoader />}><ReportProfitAndLossPage /></Suspense>} />
+        <Route path="accounting/reports/balance-sheet" element={<Suspense fallback={<FullPageLoader />}><ReportBalanceSheetPage /></Suspense>} />
+        <Route path="accounting/setup/settings" element={<ComingSoonPage title="Accounts Settings" description="Company-wide accounting policies — rounding, credit limits, stock/GL sync" />} />
+        <Route path="accounting/setup/dimensions" element={<ComingSoonPage title="Accounting Dimensions" description="Custom dimensions (e.g. Territory, Project) for deeper financial reporting" />} />
+
         {/* Settings */}
         <Route path="settings" element={<ComingSoonPage title="Settings" description="Company defaults and workspace preferences" />} />
+        <Route path="settings/company" element={<ComingSoonPage title="Company" description="Default company, fiscal year and address" />} />
+        <Route path="settings/notifications" element={<ComingSoonPage title="Notifications" description="Alert preferences and email digests" />} />
+
+        {/* My Account */}
+        <Route
+          path="account"
+          element={
+            <Suspense fallback={<FullPageLoader />}>
+              <AccountProfilePage />
+            </Suspense>
+          }
+        />
+        <Route path="account/security" element={<ComingSoonPage title="Security" description="Password and two-factor authentication" />} />
+
+        {/* New module previews (Desktop / login only for now) */}
+        <Route path="selling" element={<ComingSoonPage title="Selling" description="Quotations, sales orders and customers" />} />
+        <Route path="crm" element={<ComingSoonPage title="CRM" description="Leads, opportunities and customer engagement" />} />
+        <Route path="subcontracting" element={<ComingSoonPage title="Subcontracting" description="Subcontracting orders and receipts" />} />
+        <Route path="assets" element={<ComingSoonPage title="Assets" description="Fixed asset register, depreciation and maintenance" />} />
+        <Route path="support" element={<ComingSoonPage title="Support" description="Issues and customer support tickets" />} />
+        <Route path="hr" element={<ComingSoonPage title="HR" description="Employee records, attendance and leave" />} />
+        <Route path="payroll" element={<ComingSoonPage title="Payroll" description="Salary structures, slips and payroll entries" />} />
 
         {/* Administration */}
         <Route

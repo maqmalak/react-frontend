@@ -117,11 +117,10 @@ http.interceptors.response.use(
       if (status === 401 || status === 403) {
         window.dispatchEvent(new CustomEvent("apparel:session-expired"));
       }
-      const msg =
-        (error.response?.data as any)?.exc_type ??
-        (error.response?.data as any)?.message ??
-        error.message;
-      return Promise.reject(new Error(msg || "Request failed"));
+      // Reject with the original AxiosError (not a flattened Error) so
+      // humanizeError can see the full response.data payload — Frappe's real,
+      // human-readable failure reason lives in `_server_messages`/`exception`
+      // there, not in any top-level field on the error itself.
     }
     return Promise.reject(error);
   },
@@ -231,12 +230,20 @@ export function humanizeError(error: unknown): string {
     }
   }
 
+  // Frappe's JSON error body carries the real reason in `exception` — a
+  // "module.path.ExceptionClass: actual message" string (e.g. "frappe.
+  // exceptions.ValidationError: Account ... cannot be used in transactions").
+  // Strip the leading dotted-class prefix so only the human message remains.
+  const stripExceptionPrefix = (s: string) => s.replace(/^[\w.]+:\s+/, "");
+
   const candidates = [
-    anyErr?.message,
-    anyErr?.exception,
-    anyErr?.exc,
+    anyErr?.response?.data?.exception && stripExceptionPrefix(anyErr.response.data.exception),
+    anyErr?.response?.data?.exc,
     anyErr?.response?.data?.message,
+    anyErr?.exception && stripExceptionPrefix(anyErr.exception),
+    anyErr?.exc,
     anyErr?.response?.data?.exc_type,
+    anyErr?.message,
   ];
   for (const c of candidates) {
     if (typeof c === "string" && c.trim()) return stripHtml(c);

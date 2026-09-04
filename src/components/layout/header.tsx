@@ -1,5 +1,5 @@
-import { Link, useLocation } from "react-router-dom";
-import { Bell, ChevronRight, LogOut, Menu, Search, User as UserIcon } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Bell, ChevronRight, LogOut, Menu, Search, Settings as SettingsIcon, User as UserIcon, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -76,19 +76,23 @@ export function Header({
   onOpenSidebar,
   onOpenSearch,
 }: {
-  onOpenSidebar: () => void;
+  /** Omitted on routes with no sidebar (the Desktop launcher) — hides the toggle. */
+  onOpenSidebar?: () => void;
   onOpenSearch: () => void;
 }) {
   const { user, currentUser, roles, logout } = useAuth();
   const { company, setCompany, companies } = useCompanyContext();
+  const navigate = useNavigate();
 
   const fullName = user?.full_name ?? currentUser ?? "User";
 
   return (
     <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 dark:border-white/10 dark:bg-white/[0.03] dark:supports-[backdrop-filter]:bg-white/[0.03] sm:px-4">
-      <Button variant="ghost" size="icon" className="lg:hidden" onClick={onOpenSidebar} aria-label="Open menu">
-        <Menu className="h-5 w-5" />
-      </Button>
+      {onOpenSidebar && (
+        <Button variant="ghost" size="icon" className="lg:hidden" onClick={onOpenSidebar} aria-label="Open menu">
+          <Menu className="h-5 w-5" />
+        </Button>
+      )}
 
       <Breadcrumbs />
 
@@ -141,6 +145,9 @@ export function Header({
             { label: `Language: ${user?.language ?? "en"}`, disabled: true },
             { label: `Time Zone: ${user?.time_zone ?? "—"}`, disabled: true },
             { label: `Company: ${company ?? "—"}`, disabled: true },
+            { separator: true, label: "" },
+            { label: "My Account", icon: <UserCircle className="h-4 w-4" />, onClick: () => navigate("/account") },
+            { label: "Settings", icon: <SettingsIcon className="h-4 w-4" />, onClick: () => navigate("/settings") },
             { separator: true, label: "" },
             { label: "Sign out", icon: <LogOut className="h-4 w-4" />, destructive: true, onClick: () => void logout() },
           ]}

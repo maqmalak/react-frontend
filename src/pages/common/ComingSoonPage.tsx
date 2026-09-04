@@ -1,21 +1,29 @@
+import { Shirt } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { EmptyState } from "@/components/common/empty-state";
-import { Skeleton } from "@/components/ui/skeleton";
 
-/** Full-screen centered loader used while the session is being resolved. */
+/**
+ * Full-screen centered loader — shown while the session is being resolved
+ * (RequireAuth / RequireRole) and as the Suspense fallback for lazy routes.
+ * `relative` so it can host absolutely-positioned decoration later without a
+ * markup change; the ambient dark-mode glow already painted on `body` shows
+ * straight through via `dark:bg-transparent`, same as AppShell/LoginPage.
+ */
 export function FullPageLoader() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="w-full max-w-md space-y-4 px-6">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-3/4" />
-        <div className="grid grid-cols-3 gap-3 pt-2">
-          <Skeleton className="h-24" />
-          <Skeleton className="h-24" />
-          <Skeleton className="h-24" />
-        </div>
-      </div>
+    <div className="relative flex h-screen flex-col items-center justify-center gap-4 overflow-hidden bg-background dark:bg-transparent">
+      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground dark:shadow-[0_10px_35px_hsl(var(--primary)/0.32)]">
+        <Shirt className="h-5 w-5" />
+      </span>
+      <svg className="h-6 w-6 animate-spin text-primary" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+        <path
+          className="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+        />
+      </svg>
+      <p className="text-sm font-medium text-muted-foreground">Preparing your workspace…</p>
     </div>
   );
 }

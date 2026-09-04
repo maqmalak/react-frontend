@@ -1,0 +1,550 @@
+import { useEffect, useMemo, useState } from "react";
+import {
+  ChevronRight,
+  ChevronDown,
+  ChevronsUpDown,
+  ChevronsDownUp,
+  Download,
+  CheckCircle2,
+  AlertTriangle,
+  Wallet,
+  CreditCard,
+  PieChart,
+  TrendingUp,
+  TrendingDown,
+} from "lucide-react";
+import { PageHeader } from "@/components/common/page-header";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { FrappeLinkField } from "@/components/forms/field-primitives";
+import { EmptyState } from "@/components/common/empty-state";
+import { KpiCard } from "@/pages/Dashboard/KpiCard";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ChartCard } from "@/components/charts/chart-card";
+import { BarChart, LineChart } from "@/components/charts/charts";
+import { useQueryReport, useFiscalYears } from "@/hooks/useAccounting";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
+import { formatNumber } from "@/utils/currency";
+import { asNumber, cn } from "@/utils/cn";
+import { exportToCsv } from "@/utils/export";
+import { humanizeError } from "@/services/frappe";
+import type { QueryReportColumn } from "@/types/frappe";
+
+interface BalanceSheetRow {
+  account: string;
+  parent_account?: string | null;
+  indent: number;
+  is_group: 0 | 1;
+  acc_name: string;
+  acc_number?: string | null;
+  total: number;
+  [periodKey: string]: unknown;
+}
+
+const PERIODICITIES = ["Yearly", "Half-Yearly", "Quarterly", "Monthly"];
+
+const BS_OPTIONS: { key: string; label: string; def: boolean }[] = [
+  { key: "show_zero_values", label: "Show zero values", def: false },
+  { key: "accumulated_values", label: "Accumulated values", def: true },
+  { key: "include_default_book_entries", label: "Include default finance book entries", def: true },
+  { key: "include_dimensions", label: "Consider accounting dimensions", def: false },
+];
+
+const money = (n: number) => (n ? formatNumber(n, 2) : "—");
+
+/** Rows in a collapsed group's subtree — hidden until that group is re-expanded. */
+function visibleRows(rows: BalanceSheetRow[], collapsed: Set<string>): BalanceSheetRow[] {
+  const out: BalanceSheetRow[] = [];
+  let hideUntilIndent: number | null = null;
+  for (const r of rows) {
+    if (hideUntilIndent !== null) {
+      if (r.indent > hideUntilIndent) continue;
+      hideUntilIndent = null;
+    }
+    out.push(r);
+    if (r.is_group && collapsed.has(r.account)) hideUntilIndent = r.indent;
+  }
+  return out;
+}
+
+/**
+ * Balance Sheet — assets, liabilities and equity as of the selected fiscal
+ * year, grouped by the real Chart of Accounts hierarchy. Every number here
+ * (including the four summary tiles) comes straight from ERPNext's own
+ * report engine (`erpnext.accounts.report.balance_sheet`); nothing is
+ * recomputed client-side beyond flattening the tree for display.
+ */
+export function ReportBalanceSheetPage() {
+  const { company } = useCompanyContext();
+  const { data: fiscalYears } = useFiscalYears();
+  const [fiscalYear, setFiscalYear] = useState("");
+  const [periodicity, setPeriodicity] = useState("Yearly");
+  const [costCenter, setCostCenter] = useState("");
+  const [project, setProject] = useState("");
+  const [financeBook, setFinanceBook] = useState("");
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [chartMode, setChartMode] = useState<"Bars" | "Trend">("Bars");
+  const [opts, setOpts] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(BS_OPTIONS.map((o) => [o.key, o.def])),
+  );
+
+  useEffect(() => {
+    if (fiscalYears && fiscalYears.length > 0 && !fiscalYear) setFiscalYear(fiscalYears[0].name);
+  }, [fiscalYears, fiscalYear]);
+
+  const baseFilters = {
+    company,
+    filter_based_on: "Fiscal Year",
+    from_fiscal_year: fiscalYear,
+    to_fiscal_year: fiscalYear,
+    cost_center: costCenter || undefined,
+    project: project ? [project] : undefined,
+    finance_book: financeBook || undefined,
+  };
+
+  const filters = useMemo(
+    () => ({ ...baseFilters, periodicity, ...opts }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [company, fiscalYear, periodicity, costCenter, project, financeBook, opts],
+  );
+
+  const { data, error, isLoading, mutate } = useQueryReport("Balance Sheet", filters, Boolean(company && fiscalYear));
+
+  // Chart always drills to real monthly, cumulative-to-date balances — a
+  // point-in-time trend of financial position — regardless of the table's
+  // own periodicity selection above.
+  const chartFilters = useMemo(
+    () => ({ ...baseFilters, periodicity: "Monthly", accumulated_values: 1 }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [company, fiscalYear, costCenter, project, financeBook],
+  );
+  const { data: chartReport, isLoading: chartLoading } = useQueryReport(
+    "Balance Sheet",
+    chartFilters,
+    Boolean(company && fiscalYear),
+  );
+
+  const allRows = ((data?.result ?? []) as unknown as BalanceSheetRow[]).filter(
+    (r) => r && typeof r.account === "string",
+  );
+  const bodyRows = allRows.filter((r) => !r.account.startsWith("'"));
+  const shown = visibleRows(bodyRows, collapsed);
+  const provisionalPLRow = allRows.find((r) => r.account.startsWith("'Provisional Profit"));
+
+  const periodColumns: QueryReportColumn[] = (data?.columns ?? []).filter(
+    (c) => !c.hidden && c.fieldname !== "account",
+  );
+  const lastPeriodKey = periodColumns[periodColumns.length - 1]?.fieldname;
+
+  const summary = data?.report_summary ?? [];
+  const totalAsset = asNumber(summary.find((s) => s.label === "Total Asset")?.value);
+  const totalLiability = asNumber(summary.find((s) => s.label === "Total Liability")?.value);
+  const totalEquity = asNumber(summary.find((s) => s.label === "Total Equity")?.value);
+  const provisionalProfit = asNumber(
+    summary.find((s) => s.label.startsWith("Provisional Profit"))?.value,
+  );
+
+  const base = Math.abs(totalAsset) || 1;
+  const liabPct = Math.min(100, (Math.abs(totalLiability) / base) * 100);
+  const eqPct = Math.min(100, (Math.abs(totalEquity) / base) * 100);
+  const plPct = Math.min(100, (Math.abs(provisionalProfit) / base) * 100);
+
+  const balanced = summary.length > 0 && Math.abs(totalAsset - (totalLiability + totalEquity + provisionalProfit)) < 0.5;
+
+  const chartCurrency = chartReport?.chart?.currency ?? "PKR";
+  const chartLabels = chartReport?.chart?.data?.labels ?? [];
+  const chartDatasets = chartReport?.chart?.data?.datasets ?? [];
+  const assetSeries = chartDatasets.find((d) => d.name === "Assets")?.values ?? [];
+  const liabilitySeries = chartDatasets.find((d) => d.name === "Liabilities")?.values ?? [];
+  const equitySeries = chartDatasets.find((d) => d.name === "Equity")?.values ?? [];
+
+  const monthlyData = chartLabels.map((label, i) => {
+    const assets = asNumber(assetSeries[i]);
+    const liabilities = asNumber(liabilitySeries[i]);
+    const equity = asNumber(equitySeries[i]);
+    return { month: label, assets, liabilities, equity, provisionalPL: assets - liabilities - equity };
+  });
+
+  const chartInsights = useMemo(() => {
+    if (monthlyData.length === 0) return null;
+    const highestAssets = monthlyData.reduce((a, b) => (b.assets > a.assets ? b : a));
+    const highestLiabilities = monthlyData.reduce((a, b) => (b.liabilities > a.liabilities ? b : a));
+    const avgPL = monthlyData.reduce((s, m) => s + m.provisionalPL, 0) / monthlyData.length;
+    return { highestAssets, highestLiabilities, avgPL };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chartReport]);
+
+  const toggle = (account: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(account)) next.delete(account);
+      else next.add(account);
+      return next;
+    });
+  const expandAll = () => setCollapsed(new Set());
+  const collapseAll = () => setCollapsed(new Set(bodyRows.filter((r) => r.is_group).map((r) => r.account)));
+
+  const exportRows = () => {
+    const cols = [
+      { key: "account", label: "Account" },
+      ...periodColumns.map((c) => ({ key: c.fieldname, label: c.label })),
+    ];
+    const rows = bodyRows.map((r) => ({
+      account: `${"  ".repeat(r.indent)}${r.acc_number ? `${r.acc_number} - ` : ""}${r.acc_name}`,
+      ...Object.fromEntries(periodColumns.map((c) => [c.fieldname, r[c.fieldname]])),
+    }));
+    exportToCsv(cols, rows, "balance-sheet");
+  };
+
+  return (
+    <div className="space-y-4">
+      <PageHeader
+        title="Balance Sheet"
+        subtitle="Assets, liabilities and equity — computed live by ERPNext's report engine"
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={expandAll} disabled={!bodyRows.length}>
+              <ChevronsUpDown className="h-4 w-4" />
+              Expand all
+            </Button>
+            <Button variant="outline" size="sm" onClick={collapseAll} disabled={!bodyRows.length}>
+              <ChevronsDownUp className="h-4 w-4" />
+              Collapse all
+            </Button>
+            <Button size="sm" onClick={exportRows} disabled={!bodyRows.length}>
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+          </>
+        }
+      />
+
+      {!company ? (
+        <EmptyState title="No company selected" description="Choose a company from the header to run this report." />
+      ) : (
+        <>
+          <Card className="p-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <div>
+                <Label htmlFor="bs-fy">Fiscal Year</Label>
+                <Select id="bs-fy" value={fiscalYear} onChange={(e) => setFiscalYear(e.target.value)}>
+                  {(fiscalYears ?? []).map((fy) => (
+                    <option key={fy.name} value={fy.name}>
+                      {fy.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="bs-periodicity">Periodicity</Label>
+                <Select id="bs-periodicity" value={periodicity} onChange={(e) => setPeriodicity(e.target.value)}>
+                  {PERIODICITIES.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <Label>Finance Book</Label>
+                <FrappeLinkField
+                  meta={{ fieldname: "finance_book", label: "Finance Book", fieldtype: "Link", options: "Finance Book", placeholder: "All books" }}
+                  value={financeBook}
+                  onChange={setFinanceBook}
+                />
+              </div>
+              <div>
+                <Label>Cost Center</Label>
+                <FrappeLinkField
+                  meta={{ fieldname: "cost_center", label: "Cost Center", fieldtype: "Link", options: "Cost Center", placeholder: "All cost centers" }}
+                  value={costCenter}
+                  onChange={setCostCenter}
+                />
+              </div>
+              <div>
+                <Label>Project</Label>
+                <FrappeLinkField
+                  meta={{ fieldname: "project", label: "Project", fieldtype: "Link", options: "Project", placeholder: "All projects" }}
+                  value={project}
+                  onChange={setProject}
+                />
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-border pt-4">
+              {BS_OPTIONS.map((o) => (
+                <Checkbox
+                  key={o.key}
+                  label={o.label}
+                  checked={!!opts[o.key]}
+                  onChange={(e) => setOpts((prev) => ({ ...prev, [o.key]: e.target.checked }))}
+                />
+              ))}
+            </div>
+          </Card>
+
+          {error ? (
+            <EmptyState title="Couldn't load Balance Sheet" description={humanizeError(error)} actionLabel="Retry" onAction={() => void mutate()} />
+          ) : isLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-20 w-full" />
+              ))}
+            </div>
+          ) : bodyRows.length === 0 ? (
+            <EmptyState title="No postings found" description="No account activity for this fiscal year / filter set." />
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <KpiCard label="Total Asset" value={money(totalAsset)} icon={Wallet} tone="success" colorValue />
+                <KpiCard label="Total Liability" value={money(totalLiability)} icon={CreditCard} tone="warning" colorValue />
+                <KpiCard label="Total Equity" value={money(totalEquity)} icon={PieChart} tone="info" colorValue />
+                <KpiCard
+                  label={summary.find((s) => s.label.startsWith("Provisional Profit"))?.label ?? "Provisional Profit / Loss"}
+                  value={money(provisionalProfit)}
+                  icon={provisionalProfit >= 0 ? TrendingUp : TrendingDown}
+                  tone={provisionalProfit >= 0 ? "success" : "destructive"}
+                  colorValue
+                />
+              </div>
+
+              <Card className="p-5">
+                <div className="flex items-baseline justify-between gap-4">
+                  <p className="text-sm font-semibold">Composition</p>
+                  <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-sm bg-primary" /> Assets
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-sm bg-sky-400" /> Liabilities
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-sm bg-emerald-500" /> Equity
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-sm bg-amber-500" /> Provisional P/L
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <div className="mb-1.5 flex justify-between text-xs text-muted-foreground">
+                      <span>Assets</span>
+                      <span className="tabular-nums">{money(totalAsset)}</span>
+                    </div>
+                    <div className="h-3 overflow-hidden rounded-md bg-muted">
+                      <div className="h-full rounded-md bg-primary" style={{ width: "100%" }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="mb-1.5 flex justify-between text-xs text-muted-foreground">
+                      <span>Liabilities + Equity + Provisional P/L</span>
+                      <span className="tabular-nums">{money(totalLiability + totalEquity + provisionalProfit)}</span>
+                    </div>
+                    <div className="flex h-3 overflow-hidden rounded-md bg-muted">
+                      <div className="h-full bg-sky-400" style={{ width: `${liabPct}%` }} />
+                      <div className="h-full bg-emerald-500" style={{ width: `${eqPct}%` }} />
+                      <div className="h-full bg-amber-500" style={{ width: `${plPct}%` }} />
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              <ChartCard
+                title="Monthly activity"
+                subtitle={`Fiscal year ${fiscalYear} · ${chartCurrency} · cumulative balance as of each month-end`}
+                actions={
+                  <div className="flex gap-1 rounded-lg bg-muted p-1">
+                    <Button variant={chartMode === "Bars" ? "default" : "ghost"} size="sm" className="h-7 px-3" onClick={() => setChartMode("Bars")}>
+                      Bars
+                    </Button>
+                    <Button variant={chartMode === "Trend" ? "default" : "ghost"} size="sm" className="h-7 px-3" onClick={() => setChartMode("Trend")}>
+                      Trend
+                    </Button>
+                  </div>
+                }
+              >
+                {chartLoading ? (
+                  <Skeleton className="h-64 w-full" />
+                ) : monthlyData.length === 0 ? (
+                  <p className="py-10 text-center text-sm text-muted-foreground">No monthly activity to chart.</p>
+                ) : (
+                  <>
+                    {chartMode === "Bars" ? (
+                      <BarChart
+                        data={monthlyData}
+                        xKey="month"
+                        series={[
+                          { key: "assets", label: "Assets" },
+                          { key: "liabilities", label: "Liabilities" },
+                          { key: "equity", label: "Equity" },
+                          { key: "provisionalPL", label: "Provisional P/L" },
+                        ]}
+                        money
+                        currency={chartCurrency}
+                        legend
+                      />
+                    ) : (
+                      <LineChart
+                        data={monthlyData}
+                        xKey="month"
+                        series={[
+                          { key: "assets", label: "Assets" },
+                          { key: "liabilities", label: "Liabilities" },
+                          { key: "equity", label: "Equity" },
+                          { key: "provisionalPL", label: "Provisional P/L" },
+                        ]}
+                        money
+                        currency={chartCurrency}
+                        legend
+                      />
+                    )}
+                    {chartInsights && (
+                      <div className="mt-4 flex flex-wrap gap-6 border-t border-border pt-4 text-xs text-muted-foreground">
+                        <span>
+                          Highest Assets{" "}
+                          <strong className="text-foreground">
+                            {chartInsights.highestAssets.month} ({money(chartInsights.highestAssets.assets)})
+                          </strong>
+                        </span>
+                        <span>
+                          Highest Liabilities{" "}
+                          <strong className="text-foreground">
+                            {chartInsights.highestLiabilities.month} ({money(chartInsights.highestLiabilities.liabilities)})
+                          </strong>
+                        </span>
+                        <span>
+                          Average Provisional P/L <strong className="text-foreground">{money(chartInsights.avgPL)}</strong>
+                        </span>
+                      </div>
+                    )}
+                  </>
+                )}
+              </ChartCard>
+
+              <div className="overflow-hidden rounded-lg border border-border bg-card dark:border-white/10 dark:bg-white/5">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[720px] border-collapse text-sm">
+                    <thead>
+                      <tr className="bg-muted/50">
+                        <th className="border-b border-border px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                          Account
+                        </th>
+                        {periodColumns.map((c) => (
+                          <th
+                            key={c.fieldname}
+                            className="border-b border-l border-border px-4 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-muted-foreground"
+                          >
+                            {c.label}
+                          </th>
+                        ))}
+                        <th className="w-32 border-b border-l border-border px-4 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                          Share
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {shown.map((r) => {
+                        const isGroup = !!r.is_group;
+                        const rowValue = lastPeriodKey ? asNumber(r[lastPeriodKey]) : r.total;
+                        const share = Math.min(100, (Math.abs(rowValue) / base) * 100);
+                        return (
+                          <tr
+                            key={r.account}
+                            onClick={isGroup ? () => toggle(r.account) : undefined}
+                            className={cn(
+                              "border-b border-border/60 last:border-0",
+                              isGroup ? "cursor-pointer bg-muted/30 hover:bg-muted/50" : "hover:bg-muted/20",
+                            )}
+                          >
+                            <td className="px-4 py-2.5" style={{ paddingLeft: 16 + r.indent * 20 }}>
+                              <span className={cn("inline-flex items-center gap-2", isGroup && (r.indent === 0 ? "font-bold" : "font-semibold"))}>
+                                {isGroup ? (
+                                  collapsed.has(r.account) ? (
+                                    <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                  ) : (
+                                    <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                  )
+                                ) : (
+                                  <span className="inline-block w-3.5 shrink-0" />
+                                )}
+                                {r.acc_number && <span className="font-mono text-xs text-muted-foreground">{r.acc_number}</span>}
+                                <span className="truncate">{r.acc_name}</span>
+                              </span>
+                            </td>
+                            {periodColumns.map((c) => {
+                              const v = asNumber(r[c.fieldname]);
+                              return (
+                                <td
+                                  key={c.fieldname}
+                                  className={cn(
+                                    "border-l border-border/60 px-4 py-2.5 text-right tabular-nums",
+                                    isGroup && (r.indent === 0 ? "font-bold" : "font-semibold"),
+                                    v < 0 && "text-destructive",
+                                  )}
+                                >
+                                  {money(v)}
+                                </td>
+                              );
+                            })}
+                            <td className="border-l border-border/60 px-4 py-2.5">
+                              <div className="flex items-center justify-end gap-2">
+                                <div className="h-1.5 w-14 overflow-hidden rounded-full bg-muted">
+                                  <div
+                                    className={cn("h-full rounded-full", isGroup && r.indent === 0 ? "bg-primary" : "bg-primary/50")}
+                                    style={{ width: `${share}%` }}
+                                  />
+                                </div>
+                                <span className="w-9 text-right text-xs text-muted-foreground tabular-nums">
+                                  {share >= 0.5 ? `${share.toFixed(0)}%` : "—"}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    {provisionalPLRow && (
+                      <tfoot>
+                        <tr className="bg-muted/60">
+                          <td className="border-t-2 border-border px-4 py-3 font-bold">Provisional Profit / Loss</td>
+                          {periodColumns.map((c) => {
+                            const v = asNumber(provisionalPLRow[c.fieldname]);
+                            return (
+                              <td
+                                key={c.fieldname}
+                                className={cn(
+                                  "border-l border-t-2 border-border px-4 py-3 text-right font-bold tabular-nums",
+                                  v >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive",
+                                )}
+                              >
+                                {money(v)}
+                              </td>
+                            );
+                          })}
+                          <td className="border-l border-t-2 border-border px-4 py-3" />
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                </div>
+              </div>
+
+              <div className={cn("flex items-center gap-2 text-sm", balanced ? "text-emerald-600 dark:text-emerald-400" : "text-destructive")}>
+                {balanced ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                {balanced
+                  ? "Assets equal liabilities plus equity and provisional profit."
+                  : `Out of balance — assets differ from liabilities + equity + P/L by ${formatNumber(
+                      Math.abs(totalAsset - (totalLiability + totalEquity + provisionalProfit)),
+                      2,
+                    )}.`}
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+}

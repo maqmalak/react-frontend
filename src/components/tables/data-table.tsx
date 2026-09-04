@@ -56,6 +56,8 @@ export interface FrappeDataTableProps<T> {
   emptyDescription?: string;
   exportFilename?: string;
   defaultSortKey?: string;
+  /** Column keys hidden on first render (still toggleable via the Columns picker). */
+  defaultHiddenColumns?: string[];
 }
 
 function cellValue<T>(row: T, col: ColumnDef<T>): string | number | undefined | null {
@@ -89,6 +91,7 @@ export function FrappeDataTable<T extends Record<string, any>>({
   emptyDescription,
   exportFilename,
   defaultSortKey,
+  defaultHiddenColumns,
 }: FrappeDataTableProps<T>) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | null>(
@@ -96,7 +99,7 @@ export function FrappeDataTable<T extends Record<string, any>>({
   );
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(initialPageSize);
-  const [hiddenCols, setHiddenCols] = useState<Set<string>>(new Set());
+  const [hiddenCols, setHiddenCols] = useState<Set<string>>(new Set(defaultHiddenColumns ?? []));
 
   const visibleColumns = columns.filter((c) => !hiddenCols.has(c.key));
   const searchableText = query.trim().toLowerCase();

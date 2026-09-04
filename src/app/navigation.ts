@@ -1,13 +1,12 @@
 import {
   LayoutDashboard,
-  LayoutGrid,
   Ship,
   FileText,
   Package,
   Factory,
   Warehouse,
   BarChart3,
-  Settings,
+  Settings as SettingsIcon,
   ShoppingCart,
   Container,
   Calculator,
@@ -19,6 +18,27 @@ import {
   ShieldCheck,
   Receipt,
   Coins,
+  ShoppingBag,
+  Handshake,
+  Cog,
+  Building2,
+  LifeBuoy,
+  Users2,
+  Banknote,
+  UserCircle,
+  Building,
+  Bell,
+  Lock,
+  ListTree,
+  CalendarRange,
+  ScrollText,
+  Wallet,
+  BookOpen,
+  Rocket,
+  Scale,
+  TrendingUp,
+  PieChart,
+  Sliders,
   type LucideIcon,
 } from "lucide-react";
 
@@ -36,81 +56,194 @@ export interface NavGroup {
   items: NavItem[];
 }
 
-/** Sidebar information architecture for the Apparel ERP workspace. */
-export const NAVIGATION: NavGroup[] = [
-  {
-    items: [
-      { label: "Desktop", to: "/", icon: LayoutGrid },
-      { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard },
-    ],
-  },
-  {
-    title: "Import",
-    items: [
-      { label: "Purchase Orders", to: "/import/purchase-orders", icon: ShoppingCart },
-      { label: "Import Shipments", to: "/import/shipments", icon: Container },
-      { label: "Import Cost Sheets", to: "/import/cost-sheets", icon: Calculator },
-    ],
-  },
-  {
-    title: "Purchase",
-    items: [
-      { label: "Purchase Receipts", to: "/purchase/receipts", icon: Package },
-      { label: "Purchase Invoices", to: "/purchase/invoices", icon: Receipt },
-      { label: "Landed Cost Vouchers", to: "/purchase/landed-costs", icon: Coins },
-    ],
-  },
-  {
-    title: "Export",
-    items: [
-      { label: "LC Proforma", to: "/export/lc-proforma", icon: FileText },
-      { label: "Export Orders", to: "/export/orders", icon: Package },
-      { label: "Export Packing", to: "/export/packing", icon: Boxes },
-      { label: "Export Shipments", to: "/export/shipments", icon: Ship },
-    ],
-  },
-  {
-    title: "Production",
-    items: [
-      { label: "Work Orders", to: "/production/work-orders", icon: Factory },
-      { label: "Production Status", to: "/production/status", icon: ClipboardList },
-    ],
-  },
-  {
-    title: "Inventory",
-    items: [
-      { label: "Stock", to: "/inventory/stock", icon: Warehouse },
-      { label: "Material Movement", to: "/inventory/movement", icon: ArrowLeftRight },
-    ],
-  },
-  {
-    title: "Reports",
-    items: [
-      { label: "Import Reports", to: "/reports/import", icon: BarChart3 },
-      { label: "Export Reports", to: "/reports/export", icon: BarChart3 },
-      { label: "Shipment Reports", to: "/reports/shipments", icon: Truck },
-      { label: "LC Reports", to: "/reports/lc", icon: FileText },
-    ],
-  },
-  {
-    title: "Masters",
-    items: [
-      { label: "Items", to: "/masters/items", icon: Boxes },
-      { label: "Customers", to: "/masters/customers", icon: Users },
-      { label: "Suppliers", to: "/masters/suppliers", icon: Users },
-    ],
-  },
-  {
-    title: "Administration",
-    items: [
-      { label: "Users", to: "/admin/users", icon: Users, roles: ["System Manager"] },
-      { label: "Roles", to: "/admin/roles", icon: ShieldCheck, roles: ["System Manager"] },
-    ],
-  },
-  {
-    items: [{ label: "Settings", to: "/settings", icon: Settings }],
-  },
-];
+/**
+ * Per-app sidebar navigation, keyed by the route's first path segment (which
+ * lines up 1:1 with each tile's `to` in `app/apps.ts`, except `stock` which
+ * shares the `inventory` segment/pages). The Desktop app-launcher (`/`) is
+ * the one route with no entry here — it renders without a sidebar entirely.
+ */
+export const APP_NAVIGATION: Record<string, NavGroup[]> = {
+  dashboard: [
+    { items: [{ label: "Overview", to: "/dashboard", icon: LayoutDashboard }] },
+  ],
+  import: [
+    {
+      title: "Import",
+      items: [
+        { label: "Purchase Orders", to: "/import/purchase-orders", icon: ShoppingCart },
+        { label: "Import Shipments", to: "/import/shipments", icon: Container },
+        { label: "Import Cost Sheets", to: "/import/cost-sheets", icon: Calculator },
+      ],
+    },
+  ],
+  purchase: [
+    {
+      title: "Purchase",
+      items: [
+        { label: "Purchase Receipts", to: "/purchase/receipts", icon: Package },
+        { label: "Purchase Invoices", to: "/purchase/invoices", icon: Receipt },
+        { label: "Landed Cost Vouchers", to: "/purchase/landed-costs", icon: Coins },
+      ],
+    },
+  ],
+  export: [
+    {
+      title: "Export",
+      items: [
+        { label: "LC Proforma", to: "/export/lc-proforma", icon: FileText },
+        { label: "Export Orders", to: "/export/orders", icon: Package },
+        { label: "Export Packing", to: "/export/packing", icon: Boxes },
+        { label: "Export Shipments", to: "/export/shipments", icon: Ship },
+      ],
+    },
+  ],
+  production: [
+    {
+      title: "Production",
+      items: [
+        { label: "Work Orders", to: "/production/work-orders", icon: Factory },
+        { label: "Production Status", to: "/production/status", icon: ClipboardList },
+      ],
+    },
+  ],
+  inventory: [
+    {
+      title: "Inventory",
+      items: [
+        { label: "Stock", to: "/inventory/stock", icon: Warehouse },
+        { label: "Material Movement", to: "/inventory/movement", icon: ArrowLeftRight },
+      ],
+    },
+  ],
+  reports: [
+    {
+      title: "Reports",
+      items: [
+        { label: "Import Reports", to: "/reports/import", icon: BarChart3 },
+        { label: "Export Reports", to: "/reports/export", icon: BarChart3 },
+        { label: "Shipment Reports", to: "/reports/shipments", icon: Truck },
+        { label: "LC Reports", to: "/reports/lc", icon: FileText },
+      ],
+    },
+  ],
+  masters: [
+    {
+      title: "Masters",
+      items: [
+        { label: "Items", to: "/masters/items", icon: Boxes },
+        { label: "Customers", to: "/masters/customers", icon: Users },
+        { label: "Suppliers", to: "/masters/suppliers", icon: Users },
+      ],
+    },
+  ],
+  accounting: [
+    {
+      title: "Overview",
+      items: [
+        { label: "Dashboard", to: "/accounting", icon: LayoutDashboard },
+        { label: "Getting Started", to: "/accounting/getting-started", icon: Rocket },
+      ],
+    },
+    {
+      title: "Masters",
+      items: [
+        { label: "Chart of Accounts", to: "/accounting/chart-of-accounts", icon: ListTree },
+        { label: "Cost Centers", to: "/accounting/cost-centers", icon: Scale },
+        { label: "Fiscal Years", to: "/accounting/fiscal-years", icon: CalendarRange },
+        { label: "Payment Terms", to: "/accounting/payment-terms", icon: ScrollText },
+        { label: "Mode of Payment", to: "/accounting/mode-of-payment", icon: Wallet },
+        { label: "Sales Tax Templates", to: "/accounting/tax-templates/sales", icon: Receipt },
+        { label: "Purchase Tax Templates", to: "/accounting/tax-templates/purchase", icon: Receipt },
+      ],
+    },
+    {
+      title: "Transactions",
+      items: [{ label: "Journal Entries", to: "/accounting/journal-entries", icon: BookOpen }],
+    },
+    {
+      title: "Reports",
+      items: [
+        { label: "General Ledger", to: "/accounting/reports/general-ledger", icon: FileText },
+        { label: "Trial Balance", to: "/accounting/reports/trial-balance", icon: Scale },
+        { label: "Profit and Loss", to: "/accounting/reports/profit-and-loss", icon: TrendingUp },
+        { label: "Balance Sheet", to: "/accounting/reports/balance-sheet", icon: PieChart },
+      ],
+    },
+    {
+      title: "Setup",
+      items: [
+        { label: "Accounts Settings", to: "/accounting/setup/settings", icon: Sliders },
+        { label: "Accounting Dimensions", to: "/accounting/setup/dimensions", icon: Sliders },
+      ],
+    },
+  ],
+  admin: [
+    {
+      title: "Administration",
+      items: [
+        { label: "Users", to: "/admin/users", icon: Users, roles: ["System Manager"] },
+        { label: "Roles", to: "/admin/roles", icon: ShieldCheck, roles: ["System Manager"] },
+      ],
+    },
+  ],
+  selling: [{ items: [{ label: "Selling", to: "/selling", icon: ShoppingBag }] }],
+  crm: [{ items: [{ label: "CRM", to: "/crm", icon: Handshake }] }],
+  subcontracting: [{ items: [{ label: "Subcontracting", to: "/subcontracting", icon: Cog }] }],
+  assets: [{ items: [{ label: "Assets", to: "/assets", icon: Building2 }] }],
+  support: [{ items: [{ label: "Support", to: "/support", icon: LifeBuoy }] }],
+  hr: [{ items: [{ label: "HR", to: "/hr", icon: Users2 }] }],
+  payroll: [{ items: [{ label: "Payroll", to: "/payroll", icon: Banknote }] }],
+  settings: [
+    {
+      title: "Settings",
+      items: [
+        { label: "General", to: "/settings", icon: SettingsIcon },
+        { label: "Company", to: "/settings/company", icon: Building },
+        { label: "Notifications", to: "/settings/notifications", icon: Bell },
+      ],
+    },
+  ],
+  account: [
+    {
+      title: "My Account",
+      items: [
+        { label: "Profile", to: "/account", icon: UserCircle },
+        { label: "Security", to: "/account/security", icon: Lock },
+      ],
+    },
+  ],
+};
+
+/** Route segment -> human label for the sidebar's app header. */
+export const APP_LABELS: Record<string, string> = {
+  dashboard: "Dashboard",
+  import: "Import",
+  purchase: "Purchase",
+  export: "Export",
+  production: "Production",
+  inventory: "Inventory",
+  reports: "Reports",
+  masters: "Masters",
+  accounting: "Accounting",
+  admin: "Administration",
+  selling: "Selling",
+  crm: "CRM",
+  subcontracting: "Subcontracting",
+  assets: "Assets",
+  support: "Support",
+  hr: "HR",
+  payroll: "Payroll",
+  settings: "Settings",
+  account: "My Account",
+};
+
+/** First path segment (`"/import/foo"` -> `"import"`, `"/"` -> `""`). */
+export function appSegmentForPath(pathname: string): string {
+  return pathname.split("/").filter(Boolean)[0] ?? "";
+}
+
+/** All sidebar nav groups flattened — used for the login page's live stat count. */
+export const NAVIGATION: NavGroup[] = Object.values(APP_NAVIGATION).flat();
 
 /** Human-readable breadcrumb segments for a pathname. */
 export const ROUTE_TITLES: Record<string, string> = {
@@ -126,6 +259,34 @@ export const ROUTE_TITLES: Record<string, string> = {
   reports: "Reports",
   masters: "Masters",
   settings: "Settings",
+  accounting: "Accounting",
+  "getting-started": "Getting Started",
+  "chart-of-accounts": "Chart of Accounts",
+  "cost-centers": "Cost Centers",
+  "fiscal-years": "Fiscal Years",
+  "payment-terms": "Payment Terms",
+  "mode-of-payment": "Mode of Payment",
+  "tax-templates": "Tax Templates",
+  sales: "Sales",
+  "journal-entries": "Journal Entries",
+  "general-ledger": "General Ledger",
+  "trial-balance": "Trial Balance",
+  "profit-and-loss": "Profit and Loss",
+  "balance-sheet": "Balance Sheet",
+  setup: "Setup",
+  dimensions: "Accounting Dimensions",
+  selling: "Selling",
+  crm: "CRM",
+  subcontracting: "Subcontracting",
+  assets: "Assets",
+  support: "Support",
+  hr: "HR",
+  payroll: "Payroll",
+  account: "My Account",
+  profile: "Profile",
+  security: "Security",
+  company: "Company",
+  notifications: "Notifications",
   purchase: "Purchase",
   "purchase-orders": "Purchase Orders",
   receipts: "Purchase Receipts",

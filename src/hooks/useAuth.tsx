@@ -123,13 +123,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const logout = React.useCallback(async () => {
-    await fetch("/api/method/logout", { method: "POST", credentials: "include" }).catch(
-      () => undefined,
-    );
+    // Unlike login (a guest-context request Frappe never CSRF-checks), logout
+    // mutates an authenticated session, so it needs the same
+    // `X-Frappe-CSRF-Token` header the axios `http` instance attaches
+    // automatically (see services/frappe.ts) — this raw fetch bypasses that
+    // interceptor, so without it the server rejects the POST with
+    // CSRFTokenError and the session is silently never destroyed.
+    const csrfToken = (window as unknown as { csrf_token?: string }).csrf_token;
+    await fetch("/api/method/logout", {
+      method: "POST",
+      credentials: "include",
+      headers: csrfToken ? { "X-Frappe-CSRF-Token": csrfToken } : undefined,
+    }).catch(() => undefined);
     getUserCookie();
     await updateCurrentUser();
     // Session destroyed — grab a fresh (guest) CSRF token.
     await refreshCSRFToken();
+    // A real browser navigation rather than react-router's `useNavigate()`:
+    // called from this deep in AuthProvider's async flow, `navigate()` hit
+    // react-router's internal `activeRef` guard (traced — it ran with no
+    // error but silently never touched history, even deferred a tick).
+    // `location.assign` sidesteps that entirely and, as a bonus, hard-resets
+    // every in-memory cache (SWR, component state) rather than leaving stale
+    // authenticated data sitting behind the login screen.
+    window.location.assign("/login");
   }, [updateCurrentUser, getUserCookie]);
 
   const hasRole = React.useCallback(

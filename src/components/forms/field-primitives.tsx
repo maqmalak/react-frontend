@@ -1,4 +1,5 @@
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { useFrappeGetDocList } from "frappe-react-sdk";
 import { Link as LinkIcon, Search, X } from "lucide-react";
 
@@ -115,9 +116,67 @@ export function FrappeLinkField({
   const limit = 25;
   const q = query.trim();
 
+  // The list is portaled to <body> and positioned with fixed coordinates so
+  // it isn't clipped by ancestors that scroll (e.g. the child-table's
+  // overflow-x-auto wrapper, which forces overflow-y:auto per the CSS spec
+  // and would otherwise hide most of the list behind a scrollbar).
+  const wrapperRef = React.useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = React.useState<{
+    left: number;
+    width: number;
+    maxHeight: number;
+    top?: number;
+    bottom?: number;
+  } | null>(null);
+
+  const updateMenuPos = React.useCallback(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const gap = 4;
+    const desiredMax = 352; // 22rem — matches the intended "long list" height
+    const spaceBelow = window.innerHeight - rect.bottom - gap;
+    const spaceAbove = rect.top - gap;
+    // Prefer opening downward; flip above the field only when there's
+    // meaningfully more room up there, so a tall list is never cut off by
+    // the browser viewport edge for fields sitting low on the page.
+    if (spaceBelow >= 160 || spaceBelow >= spaceAbove) {
+      setMenuPos({
+        left: rect.left,
+        width: rect.width,
+        top: rect.bottom + gap,
+        maxHeight: Math.max(120, Math.min(desiredMax, spaceBelow)),
+      });
+    } else {
+      setMenuPos({
+        left: rect.left,
+        width: rect.width,
+        bottom: window.innerHeight - rect.top + gap,
+        maxHeight: Math.max(120, Math.min(desiredMax, spaceAbove)),
+      });
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (!open) return;
+    updateMenuPos();
+    window.addEventListener("scroll", updateMenuPos, true);
+    window.addEventListener("resize", updateMenuPos);
+    return () => {
+      window.removeEventListener("scroll", updateMenuPos, true);
+      window.removeEventListener("resize", updateMenuPos);
+    };
+  }, [open, updateMenuPos]);
+
   const filters: unknown[][] = [];
   if (doctype === "Customer" || doctype === "Supplier" || doctype === "Item") {
     filters.push(["disabled", "=", 0]);
+  }
+  // Group accounts are Chart-of-Accounts summary nodes — ERPNext rejects any
+  // transaction posted against one, so never offer them where a Link field
+  // picks a posting account (every "Account" Link in this app is exactly that).
+  if (doctype === "Account") {
+    filters.push(["is_group", "=", 0]);
   }
 
   const orFilters: unknown[][] | undefined = q
@@ -153,7 +212,7 @@ export function FrappeLinkField({
   });
 
   return (
-    <div className={`relative ${className ?? ""}`}>
+    <div className={`relative ${className ?? ""}`} ref={wrapperRef}>
       <div className="relative">
         <LinkIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
@@ -204,34 +263,45 @@ export function FrappeLinkField({
           </button>
         )}
       </div>
-      {open && (
-        <ul className="absolute z-50 mt-1 max-h-56 w-full overflow-auto rounded-md border border-border bg-popover p-1 shadow-lg">
-          {isLoading && results.length === 0 && (
-            <li className="px-2 py-1.5 text-sm text-muted-foreground">Searching…</li>
-          )}
-          {!isLoading && results.length === 0 && (
-            <li className="px-2 py-1.5 text-sm text-muted-foreground">No results</li>
-          )}
-          {results.map((r) => (
-            <li key={r.value}>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  onChange(r.value);
-                  setOpen(false);
-                  setFocused(false);
-                  setQuery("");
-                }}
-              >
-                <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                <span className="truncate">{r.label}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      {open &&
+        menuPos &&
+        createPortal(
+          <ul
+            className="fixed z-50 overflow-auto rounded-md border border-border bg-popover p-1 shadow-lg"
+            style={{
+              left: menuPos.left,
+              width: menuPos.width,
+              maxHeight: menuPos.maxHeight,
+              ...(menuPos.top !== undefined ? { top: menuPos.top } : { bottom: menuPos.bottom }),
+            }}
+          >
+            {isLoading && results.length === 0 && (
+              <li className="px-2 py-1.5 text-sm text-muted-foreground">Searching…</li>
+            )}
+            {!isLoading && results.length === 0 && (
+              <li className="px-2 py-1.5 text-sm text-muted-foreground">No results</li>
+            )}
+            {results.map((r) => (
+              <li key={r.value}>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onChange(r.value);
+                    setOpen(false);
+                    setFocused(false);
+                    setQuery("");
+                  }}
+                >
+                  <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span className="truncate">{r.label}</span>
+                </button>
+              </li>
+            ))}
+          </ul>,
+          document.body,
+        )}
     </div>
   );
 }

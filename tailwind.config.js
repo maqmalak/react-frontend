@@ -65,10 +65,15 @@ export default {
           from: { opacity: "0", transform: "translateX(100%)" },
           to: { opacity: "1", transform: "translateX(0)" },
         },
+        "card-sheen": {
+          from: { transform: "translateX(-150%) skewX(-12deg)" },
+          to: { transform: "translateX(250%) skewX(-12deg)" },
+        },
       },
       animation: {
         "fade-in": "fade-in 0.2s ease-out",
         "slide-in-right": "slide-in-right 0.25s ease-out",
+        "card-sheen": "card-sheen 900ms ease",
       },
     },
   },

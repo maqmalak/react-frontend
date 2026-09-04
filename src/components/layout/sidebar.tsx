@@ -1,18 +1,54 @@
 import { NavLink } from "react-router-dom";
-import { Shirt, X } from "lucide-react";
+import { Shirt, X, LayoutGrid } from "lucide-react";
 import { cn } from "@/utils/cn";
-import { NAVIGATION } from "@/app/navigation";
+import type { NavGroup } from "@/app/navigation";
 import { useAuth } from "@/hooks/useAuth";
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+function navLinkClass({ isActive }: { isActive: boolean }) {
+  return cn(
+    "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
+    "text-sidebar-foreground/80 hover:bg-white/10 hover:text-sidebar-foreground",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+    isActive && "bg-primary/90 text-white hover:bg-primary hover:text-white",
+  );
+}
+
+/** Always-present link back to the app launcher, above the current app's own nav. */
+function BackToDesktop({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <div className="border-b border-white/10 px-3 py-3">
+      <NavLink to="/" end onClick={onNavigate} className={navLinkClass}>
+        <LayoutGrid className="h-4 w-4 shrink-0" />
+        <span className="truncate">Desktop</span>
+      </NavLink>
+    </div>
+  );
+}
+
+function NavLinks({
+  groups,
+  appLabel,
+  onNavigate,
+}: {
+  groups: NavGroup[];
+  appLabel?: string;
+  onNavigate?: () => void;
+}) {
   const { hasRole } = useAuth();
-  const visibleGroups = NAVIGATION.map((group) => ({
-    ...group,
-    items: group.items.filter((item) => !item.roles || item.roles.length === 0 || hasRole(...item.roles)),
-  })).filter((group) => group.items.length > 0);
+  const visibleGroups = groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => !item.roles || item.roles.length === 0 || hasRole(...item.roles)),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4 scrollbar-thin">
+      {appLabel && !visibleGroups[0]?.title && (
+        <p className="px-2 text-[10px] font-semibold uppercase tracking-wider text-sidebar-muted">
+          {appLabel}
+        </p>
+      )}
       {visibleGroups.map((group, gi) => (
         <div key={gi} className="space-y-1">
           {group.title && (
@@ -23,20 +59,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
           {group.items.map((item) => {
             const Icon = item.icon;
             return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === "/"}
-                onClick={onNavigate}
-                className={({ isActive }) =>
-                  cn(
-                    "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
-                    "text-sidebar-foreground/80 hover:bg-white/10 hover:text-sidebar-foreground",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                    isActive && "bg-primary/90 text-white hover:bg-primary hover:text-white",
-                  )
-                }
-              >
+              <NavLink key={item.to} to={item.to} end={item.to === "/"} onClick={onNavigate} className={navLinkClass}>
                 {Icon && <Icon className="h-4 w-4 shrink-0" />}
                 <span className="truncate">{item.label}</span>
               </NavLink>
@@ -62,11 +85,20 @@ function Brand() {
   );
 }
 
-/** Desktop sidebar (fixed) + mobile drawer. */
+/**
+ * Per-app sidebar (fixed on desktop, drawer on mobile). Scoped to a single
+ * app's own nav groups — `AppShell` resolves which app the current route
+ * belongs to and passes just that app's groups in, rather than one combined
+ * sidebar for the whole workspace.
+ */
 export function Sidebar({
+  groups,
+  appLabel,
   mobileOpen,
   onCloseMobile,
 }: {
+  groups: NavGroup[];
+  appLabel?: string;
   mobileOpen: boolean;
   onCloseMobile: () => void;
 }) {
@@ -75,7 +107,8 @@ export function Sidebar({
       {/* Desktop */}
       <aside className="hidden w-60 shrink-0 flex-col bg-sidebar lg:flex">
         <Brand />
-        <NavLinks />
+        <BackToDesktop />
+        <NavLinks groups={groups} appLabel={appLabel} />
         <div className="border-t border-white/10 px-4 py-3">
           <p className="text-[10px] text-sidebar-muted">Powered by ERPNext / Frappe</p>
         </div>
@@ -94,7 +127,8 @@ export function Sidebar({
               <X className="h-5 w-5" />
             </button>
             <Brand />
-            <NavLinks onNavigate={onCloseMobile} />
+            <BackToDesktop onNavigate={onCloseMobile} />
+            <NavLinks groups={groups} appLabel={appLabel} onNavigate={onCloseMobile} />
           </aside>
         </div>
       )}

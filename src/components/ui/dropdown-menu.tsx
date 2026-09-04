@@ -45,7 +45,11 @@ export function DropdownMenu({ trigger, items, align = "end", width = "w-48" }: 
         <div
           className={cn(
             "absolute z-40 mt-1 animate-fade-in rounded-md border border-border bg-popover p-1 shadow-lg",
-            "dark:border-white/10 dark:bg-white/5 dark:shadow-[0_18px_60px_rgb(2_6_23_/_0.45)] dark:backdrop-blur-xl",
+            // Floating over arbitrary content (not sitting in normal page
+            // flow like a Card), so it needs to stay legible regardless of
+            // what's behind it — a near-opaque panel instead of the 5%
+            // glass tint used on page cards, same border/shadow/blur accents.
+            "dark:border-white/10 dark:bg-[hsl(216_67%_9%_/_0.97)] dark:shadow-[0_18px_60px_rgb(2_6_23_/_0.55)] dark:backdrop-blur-xl",
             align === "end" ? "right-0" : "left-0",
             width,
           )}

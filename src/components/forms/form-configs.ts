@@ -377,3 +377,40 @@ export const LANDED_COST_TAXES_COLUMNS: FormFieldMeta[] = [
   { fieldname: "expense_account", label: "Expense Account", fieldtype: "Link", options: "Account", reqd: true },
   { fieldname: "amount", label: "Amount", fieldtype: "Currency", reqd: true },
 ];
+
+// ------------------------------------------------------------------ Journal Entry
+
+export const JOURNAL_ENTRY_FIELDS: FormFieldMeta[] = [
+  { fieldname: "section_break_je_basic", label: "Basic Information", fieldtype: "Section Break" },
+  {
+    fieldname: "voucher_type",
+    label: "Entry Type",
+    fieldtype: "Select",
+    options:
+      "Journal Entry\nBank Entry\nCash Entry\nCredit Card Entry\nDebit Note\nCredit Note\nContra Entry\nExcise Entry\nWrite Off Entry\nOpening Entry\nDepreciation Entry\nExchange Rate Revaluation\nDeferred Revenue\nDeferred Expense",
+    reqd: true,
+    default: "Journal Entry",
+  },
+  { fieldname: "company", label: "Company", fieldtype: "Link", options: "Company", reqd: true },
+  { fieldname: "posting_date", label: "Posting Date", fieldtype: "Date", reqd: true, default: "Today" },
+  { fieldname: "column_break_je_0", fieldtype: "Column Break" },
+  { fieldname: "total_debit", label: "Total Debit", fieldtype: "Currency", read_only: true },
+  { fieldname: "total_credit", label: "Total Credit", fieldtype: "Currency", read_only: true },
+  { fieldname: "section_break_je_remark", label: "Reference", fieldtype: "Section Break" },
+  { fieldname: "user_remark", label: "Remark", fieldtype: "Text" },
+];
+
+/** "Accounting Entries" table — the actual debit/credit lines. Must balance to save. */
+export const JOURNAL_ENTRY_ACCOUNT_COLUMNS: FormFieldMeta[] = [
+  { fieldname: "account", label: "Account", fieldtype: "Link", options: "Account", reqd: true },
+  {
+    fieldname: "party_type",
+    label: "Party Type",
+    fieldtype: "Select",
+    options: "\nCustomer\nSupplier\nEmployee\nShareholder",
+  },
+  { fieldname: "party", label: "Party", fieldtype: "Dynamic Link", options: "party_type" },
+  { fieldname: "cost_center", label: "Cost Center", fieldtype: "Link", options: "Cost Center" },
+  { fieldname: "debit_in_account_currency", label: "Debit", fieldtype: "Currency" },
+  { fieldname: "credit_in_account_currency", label: "Credit", fieldtype: "Currency" },
+];

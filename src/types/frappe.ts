@@ -670,6 +670,130 @@ export interface LandedCostVoucher {
   amended_from?: string | null;
 }
 
+// -------------------------------------------------------------- Accounting
+
+/** Chart of Accounts node. Tree via `parent_account` (nested-set `lft`/`rgt` under the hood). */
+export interface Account {
+  name: string;
+  account_name?: string;
+  account_number?: string;
+  parent_account?: string;
+  is_group?: 0 | 1 | boolean;
+  root_type?: "Asset" | "Liability" | "Equity" | "Income" | "Expense";
+  report_type?: "Balance Sheet" | "Profit and Loss";
+  account_type?: string;
+  account_currency?: string;
+  company?: string;
+  disabled?: 0 | 1 | boolean;
+  lft?: number;
+  rgt?: number;
+}
+
+export interface CostCenter {
+  name: string;
+  cost_center_name?: string;
+  parent_cost_center?: string;
+  is_group?: 0 | 1 | boolean;
+  company?: string;
+  disabled?: 0 | 1 | boolean;
+}
+
+export interface FiscalYear {
+  name: string;
+  year?: string;
+  year_start_date?: string;
+  year_end_date?: string;
+  disabled?: 0 | 1 | boolean;
+}
+
+export interface PaymentTerm {
+  name: string;
+  payment_term_name?: string;
+  invoice_portion?: number;
+  due_date_based_on?: string;
+  credit_days?: number;
+  credit_months?: number;
+  discount?: number;
+}
+
+export interface ModeOfPayment {
+  name: string;
+  mode_of_payment?: string;
+  type?: string;
+  enabled?: 0 | 1 | boolean;
+}
+
+/** Sales/Purchase Taxes and Charges Template — same shape for both doctypes. */
+export interface TaxTemplate {
+  name: string;
+  title?: string;
+  company?: string;
+  is_default?: 0 | 1 | boolean;
+  disabled?: 0 | 1 | boolean;
+  tax_category?: string;
+}
+
+export interface JournalEntryAccountRow {
+  account: string;
+  party_type?: string;
+  party?: string;
+  cost_center?: string;
+  debit_in_account_currency?: number;
+  credit_in_account_currency?: number;
+  reference_type?: string;
+  reference_name?: string;
+  user_remark?: string;
+  idx?: number;
+}
+
+export interface JournalEntry {
+  name?: string;
+  naming_series?: string;
+  voucher_type?: string;
+  company: string;
+  posting_date: string;
+  accounts: JournalEntryAccountRow[];
+  total_debit?: number;
+  total_credit?: number;
+  difference?: number;
+  user_remark?: string;
+  multi_currency?: 0 | 1 | boolean;
+  docstatus?: 0 | 1 | 2;
+  amended_from?: string | null;
+}
+
+/** A single `frappe.desk.query_report.run` column descriptor. */
+export interface QueryReportColumn {
+  fieldname: string;
+  label: string;
+  fieldtype?: string;
+  width?: number;
+  options?: string;
+  hidden?: 0 | 1;
+}
+
+export interface QueryReportSummaryItem {
+  label: string;
+  value: number | string;
+  datatype?: string;
+  currency?: string;
+  indicator?: "Green" | "Red" | "Blue" | "Orange" | "Gray";
+}
+
+/** Result of running any standard ERPNext script report (General Ledger, Trial Balance, ...). */
+export interface QueryReportChart {
+  data: { labels: string[]; datasets: { name: string; values: number[] }[] };
+  type?: "bar" | "line";
+  currency?: string;
+}
+
+export interface QueryReportResult {
+  columns: QueryReportColumn[];
+  result: Record<string, unknown>[];
+  report_summary?: QueryReportSummaryItem[];
+  chart?: QueryReportChart;
+}
+
 export type DocTypeName =
   | "Item"
   | "Customer"
