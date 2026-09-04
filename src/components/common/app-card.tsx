@@ -4,6 +4,14 @@ import { ArrowRight } from "lucide-react";
 import { cn } from "@/utils/cn";
 import type { AppTile } from "@/app/apps";
 
+/** Pull just the `text-*`/`dark:text-*` tokens out of a tile's colorClass, so a small dot can reuse its accent color via `bg-current`. */
+function accentTextTokens(colorClass: string): string {
+  return colorClass
+    .split(" ")
+    .filter((c) => c.startsWith("text-") || c.startsWith("dark:text-"))
+    .join(" ");
+}
+
 /**
  * Hoverable app-launcher card used on the post-login Desktop grid.
  *
@@ -13,8 +21,12 @@ import type { AppTile } from "@/app/apps";
  *   on every pixel of mouse movement)
  * - a one-shot diagonal sheen that sweeps across on hover-in (CSS animation
  *   re-triggered each time via `group-hover:animate-card-sheen`)
+ *
+ * `features`, when provided, are real doctype names fetched live from
+ * ERPNext for this app's module (see `useModuleDocTypes`) — not hardcoded
+ * copy — shown as a short list below the title bar.
  */
-export function AppCard({ app }: { app: AppTile }) {
+export function AppCard({ app, features }: { app: AppTile; features?: string[] }) {
   const Icon = app.icon;
   const spotRef = useRef<HTMLSpanElement>(null);
 
@@ -32,7 +44,7 @@ export function AppCard({ app }: { app: AppTile }) {
       to={app.to}
       onMouseMove={handleMouseMove}
       className={cn(
-        "group relative flex flex-col gap-4 overflow-hidden rounded-xl border border-border bg-card p-5 will-change-transform",
+        "group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card will-change-transform",
         "shadow-sm transition-all duration-300 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)]",
         "hover:-translate-y-1.5 hover:scale-[1.015] hover:border-primary/40 hover:shadow-xl",
         "dark:border-white/10 dark:bg-white/5 dark:backdrop-blur-xl dark:shadow-[0_18px_60px_rgb(2_6_23_/_0.4)]",
@@ -51,23 +63,35 @@ export function AppCard({ app }: { app: AppTile }) {
         <span className="absolute inset-y-0 -left-1/3 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/40 to-transparent opacity-0 group-hover:animate-card-sheen group-hover:opacity-100 dark:via-white/20" />
       </span>
 
-      <div className="relative z-10 flex items-start justify-between">
+      {/* Title bar — icon, name, arrow, on its own tinted band */}
+      <div className="relative z-10 flex items-center gap-3 border-b border-border/60 bg-muted/40 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
         <span
           className={cn(
-            "flex h-11 w-11 items-center justify-center rounded-lg transition-all duration-300 ease-out",
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-all duration-300 ease-out",
             "group-hover:scale-110 group-hover:rotate-6 group-hover:shadow-[0_0_18px_2px_hsl(var(--primary)/0.35)]",
             app.colorClass,
           )}
         >
-          <Icon className="h-5 w-5" />
+          <Icon className="h-4 w-4" />
         </span>
-        <ArrowRight className="h-4 w-4 -translate-x-2 text-muted-foreground opacity-0 transition-all duration-300 ease-out group-hover:translate-x-0 group-hover:text-primary group-hover:opacity-100" />
-      </div>
-      <div className="relative z-10">
-        <h3 className="text-sm font-semibold tracking-tight transition-colors duration-200 group-hover:text-primary">
+        <h3 className="flex-1 truncate text-sm font-semibold tracking-tight transition-colors duration-200 group-hover:text-primary">
           {app.label}
         </h3>
-        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{app.description}</p>
+        <ArrowRight className="h-4 w-4 shrink-0 -translate-x-2 text-muted-foreground opacity-0 transition-all duration-300 ease-out group-hover:translate-x-0 group-hover:text-primary group-hover:opacity-100" />
+      </div>
+
+      <div className="relative z-10 flex-1 px-4 py-3.5">
+        <p className="text-xs leading-relaxed text-muted-foreground">{app.description}</p>
+        {features && features.length > 0 && (
+          <ul className="mt-3 space-y-1.5 border-t border-border/60 pt-3 dark:border-white/10">
+            {features.map((f) => (
+              <li key={f} className="flex items-start gap-2 text-[11.5px] leading-snug text-muted-foreground">
+                <span className={cn("mt-1.5 h-1 w-1 shrink-0 rounded-full bg-current", accentTextTokens(app.colorClass))} />
+                <span className="truncate">{f}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </Link>
   );

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { ThemeToggle } from "./theme-provider";
+import { Logo } from "@/components/common/logo";
 import { useAuth } from "@/hooks/useAuth";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { titleForSegment } from "@/app/navigation";
@@ -75,10 +76,13 @@ function NotificationsBell() {
 export function Header({
   onOpenSidebar,
   onOpenSearch,
+  brand = false,
 }: {
   /** Omitted on routes with no sidebar (the Desktop launcher) — hides the toggle. */
   onOpenSidebar?: () => void;
   onOpenSearch: () => void;
+  /** Show the logo — used on the Desktop launcher, which has no sidebar to carry it. */
+  brand?: boolean;
 }) {
   const { user, currentUser, roles, logout } = useAuth();
   const { company, setCompany, companies } = useCompanyContext();
@@ -94,6 +98,7 @@ export function Header({
         </Button>
       )}
 
+      {brand && <Logo className="h-10 w-auto shrink-0" />}
       <Breadcrumbs />
 
       <div className="ml-auto flex items-center gap-1.5 sm:gap-2">

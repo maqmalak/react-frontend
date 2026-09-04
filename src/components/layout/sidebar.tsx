@@ -1,8 +1,9 @@
 import { NavLink } from "react-router-dom";
-import { Shirt, X, LayoutGrid } from "lucide-react";
+import { X, LayoutGrid } from "lucide-react";
 import { cn } from "@/utils/cn";
 import type { NavGroup } from "@/app/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { Logo } from "@/components/common/logo";
 
 function navLinkClass({ isActive }: { isActive: boolean }) {
   return cn(
@@ -73,14 +74,8 @@ function NavLinks({
 
 function Brand() {
   return (
-    <div className="flex items-center gap-2.5 border-b border-white/10 px-4 py-4">
-      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white">
-        <Shirt className="h-4 w-4" />
-      </span>
-      <div className="leading-tight">
-        <p className="text-sm font-semibold tracking-tight text-sidebar-foreground">APPAREL ERP</p>
-        <p className="text-[10px] text-sidebar-muted">Import &amp; Export</p>
-      </div>
+    <div className="flex items-center border-b border-white/10 px-4 py-4">
+      <Logo onDark className="h-15 w-auto" />
     </div>
   );
 }

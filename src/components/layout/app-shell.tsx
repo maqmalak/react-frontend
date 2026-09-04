@@ -38,6 +38,7 @@ export function AppShell() {
         <Header
           onOpenSidebar={showSidebar ? () => setMobileOpen(true) : undefined}
           onOpenSearch={() => setSearchOpen(true)}
+          brand={!showSidebar}
         />
         <main className="flex-1 overflow-x-hidden px-3 py-5 sm:px-5 lg:px-6">
           <div className="mx-auto w-full max-w-[1400px]">

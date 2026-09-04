@@ -33,6 +33,16 @@ export interface AppTile {
   roles?: string[];
   /** Omit from the pre-login page's module preview (doesn't make sense signed out). */
   hideOnLogin?: boolean;
+  /**
+   * Real ERPNext module name(s) this tile corresponds to (any one match is
+   * enough). When set, the post-login Desktop hides the tile unless a
+   * visible, non-hidden Workspace for that module actually exists on this
+   * site — so an ERPNext deployment without e.g. Payroll installed won't
+   * show a dead Payroll tile. Left undefined for tiles that are core to this
+   * app itself or built on doctypes spanning multiple ERPNext modules, which
+   * always show.
+   */
+  module?: string[];
 }
 
 /** Desktop app-launcher — one tile per module, shown after login. */
@@ -108,6 +118,7 @@ export const APPS: AppTile[] = [
     icon: Landmark,
     to: "/accounting",
     colorClass: "bg-red-500/10 text-red-600 dark:text-red-400",
+    module: ["Accounts"],
   },
   {
     id: "selling",
@@ -116,6 +127,7 @@ export const APPS: AppTile[] = [
     icon: ShoppingBag,
     to: "/selling",
     colorClass: "bg-green-500/10 text-green-600 dark:text-green-400",
+    module: ["Selling"],
   },
   {
     id: "crm",
@@ -124,6 +136,7 @@ export const APPS: AppTile[] = [
     icon: Handshake,
     to: "/crm",
     colorClass: "bg-pink-500/10 text-pink-600 dark:text-pink-400",
+    module: ["CRM", "FCRM"],
   },
   {
     id: "stock",
@@ -140,6 +153,7 @@ export const APPS: AppTile[] = [
     icon: Cog,
     to: "/subcontracting",
     colorClass: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+    module: ["Subcontracting", "Manufacturing"],
   },
   {
     id: "assets",
@@ -148,6 +162,7 @@ export const APPS: AppTile[] = [
     icon: Building2,
     to: "/assets",
     colorClass: "bg-stone-500/10 text-stone-600 dark:text-stone-400",
+    module: ["Assets"],
   },
   {
     id: "support",
@@ -156,6 +171,7 @@ export const APPS: AppTile[] = [
     icon: LifeBuoy,
     to: "/support",
     colorClass: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
+    module: ["Support", "Helpdesk"],
   },
   {
     id: "hr",
@@ -164,6 +180,7 @@ export const APPS: AppTile[] = [
     icon: Users2,
     to: "/hr",
     colorClass: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+    module: ["HR"],
   },
   {
     id: "payroll",
@@ -172,6 +189,7 @@ export const APPS: AppTile[] = [
     icon: Banknote,
     to: "/payroll",
     colorClass: "bg-lime-500/10 text-lime-600 dark:text-lime-400",
+    module: ["Payroll"],
   },
   {
     id: "admin",

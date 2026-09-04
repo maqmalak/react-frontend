@@ -65,6 +65,19 @@ interface TrialBalanceRow {
 const money = (n: number) => (n ? formatNumber(n, 2) : "—");
 
 /**
+ * `headTotals[h]` is netted in the head's own natural direction (debit for
+ * Asset/Expense, credit for Liability/Equity/Income): positive means the
+ * balance sits on that natural side, negative means it's flipped to the
+ * opposite side. Label accordingly so the card reads like a real ledger
+ * balance ("315,212.12 Dr") instead of a bare signed number.
+ */
+function drCrLabel(h: Head, net: number): "Dr" | "Cr" {
+  const natural: "Dr" | "Cr" = DEBIT_NATURED.has(h) ? "Dr" : "Cr";
+  const opposite: "Dr" | "Cr" = natural === "Dr" ? "Cr" : "Dr";
+  return net >= 0 ? natural : opposite;
+}
+
+/**
  * Net closing balance per account: (opening debit - opening credit) +
  * (activity debit - activity credit). A positive net is a debit balance, a
  * negative net is a credit balance — so each account shows on one side only,
@@ -389,7 +402,7 @@ export function ReportTrialBalancePage() {
                 <KpiCard
                   key={h}
                   label={h}
-                  value={money(headTotals[h])}
+                  value={headTotals[h] ? `${money(Math.abs(headTotals[h]))} ${drCrLabel(h, headTotals[h])}` : "—"}
                   icon={meta.icon}
                   tone={meta.tone}
                   colorValue

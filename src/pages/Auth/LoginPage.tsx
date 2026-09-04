@@ -1,11 +1,12 @@
 import { useState, type FormEvent, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Shirt, AlertCircle, ShieldCheck, RefreshCw } from "lucide-react";
+import { AlertCircle, ShieldCheck, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/layout/theme-provider";
+import { Logo } from "@/components/common/logo";
 import { useAuth } from "@/hooks/useAuth";
 import { humanizeError } from "@/services/frappe";
 import { APPS } from "@/app/apps";
@@ -14,9 +15,18 @@ const loginApps = APPS.filter((app) => !app.hideOnLogin);
 
 // Honeycomb layout: chunk into rows of 6 so odd rows can be offset half a
 // tile-width right, staggering the grid the way Hero.dc.html's mockup does.
+// A "logo" tile is spliced into the dead-center slot (row 1, col 2) so the
+// brand mark sits in the middle of the honeycomb instead of an app icon.
 const HEX_ROW_SIZE = 6;
-const HEX_ROWS = Array.from({ length: Math.ceil(loginApps.length / HEX_ROW_SIZE) }, (_, i) =>
-  loginApps.slice(i * HEX_ROW_SIZE, i * HEX_ROW_SIZE + HEX_ROW_SIZE),
+const LOGO_TILE_INDEX = HEX_ROW_SIZE + 2;
+type LoginTile = (typeof loginApps)[number] | "logo";
+const loginTiles: LoginTile[] = [
+  ...loginApps.slice(0, LOGO_TILE_INDEX),
+  "logo",
+  ...loginApps.slice(LOGO_TILE_INDEX),
+];
+const HEX_ROWS = Array.from({ length: Math.ceil(loginTiles.length / HEX_ROW_SIZE) }, (_, i) =>
+  loginTiles.slice(i * HEX_ROW_SIZE, i * HEX_ROW_SIZE + HEX_ROW_SIZE),
 );
 
 const FEATURES = [
@@ -103,11 +113,8 @@ export function LoginPage() {
       {/* LEFT — sign-in form */}
       <div className="relative z-10 flex flex-col justify-center px-6 py-12 sm:px-10 lg:col-span-2 lg:px-14 xl:px-20">
         <div className="mx-auto w-full max-w-sm">
-          <div className="mb-6 flex flex-col items-center gap-2 text-center lg:items-start lg:text-left">
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm dark:shadow-[0_10px_35px_hsl(var(--primary)/0.32)]">
-              <Shirt className="h-5 w-5" />
-            </span>
-            <h1 className="text-lg font-semibold tracking-tight">Apparel ERP</h1>
+          <div className="mb-6 flex flex-col items-center gap-3 text-center lg:items-start lg:text-left">
+            <Logo className="h-15 w-auto" />
             <p className="text-sm text-muted-foreground">
               Sign in with your ERPNext account to continue.
             </p>
@@ -215,30 +222,33 @@ export function LoginPage() {
               className="flex gap-1"
               style={{ marginTop: rowIndex === 0 ? 0 : -19, marginLeft: rowIndex % 2 === 1 ? 44 : 0 }}
             >
-              {row.map((app, colIndex) => {
+              {row.map((tile) => {
+                if (tile === "logo") {
+                  return (
+                    <div
+                      key="brand"
+                      title="MicroMax Solution"
+                      className="hex-tile flex h-24 w-[84px] shrink-0 flex-col items-center justify-center bg-white shadow-[0_0_0_1px_hsl(var(--primary)/0.35)]"
+                    >
+                      <Logo variant="mark" className="h-10 w-auto" />
+                    </div>
+                  );
+                }
+                const app = tile;
                 const Icon = app.icon;
-                const featured = rowIndex === 1 && colIndex === 2;
                 return (
                   <div
                     key={app.id}
                     title={app.label}
-                    className={`hex-tile flex h-24 w-[84px] shrink-0 flex-col items-center justify-center gap-1.5 transition-transform duration-200 hover:-translate-y-1 ${
-                      featured
-                        ? "bg-gradient-to-br from-primary to-sky-600 shadow-[0_0_0_1px_hsl(var(--primary)/0.35)]"
-                        : "border border-border bg-card dark:border-white/10 dark:bg-white/5"
-                    }`}
+                    className="hex-tile flex h-24 w-[84px] shrink-0 flex-col items-center justify-center gap-1.5 border border-border bg-card transition-transform duration-200 hover:-translate-y-1 dark:border-white/10 dark:bg-white/5"
                   >
-                    <span
-                      className={`flex h-9 w-9 items-center justify-center rounded-lg ${
-                        featured ? "bg-white/20 text-white" : app.colorClass
-                      }`}
-                    >
+                    <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${app.colorClass}`}>
                       <Icon className="h-4.5 w-4.5" />
                     </span>
                     <span
-                      className={`block w-full max-w-[100px] whitespace-normal break-words px-0.5 text-center font-medium leading-[1.15] ${
+                      className={`block w-full max-w-[100px] whitespace-normal break-words px-0.5 text-center font-medium leading-[1.15] text-foreground ${
                         app.label.length > 9 ? "text-[9px]" : "text-[10px]"
-                      } ${featured ? "text-white" : "text-foreground"}`}
+                      }`}
                     >
                       {app.label}
                     </span>

@@ -55,6 +55,34 @@ const BS_OPTIONS: { key: string; label: string; def: boolean }[] = [
 
 const money = (n: number) => (n ? formatNumber(n, 2) : "—");
 
+/**
+ * Assets are debit-natured, Liabilities/Equity/Provisional P/L are
+ * credit-natured (matching ERPNext's own "Provisional Profit / Loss
+ * (Credit)" label) — flip to the opposite side only if the real total comes
+ * back negative (e.g. a loss), same convention as the Trial Balance cards.
+ */
+const BS_NATURAL: Record<"asset" | "liability" | "equity" | "provisionalPL", "Dr" | "Cr"> = {
+  asset: "Dr",
+  liability: "Cr",
+  equity: "Cr",
+  provisionalPL: "Cr",
+};
+function drCr(key: keyof typeof BS_NATURAL, net: number): "Dr" | "Cr" {
+  const natural = BS_NATURAL[key];
+  const opposite = natural === "Dr" ? "Cr" : "Dr";
+  return net >= 0 ? natural : opposite;
+}
+const withDrCr = (key: keyof typeof BS_NATURAL, n: number) => (n ? `${money(Math.abs(n))} ${drCr(key, n)}` : "—");
+
+/** Same 4 colors used in the Composition bars — kept consistent on the chart + its legend. */
+const BS_SERIES_META: Record<string, { label: string; hex: string }> = {
+  assets: { label: "Assets", hex: "#3b82f6" },
+  liabilities: { label: "Liabilities", hex: "#38bdf8" },
+  equity: { label: "Equity", hex: "#10b981" },
+  provisionalPL: { label: "Provisional P/L", hex: "#f59e0b" },
+};
+const BS_SERIES_KEYS = Object.keys(BS_SERIES_META);
+
 /** Rows in a collapsed group's subtree — hidden until that group is re-expanded. */
 function visibleRows(rows: BalanceSheetRow[], collapsed: Set<string>): BalanceSheetRow[] {
   const out: BalanceSheetRow[] = [];
@@ -87,6 +115,14 @@ export function ReportBalanceSheetPage() {
   const [financeBook, setFinanceBook] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [chartMode, setChartMode] = useState<"Bars" | "Trend">("Bars");
+  const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set());
+  const toggleSeries = (k: string) =>
+    setHiddenSeries((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
   const [opts, setOpts] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(BS_OPTIONS.map((o) => [o.key, o.def])),
   );
@@ -298,15 +334,37 @@ export function ReportBalanceSheetPage() {
           ) : (
             <>
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <KpiCard label="Total Asset" value={money(totalAsset)} icon={Wallet} tone="success" colorValue />
-                <KpiCard label="Total Liability" value={money(totalLiability)} icon={CreditCard} tone="warning" colorValue />
-                <KpiCard label="Total Equity" value={money(totalEquity)} icon={PieChart} tone="info" colorValue />
+                <KpiCard
+                  label="Total Asset"
+                  value={withDrCr("asset", totalAsset)}
+                  icon={Wallet}
+                  tone="success"
+                  colorValue
+                  sparkline={monthlyData.map((m) => m.assets)}
+                />
+                <KpiCard
+                  label="Total Liability"
+                  value={withDrCr("liability", totalLiability)}
+                  icon={CreditCard}
+                  tone="warning"
+                  colorValue
+                  sparkline={monthlyData.map((m) => m.liabilities)}
+                />
+                <KpiCard
+                  label="Total Equity"
+                  value={withDrCr("equity", totalEquity)}
+                  icon={PieChart}
+                  tone="info"
+                  colorValue
+                  sparkline={monthlyData.map((m) => m.equity)}
+                />
                 <KpiCard
                   label={summary.find((s) => s.label.startsWith("Provisional Profit"))?.label ?? "Provisional Profit / Loss"}
-                  value={money(provisionalProfit)}
+                  value={withDrCr("provisionalPL", provisionalProfit)}
                   icon={provisionalProfit >= 0 ? TrendingUp : TrendingDown}
                   tone={provisionalProfit >= 0 ? "success" : "destructive"}
                   colorValue
+                  sparkline={monthlyData.map((m) => m.provisionalPL)}
                 />
               </div>
 
@@ -372,33 +430,51 @@ export function ReportBalanceSheetPage() {
                   <p className="py-10 text-center text-sm text-muted-foreground">No monthly activity to chart.</p>
                 ) : (
                   <>
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      {BS_SERIES_KEYS.map((k) => {
+                        const active = !hiddenSeries.has(k);
+                        return (
+                          <button
+                            key={k}
+                            type="button"
+                            onClick={() => toggleSeries(k)}
+                            aria-pressed={active}
+                            className={cn(
+                              "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                              active
+                                ? "border-transparent bg-muted text-foreground"
+                                : "border-border text-muted-foreground opacity-50 hover:opacity-75",
+                            )}
+                          >
+                            <span className="h-2 w-2 rounded-full" style={{ background: BS_SERIES_META[k].hex }} />
+                            {BS_SERIES_META[k].label}
+                          </button>
+                        );
+                      })}
+                    </div>
                     {chartMode === "Bars" ? (
                       <BarChart
                         data={monthlyData}
                         xKey="month"
-                        series={[
-                          { key: "assets", label: "Assets" },
-                          { key: "liabilities", label: "Liabilities" },
-                          { key: "equity", label: "Equity" },
-                          { key: "provisionalPL", label: "Provisional P/L" },
-                        ]}
+                        series={BS_SERIES_KEYS.filter((k) => !hiddenSeries.has(k)).map((k) => ({
+                          key: k,
+                          label: BS_SERIES_META[k].label,
+                          color: BS_SERIES_META[k].hex,
+                        }))}
                         money
                         currency={chartCurrency}
-                        legend
                       />
                     ) : (
                       <LineChart
                         data={monthlyData}
                         xKey="month"
-                        series={[
-                          { key: "assets", label: "Assets" },
-                          { key: "liabilities", label: "Liabilities" },
-                          { key: "equity", label: "Equity" },
-                          { key: "provisionalPL", label: "Provisional P/L" },
-                        ]}
+                        series={BS_SERIES_KEYS.filter((k) => !hiddenSeries.has(k)).map((k) => ({
+                          key: k,
+                          label: BS_SERIES_META[k].label,
+                          color: BS_SERIES_META[k].hex,
+                        }))}
                         money
                         currency={chartCurrency}
-                        legend
                       />
                     )}
                     {chartInsights && (
@@ -460,7 +536,7 @@ export function ReportBalanceSheetPage() {
                             )}
                           >
                             <td className="px-4 py-2.5" style={{ paddingLeft: 16 + r.indent * 20 }}>
-                              <span className={cn("inline-flex items-center gap-2", isGroup && (r.indent === 0 ? "font-bold" : "font-semibold"))}>
+                              <span className={cn("inline-flex items-center gap-2", isGroup && (r.indent === 0 ? "font-extrabold" : "font-semibold"))}>
                                 {isGroup ? (
                                   collapsed.has(r.account) ? (
                                     <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -471,7 +547,7 @@ export function ReportBalanceSheetPage() {
                                   <span className="inline-block w-3.5 shrink-0" />
                                 )}
                                 {r.acc_number && <span className="font-mono text-xs text-muted-foreground">{r.acc_number}</span>}
-                                <span className="truncate">{r.acc_name}</span>
+                                <span className={cn("truncate", r.indent === 0 && "text-[15px]")}>{r.acc_name}</span>
                               </span>
                             </td>
                             {periodColumns.map((c) => {
@@ -481,7 +557,7 @@ export function ReportBalanceSheetPage() {
                                   key={c.fieldname}
                                   className={cn(
                                     "border-l border-border/60 px-4 py-2.5 text-right tabular-nums",
-                                    isGroup && (r.indent === 0 ? "font-bold" : "font-semibold"),
+                                    isGroup && (r.indent === 0 ? "font-extrabold" : "font-semibold"),
                                     v < 0 && "text-destructive",
                                   )}
                                 >
@@ -524,7 +600,16 @@ export function ReportBalanceSheetPage() {
                               </td>
                             );
                           })}
-                          <td className="border-l border-t-2 border-border px-4 py-3" />
+                          <td className="border-l border-t-2 border-border px-4 py-3">
+                            <div className="flex items-center justify-end gap-2">
+                              <div className="h-1.5 w-14 overflow-hidden rounded-full bg-muted">
+                                <div className="h-full rounded-full bg-amber-500" style={{ width: `${plPct}%` }} />
+                              </div>
+                              <span className="w-9 text-right text-xs font-bold text-muted-foreground tabular-nums">
+                                {plPct >= 0.5 ? `${plPct.toFixed(0)}%` : "—"}
+                              </span>
+                            </div>
+                          </td>
                         </tr>
                       </tfoot>
                     )}
