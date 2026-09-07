@@ -16,6 +16,10 @@ export interface KpiCardProps {
   sparkline?: number[];
   loading?: boolean;
   onClick?: () => void;
+  /** Override the label's default `text-xs font-medium` (e.g. a heavier weight for a denser card grid). */
+  labelClassName?: string;
+  /** Override the value's default `text-2xl font-semibold` (e.g. a smaller size for a denser card grid). */
+  valueClassName?: string;
 }
 
 const toneClasses: Record<NonNullable<KpiCardProps["tone"]>, string> = {
@@ -45,7 +49,19 @@ const toneStroke: Record<NonNullable<KpiCardProps["tone"]>, string> = {
   violet: "#8b5cf6",
 };
 
-export function KpiCard({ label, value, hint, icon: Icon, tone = "default", colorValue, sparkline, loading, onClick }: KpiCardProps) {
+export function KpiCard({
+  label,
+  value,
+  hint,
+  icon: Icon,
+  tone = "default",
+  colorValue,
+  sparkline,
+  loading,
+  onClick,
+  labelClassName,
+  valueClassName,
+}: KpiCardProps) {
   return (
     <Card
       onClick={onClick}
@@ -60,11 +76,11 @@ export function KpiCard({ label, value, hint, icon: Icon, tone = "default", colo
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-xs font-medium text-muted-foreground">{label}</p>
+          <p className={cn("truncate text-xs font-medium text-muted-foreground", labelClassName)}>{label}</p>
           {loading ? (
             <Skeleton className="mt-2 h-7 w-24" />
           ) : (
-            <p className={cn("mt-1 truncate text-2xl font-semibold tracking-tight tabular-nums", colorValue && toneTextClasses[tone])}>
+            <p className={cn("mt-1 truncate text-2xl font-semibold tracking-tight tabular-nums", colorValue && toneTextClasses[tone], valueClassName)}>
               {value}
             </p>
           )}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronRight,
   ChevronDown,
@@ -17,10 +17,12 @@ import { PageHeader } from "@/components/common/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FrappeLinkField } from "@/components/forms/field-primitives";
 import { EmptyState } from "@/components/common/empty-state";
+import { LoadingOverlay } from "@/components/common/loading-overlay";
 import { KpiCard } from "@/pages/Dashboard/KpiCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChartCard } from "@/components/charts/chart-card";
@@ -29,6 +31,7 @@ import { useQueryReport, useFiscalYears } from "@/hooks/useAccounting";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { formatNumber } from "@/utils/currency";
 import { asNumber, cn } from "@/utils/cn";
+import { clampToToday } from "@/utils/dates";
 import { exportToCsv } from "@/utils/export";
 import { humanizeError } from "@/services/frappe";
 import type { QueryReportColumn } from "@/types/frappe";
@@ -109,6 +112,8 @@ export function ReportBalanceSheetPage() {
   const { company } = useCompanyContext();
   const { data: fiscalYears } = useFiscalYears();
   const [fiscalYear, setFiscalYear] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [periodicity, setPeriodicity] = useState("Yearly");
   const [costCenter, setCostCenter] = useState("");
   const [project, setProject] = useState("");
@@ -131,11 +136,24 @@ export function ReportBalanceSheetPage() {
     if (fiscalYears && fiscalYears.length > 0 && !fiscalYear) setFiscalYear(fiscalYears[0].name);
   }, [fiscalYears, fiscalYear]);
 
+  const fyMeta = fiscalYears?.find((fy) => fy.name === fiscalYear);
+
+  // Default (and reset, on fiscal year change) to that year's own bounds,
+  // capped at today — a fiscal year that hasn't ended yet shouldn't have its
+  // still-future months requested from the report engine. The date inputs
+  // below still let a user widen up to the fiscal year's real end date.
+  useEffect(() => {
+    if (fyMeta?.year_start_date && fyMeta?.year_end_date) {
+      setFromDate(fyMeta.year_start_date);
+      setToDate(clampToToday(fyMeta.year_end_date) ?? fyMeta.year_end_date);
+    }
+  }, [fyMeta?.year_start_date, fyMeta?.year_end_date]);
+
   const baseFilters = {
     company,
-    filter_based_on: "Fiscal Year",
-    from_fiscal_year: fiscalYear,
-    to_fiscal_year: fiscalYear,
+    filter_based_on: "Date Range",
+    period_start_date: fromDate,
+    period_end_date: toDate,
     cost_center: costCenter || undefined,
     project: project ? [project] : undefined,
     finance_book: financeBook || undefined,
@@ -144,23 +162,28 @@ export function ReportBalanceSheetPage() {
   const filters = useMemo(
     () => ({ ...baseFilters, periodicity, ...opts }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [company, fiscalYear, periodicity, costCenter, project, financeBook, opts],
+    [company, fromDate, toDate, periodicity, costCenter, project, financeBook, opts],
   );
 
-  const { data, error, isLoading, mutate } = useQueryReport("Balance Sheet", filters, Boolean(company && fiscalYear));
+  const { data, error, isLoading, isPreparing, mutate } = useQueryReport(
+    "Balance Sheet",
+    filters,
+    Boolean(company && fromDate && toDate),
+  );
 
-  // Chart always drills to real monthly, cumulative-to-date balances — a
-  // point-in-time trend of financial position — regardless of the table's
-  // own periodicity selection above.
+  // Chart always drills to the real net change per month (not the running
+  // balance) — how much assets/liabilities/equity actually moved that
+  // month — across the same validated date range, regardless of the table's
+  // own periodicity/accumulated selection above.
   const chartFilters = useMemo(
-    () => ({ ...baseFilters, periodicity: "Monthly", accumulated_values: 1 }),
+    () => ({ ...baseFilters, periodicity: "Monthly", accumulated_values: 0 }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [company, fiscalYear, costCenter, project, financeBook],
+    [company, fromDate, toDate, costCenter, project, financeBook],
   );
   const { data: chartReport, isLoading: chartLoading } = useQueryReport(
     "Balance Sheet",
     chartFilters,
-    Boolean(company && fiscalYear),
+    Boolean(company && fromDate && toDate),
   );
 
   const allRows = ((data?.result ?? []) as unknown as BalanceSheetRow[]).filter(
@@ -223,6 +246,30 @@ export function ReportBalanceSheetPage() {
   const expandAll = () => setCollapsed(new Set());
   const collapseAll = () => setCollapsed(new Set(bodyRows.filter((r) => r.is_group).map((r) => r.account)));
 
+  // The Chart of Accounts tree can run deeper than the 2 levels Cash Flow's
+  // fixed sections do, so "level" here collapses every group row exactly at
+  // the chosen boundary depth (indent === level - 1) — shallower groups stay
+  // expanded, anything past the boundary is hidden underneath them. A level
+  // past the tree's real depth naturally matches no rows, i.e. fully expanded.
+  const [levelInput, setLevelInput] = useState(2);
+  const applyLevel = (lvl: number) =>
+    setCollapsed(new Set(bodyRows.filter((r) => r.is_group && r.indent === lvl - 1).map((r) => r.account)));
+
+  // Default the tree to Level 2 (root accounts + their direct children,
+  // deeper ones collapsed) the first time each fresh report result loads —
+  // showing 150+ rows fully expanded by default would be overwhelming.
+  // Guarded so it only fires once per load, not every time the user's own
+  // clicks change `collapsed`.
+  const appliedDefaultLevel = useRef(false);
+  useEffect(() => {
+    if (bodyRows.length > 0 && !appliedDefaultLevel.current) {
+      appliedDefaultLevel.current = true;
+      applyLevel(2);
+    }
+    if (bodyRows.length === 0) appliedDefaultLevel.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bodyRows]);
+
   const exportRows = () => {
     const cols = [
       { key: "account", label: "Account" },
@@ -237,6 +284,7 @@ export function ReportBalanceSheetPage() {
 
   return (
     <div className="space-y-4">
+      <LoadingOverlay show={isPreparing} label="Generating Balance Sheet…" />
       <PageHeader
         title="Balance Sheet"
         subtitle="Assets, liabilities and equity — computed live by ERPNext's report engine"
@@ -263,7 +311,7 @@ export function ReportBalanceSheetPage() {
       ) : (
         <>
           <Card className="p-4">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div>
                 <Label htmlFor="bs-fy">Fiscal Year</Label>
                 <Select id="bs-fy" value={fiscalYear} onChange={(e) => setFiscalYear(e.target.value)}>
@@ -273,6 +321,28 @@ export function ReportBalanceSheetPage() {
                     </option>
                   ))}
                 </Select>
+              </div>
+              <div>
+                <Label htmlFor="bs-from">From Date</Label>
+                <Input
+                  id="bs-from"
+                  type="date"
+                  value={fromDate}
+                  min={fyMeta?.year_start_date}
+                  max={toDate || fyMeta?.year_end_date}
+                  onChange={(e) => setFromDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="bs-to">To Date</Label>
+                <Input
+                  id="bs-to"
+                  type="date"
+                  value={toDate}
+                  min={fromDate || fyMeta?.year_start_date}
+                  max={fyMeta?.year_end_date}
+                  onChange={(e) => setToDate(e.target.value)}
+                />
               </div>
               <div>
                 <Label htmlFor="bs-periodicity">Periodicity</Label>
@@ -412,7 +482,7 @@ export function ReportBalanceSheetPage() {
 
               <ChartCard
                 title="Monthly activity"
-                subtitle={`Fiscal year ${fiscalYear} · ${chartCurrency} · cumulative balance as of each month-end`}
+                subtitle={`${fromDate} to ${toDate} · ${chartCurrency} · net change per month`}
                 actions={
                   <div className="flex gap-1 rounded-lg bg-muted p-1">
                     <Button variant={chartMode === "Bars" ? "default" : "ghost"} size="sm" className="h-7 px-3" onClick={() => setChartMode("Bars")}>
@@ -480,25 +550,48 @@ export function ReportBalanceSheetPage() {
                     {chartInsights && (
                       <div className="mt-4 flex flex-wrap gap-6 border-t border-border pt-4 text-xs text-muted-foreground">
                         <span>
-                          Highest Assets{" "}
+                          Largest asset growth{" "}
                           <strong className="text-foreground">
                             {chartInsights.highestAssets.month} ({money(chartInsights.highestAssets.assets)})
                           </strong>
                         </span>
                         <span>
-                          Highest Liabilities{" "}
+                          Largest liability growth{" "}
                           <strong className="text-foreground">
                             {chartInsights.highestLiabilities.month} ({money(chartInsights.highestLiabilities.liabilities)})
                           </strong>
                         </span>
                         <span>
-                          Average Provisional P/L <strong className="text-foreground">{money(chartInsights.avgPL)}</strong>
+                          Average monthly P/L movement <strong className="text-foreground">{money(chartInsights.avgPL)}</strong>
                         </span>
                       </div>
                     )}
                   </>
                 )}
               </ChartCard>
+
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold">Statement</p>
+                  <p className="text-xs text-muted-foreground">{shown.length} rows shown</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label htmlFor="bs-level" className="text-xs font-medium text-muted-foreground">
+                    Level
+                  </label>
+                  <Input
+                    id="bs-level"
+                    type="number"
+                    min={1}
+                    value={levelInput}
+                    onChange={(e) => setLevelInput(Number(e.target.value) || 1)}
+                    className="h-8 w-16"
+                  />
+                  <Button size="sm" variant="outline" onClick={() => applyLevel(levelInput)}>
+                    Set Level
+                  </Button>
+                </div>
+              </div>
 
               <div className="overflow-hidden rounded-lg border border-border bg-card dark:border-white/10 dark:bg-white/5">
                 <div className="overflow-x-auto">

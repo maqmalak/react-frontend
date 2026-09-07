@@ -58,6 +58,7 @@ const ReportGeneralLedgerPage = lazy(() => import("@/pages/Accounting/ReportGene
 const ReportTrialBalancePage = lazy(() => import("@/pages/Accounting/ReportTrialBalancePage").then((m) => ({ default: m.ReportTrialBalancePage })));
 const ReportBalanceSheetPage = lazy(() => import("@/pages/Accounting/ReportBalanceSheetPage").then((m) => ({ default: m.ReportBalanceSheetPage })));
 const ReportProfitAndLossPage = lazy(() => import("@/pages/Accounting/ReportProfitAndLossPage").then((m) => ({ default: m.ReportProfitAndLossPage })));
+const ReportCashFlowPage = lazy(() => import("@/pages/Accounting/ReportCashFlowPage").then((m) => ({ default: m.ReportCashFlowPage })));
 
 
 /**
@@ -166,6 +167,7 @@ export function AppRoutes() {
         <Route path="accounting/reports/trial-balance" element={<Suspense fallback={<FullPageLoader />}><ReportTrialBalancePage /></Suspense>} />
         <Route path="accounting/reports/profit-and-loss" element={<Suspense fallback={<FullPageLoader />}><ReportProfitAndLossPage /></Suspense>} />
         <Route path="accounting/reports/balance-sheet" element={<Suspense fallback={<FullPageLoader />}><ReportBalanceSheetPage /></Suspense>} />
+        <Route path="accounting/reports/cash-flow" element={<Suspense fallback={<FullPageLoader />}><ReportCashFlowPage /></Suspense>} />
         <Route path="accounting/setup/settings" element={<ComingSoonPage title="Accounts Settings" description="Company-wide accounting policies — rounding, credit limits, stock/GL sync" />} />
         <Route path="accounting/setup/dimensions" element={<ComingSoonPage title="Accounting Dimensions" description="Custom dimensions (e.g. Territory, Project) for deeper financial reporting" />} />
 

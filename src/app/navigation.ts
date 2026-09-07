@@ -167,6 +167,7 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
         { label: "Trial Balance", to: "/accounting/reports/trial-balance", icon: Scale },
         { label: "Profit and Loss", to: "/accounting/reports/profit-and-loss", icon: TrendingUp },
         { label: "Balance Sheet", to: "/accounting/reports/balance-sheet", icon: PieChart },
+        { label: "Cash Flow", to: "/accounting/reports/cash-flow", icon: Wallet },
       ],
     },
     {
@@ -273,6 +274,7 @@ export const ROUTE_TITLES: Record<string, string> = {
   "trial-balance": "Trial Balance",
   "profit-and-loss": "Profit and Loss",
   "balance-sheet": "Balance Sheet",
+  "cash-flow": "Cash Flow",
   setup: "Setup",
   dimensions: "Accounting Dimensions",
   selling: "Selling",

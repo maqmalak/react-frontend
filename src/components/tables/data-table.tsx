@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -8,6 +8,8 @@ import {
   Columns3,
   Download,
   Search,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { cn, asNumber } from "@/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -58,6 +60,12 @@ export interface FrappeDataTableProps<T> {
   defaultSortKey?: string;
   /** Column keys hidden on first render (still toggleable via the Columns picker). */
   defaultHiddenColumns?: string[];
+  /** Tint alternate rows for easier scanning across wide/dense tables — opt-in, off by default so existing tables keep their look. */
+  striped?: boolean;
+  /** Pin the first N *visible* columns while the table scrolls horizontally — counted after `defaultHiddenColumns`/the Columns picker, so it always freezes what's actually shown. */
+  frozenColumns?: number;
+  /** A pre-aggregated row (e.g. the report's own server-computed Total) rendered as a bold footer through the same column pipeline as every other row — not re-derived from `rows`, so it stays correct under pagination/filtering. */
+  totalRow?: T;
 }
 
 function cellValue<T>(row: T, col: ColumnDef<T>): string | number | undefined | null {
@@ -92,6 +100,9 @@ export function FrappeDataTable<T extends Record<string, any>>({
   exportFilename,
   defaultSortKey,
   defaultHiddenColumns,
+  striped,
+  frozenColumns,
+  totalRow,
 }: FrappeDataTableProps<T>) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | null>(
@@ -101,8 +112,15 @@ export function FrappeDataTable<T extends Record<string, any>>({
   const [pageSize, setPageSize] = useState(initialPageSize);
   const [hiddenCols, setHiddenCols] = useState<Set<string>>(new Set(defaultHiddenColumns ?? []));
 
-  const visibleColumns = columns.filter((c) => !hiddenCols.has(c.key));
+  // Memoized: the frozen-column effect below depends on this array's
+  // identity to know when to re-measure, so a fresh array every render
+  // (this used to be a plain `.filter()` call) would re-run it in a loop.
+  const visibleColumns = useMemo(() => columns.filter((c) => !hiddenCols.has(c.key)), [columns, hiddenCols]);
   const searchableText = query.trim().toLowerCase();
+
+  const frozenCount = Math.min(frozenColumns ?? 0, visibleColumns.length);
+  const headerCellRefs = useRef<(HTMLTableCellElement | null)[]>([]);
+  const [frozenLefts, setFrozenLefts] = useState<number[]>([]);
 
   const filtered = useMemo(() => {
     if (!searchableText) return rows;
@@ -129,9 +147,33 @@ export function FrappeDataTable<T extends Record<string, any>>({
   const total = sorted.length;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(page, pageCount - 1);
-  const pageRows = sorted.slice(safePage * pageSize, safePage * pageSize + pageSize);
+  // Memoized for the same reason as visibleColumns above — a fresh `.slice()`
+  // array every render would re-trigger the frozen-column measurement effect
+  // on every render, forever.
+  const pageRows = useMemo(
+    () => sorted.slice(safePage * pageSize, safePage * pageSize + pageSize),
+    [sorted, safePage, pageSize],
+  );
   const from = total === 0 ? 0 : safePage * pageSize + 1;
   const to = Math.min(total, safePage * pageSize + pageSize);
+
+  // Column widths are content-driven (no fixed table-layout), so the sticky
+  // `left` offset for each frozen column has to be measured from the actual
+  // rendered header cells rather than assumed — and re-measured whenever the
+  // visible page's content could change those widths.
+  useLayoutEffect(() => {
+    if (!frozenCount) {
+      setFrozenLefts([]);
+      return;
+    }
+    const lefts: number[] = [];
+    let acc = 0;
+    for (let i = 0; i < frozenCount; i++) {
+      lefts.push(acc);
+      acc += headerCellRefs.current[i]?.getBoundingClientRect().width ?? 0;
+    }
+    setFrozenLefts(lefts);
+  }, [frozenCount, visibleColumns, pageRows]);
 
   const allSelected =
     selectable && selectedKeys != null && pageRows.length > 0 && pageRows.every((r) => selectedKeys.has(rowKey(r)));
@@ -196,51 +238,63 @@ export function FrappeDataTable<T extends Record<string, any>>({
             />
           )}
           {searchable && (
-            <div className="relative flex-1">
-              <label htmlFor="table-search" className="mb-1 block text-xs font-medium text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <label htmlFor="table-search" className="whitespace-nowrap text-xs font-medium text-muted-foreground">
                 Search
               </label>
-              <Search className="pointer-events-none absolute left-2.5 bottom-2 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="table-search"
-                type="search"
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setPage(0);
-                }}
-                placeholder={searchPlaceholder}
-                className="h-8 w-48 pl-8 text-xs lg:w-56"
-                aria-label={searchPlaceholder}
-              />
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="table-search"
+                  type="search"
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setPage(0);
+                  }}
+                  placeholder={searchPlaceholder}
+                  className="h-8 w-48 pl-8 text-xs lg:w-56"
+                  aria-label={searchPlaceholder}
+                />
+              </div>
             </div>
           )}
-          <DropdownMenu
-            trigger={
-              <Button variant="outline" size="sm">
-                <Columns3 className="h-4 w-4" /> Columns
-              </Button>
-            }
-            items={columns.map((c) => ({
-              label: c.label,
-              onClick: () => toggleColumn(c.key),
-              disabled: visibleColumns.length <= 1 && !hiddenCols.has(c.key),
-            }))}
-            width="w-56"
-          />
-          {exportFilename && (
+          <div className="flex items-center gap-0.5 rounded-lg border border-border bg-muted/40 p-1">
             <DropdownMenu
               trigger={
-                <Button variant="outline" size="sm">
-                  <Download className="h-4 w-4" /> Export
+                <Button variant="ghost" size="sm" className="hover:bg-background hover:shadow-sm">
+                  <Columns3 className="h-4 w-4 text-primary" /> Columns
                 </Button>
               }
-              items={[
-                { label: "Export to CSV", onClick: () => exportToCsv(exportColumns, exportRows, exportFilename) },
-                { label: "Export to Excel", onClick: () => exportToExcel(exportColumns, exportRows, exportFilename) },
-              ]}
+              items={columns.map((c) => {
+                const hidden = hiddenCols.has(c.key);
+                return {
+                  label: c.label,
+                  icon: hidden ? (
+                    <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-3.5 w-3.5 text-primary" />
+                  ),
+                  onClick: () => toggleColumn(c.key),
+                  disabled: visibleColumns.length <= 1 && !hidden,
+                };
+              })}
+              width="w-56"
             />
-          )}
+            {exportFilename && (
+              <DropdownMenu
+                trigger={
+                  <Button variant="ghost" size="sm" className="hover:bg-background hover:shadow-sm">
+                    <Download className="h-4 w-4 text-primary" /> Export
+                  </Button>
+                }
+                items={[
+                  { label: "Export to CSV", onClick: () => exportToCsv(exportColumns, exportRows, exportFilename) },
+                  { label: "Export to Excel", onClick: () => exportToExcel(exportColumns, exportRows, exportFilename) },
+                ]}
+              />
+            )}
+          </div>
         </div>
       </div>
 
@@ -249,37 +303,46 @@ export function FrappeDataTable<T extends Record<string, any>>({
       <div className="overflow-x-auto rounded-md border border-border scrollbar-thin">
         <table className="w-full min-w-max border-collapse text-sm">
           <thead>
-            <tr className="border-b border-border bg-muted/50 text-left">
+            <tr className="border-b border-border text-left">
               {selectable && (
-                <th className="w-10 px-3 py-2">
+                <th className="w-10 bg-muted px-3 py-2">
                   <Checkbox checked={allSelected} onChange={toggleAll} aria-label="Select all rows" />
                 </th>
               )}
-              {visibleColumns.map((col) => (
-                <th
-                  key={col.key}
-                  className={cn(
-                    "whitespace-nowrap px-3 py-2 text-xs font-semibold text-muted-foreground",
-                    col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left",
-                    col.headerClassName,
-                    col.sortable !== false ? "cursor-pointer select-none" : "",
-                  )}
-                  onClick={() => col.sortable !== false && handleSort(col.key)}
-                >
-                  <span className="inline-flex items-center gap-1">
-                    {col.label}
-                    {sort?.key === col.key ? (
-                      sort.dir === "asc" ? (
-                        <ChevronUp className="h-3.5 w-3.5" />
-                      ) : (
-                        <ChevronDown className="h-3.5 w-3.5" />
-                      )
-                    ) : (
-                      col.sortable !== false && <ChevronsUpDown className="h-3 w-3 opacity-40" />
+              {visibleColumns.map((col, colIdx) => {
+                const frozen = colIdx < frozenCount;
+                return (
+                  <th
+                    key={col.key}
+                    ref={(el) => {
+                      headerCellRefs.current[colIdx] = el;
+                    }}
+                    className={cn(
+                      "whitespace-nowrap bg-muted px-3 py-2 text-xs font-semibold text-muted-foreground",
+                      col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left",
+                      col.headerClassName,
+                      col.sortable !== false ? "cursor-pointer select-none" : "",
+                      frozen && "sticky z-20",
+                      frozen && colIdx === frozenCount - 1 && "border-r border-border",
                     )}
-                  </span>
-                </th>
-              ))}
+                    style={frozen ? { left: frozenLefts[colIdx] ?? 0 } : undefined}
+                    onClick={() => col.sortable !== false && handleSort(col.key)}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      {col.label}
+                      {sort?.key === col.key ? (
+                        sort.dir === "asc" ? (
+                          <ChevronUp className="h-3.5 w-3.5" />
+                        ) : (
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        )
+                      ) : (
+                        col.sortable !== false && <ChevronsUpDown className="h-3 w-3 opacity-40" />
+                      )}
+                    </span>
+                  </th>
+                );
+              })}
               {(rowActions || onRowClick) && <th className="w-10 px-2 py-2" />}
             </tr>
           </thead>
@@ -305,42 +368,59 @@ export function FrappeDataTable<T extends Record<string, any>>({
                 </td>
               </tr>
             ) : (
-              pageRows.map((row) => (
-                <tr
-                  key={rowKey(row)}
-                  onClick={() => onRowClick?.(row)}
-                  className={cn(
-                    "border-b border-border last:border-0",
-                    onRowClick && "cursor-pointer transition-colors hover:bg-muted/40",
-                  )}
-                >
-                  {selectable && (
-                    <td className="px-3 py-2">
-                      <Checkbox
-                        checked={selectedKeys?.has(rowKey(row)) ?? false}
-                        onChange={() => toggleRow(rowKey(row))}
-                        aria-label="Select row"
-                      />
-                    </td>
-                  )}
-                  {visibleColumns.map((col) => (
-                    <td
-                      key={col.key}
-                      className={cn(
-                        "px-3 py-2",
-                        col.align === "right"
-                          ? "text-right tabular-nums"
-                          : col.align === "center"
-                          ? "text-center"
-                          : "text-left",
-                        col.cellClassName,
-                      )}
-                    >
-                      {col.render
-                        ? col.render(row)
-                        : String((row as Record<string, unknown>)[col.key] ?? "—")}
-                    </td>
-                  ))}
+              pageRows.map((row, i) => {
+                // Frozen cells need their own *opaque* background — as a
+                // sticky element they visually sit above cells from the same
+                // row that have scrolled underneath them, so a transparent
+                // background would let that scrolled-away content show
+                // through. Solid `bg-accent` (not the `/40` tint the rest of
+                // a striped row uses) is the cheapest way to stay opaque
+                // while still reading as "the alternate row".
+                const rowStriped = striped && i % 2 === 1;
+                return (
+                  <tr
+                    key={rowKey(row)}
+                    onClick={() => onRowClick?.(row)}
+                    className={cn(
+                      "border-b border-border last:border-0",
+                      rowStriped && "bg-accent/40",
+                      onRowClick && "cursor-pointer transition-colors hover:bg-muted/40",
+                    )}
+                  >
+                    {selectable && (
+                      <td className="px-3 py-2">
+                        <Checkbox
+                          checked={selectedKeys?.has(rowKey(row)) ?? false}
+                          onChange={() => toggleRow(rowKey(row))}
+                          aria-label="Select row"
+                        />
+                      </td>
+                    )}
+                    {visibleColumns.map((col, colIdx) => {
+                      const frozen = colIdx < frozenCount;
+                      return (
+                        <td
+                          key={col.key}
+                          className={cn(
+                            "px-3 py-2",
+                            col.align === "right"
+                              ? "text-right tabular-nums"
+                              : col.align === "center"
+                              ? "text-center"
+                              : "text-left",
+                            col.cellClassName,
+                            frozen && "sticky z-10",
+                            frozen && (rowStriped ? "bg-accent" : "bg-background"),
+                            frozen && colIdx === frozenCount - 1 && "border-r border-border",
+                          )}
+                          style={frozen ? { left: frozenLefts[colIdx] ?? 0 } : undefined}
+                        >
+                          {col.render
+                            ? col.render(row)
+                            : String((row as Record<string, unknown>)[col.key] ?? "—")}
+                        </td>
+                      );
+                    })}
                   {(rowActions || onRowClick) && (
                     <td className="px-2 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                       {rowActions && (
@@ -358,10 +438,38 @@ export function FrappeDataTable<T extends Record<string, any>>({
                       )}
                     </td>
                   )}
-                </tr>
-              ))
+                  </tr>
+                );
+              })
             )}
           </tbody>
+          {totalRow && !loading && !error && (
+            <tfoot>
+              <tr className="border-t-2 border-border bg-muted/60 font-bold">
+                {selectable && <td className="px-3 py-2" />}
+                {visibleColumns.map((col, colIdx) => {
+                  const frozen = colIdx < frozenCount;
+                  return (
+                    <td
+                      key={col.key}
+                      className={cn(
+                        "px-3 py-2",
+                        col.align === "right" ? "text-right tabular-nums" : col.align === "center" ? "text-center" : "text-left",
+                        frozen && "sticky z-10 bg-muted",
+                        frozen && colIdx === frozenCount - 1 && "border-r border-border",
+                      )}
+                      style={frozen ? { left: frozenLefts[colIdx] ?? 0 } : undefined}
+                    >
+                      {col.render
+                        ? col.render(totalRow)
+                        : String((totalRow as Record<string, unknown>)[col.key] ?? "—")}
+                    </td>
+                  );
+                })}
+                {(rowActions || onRowClick) && <td className="px-2 py-2" />}
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
 {/* Pagination */}

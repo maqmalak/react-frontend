@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronRight,
   ChevronDown,
@@ -15,10 +15,12 @@ import { PageHeader } from "@/components/common/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FrappeLinkField } from "@/components/forms/field-primitives";
 import { EmptyState } from "@/components/common/empty-state";
+import { LoadingOverlay } from "@/components/common/loading-overlay";
 import { KpiCard } from "@/pages/Dashboard/KpiCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChartCard } from "@/components/charts/chart-card";
@@ -27,6 +29,7 @@ import { useQueryReport, useFiscalYears } from "@/hooks/useAccounting";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { formatNumber } from "@/utils/currency";
 import { asNumber, cn } from "@/utils/cn";
+import { clampToToday } from "@/utils/dates";
 import { exportToCsv } from "@/utils/export";
 import { humanizeError } from "@/services/frappe";
 import type { QueryReportColumn } from "@/types/frappe";
@@ -107,6 +110,8 @@ export function ReportProfitAndLossPage() {
   const { company } = useCompanyContext();
   const { data: fiscalYears } = useFiscalYears();
   const [fiscalYear, setFiscalYear] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [periodicity, setPeriodicity] = useState("Yearly");
   const [costCenter, setCostCenter] = useState("");
   const [project, setProject] = useState("");
@@ -129,11 +134,24 @@ export function ReportProfitAndLossPage() {
     if (fiscalYears && fiscalYears.length > 0 && !fiscalYear) setFiscalYear(fiscalYears[0].name);
   }, [fiscalYears, fiscalYear]);
 
+  const fyMeta = fiscalYears?.find((fy) => fy.name === fiscalYear);
+
+  // Default (and reset, on fiscal year change) to that year's own bounds,
+  // capped at today — a fiscal year that hasn't ended yet shouldn't have its
+  // still-future months requested from the report engine. The date inputs
+  // below still let a user widen up to the fiscal year's real end date.
+  useEffect(() => {
+    if (fyMeta?.year_start_date && fyMeta?.year_end_date) {
+      setFromDate(fyMeta.year_start_date);
+      setToDate(clampToToday(fyMeta.year_end_date) ?? fyMeta.year_end_date);
+    }
+  }, [fyMeta?.year_start_date, fyMeta?.year_end_date]);
+
   const baseFilters = {
     company,
-    filter_based_on: "Fiscal Year",
-    from_fiscal_year: fiscalYear,
-    to_fiscal_year: fiscalYear,
+    filter_based_on: "Date Range",
+    period_start_date: fromDate,
+    period_end_date: toDate,
     cost_center: costCenter || undefined,
     project: project ? [project] : undefined,
     finance_book: financeBook || undefined,
@@ -142,22 +160,27 @@ export function ReportProfitAndLossPage() {
   const filters = useMemo(
     () => ({ ...baseFilters, periodicity, ...opts }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [company, fiscalYear, periodicity, costCenter, project, financeBook, opts],
+    [company, fromDate, toDate, periodicity, costCenter, project, financeBook, opts],
   );
 
-  const { data, error, isLoading, mutate } = useQueryReport("Profit and Loss Statement", filters, Boolean(company && fiscalYear));
+  const { data, error, isLoading, isPreparing, mutate } = useQueryReport(
+    "Profit and Loss Statement",
+    filters,
+    Boolean(company && fromDate && toDate),
+  );
 
-  // Chart always drills to real monthly, non-cumulative figures regardless of
-  // the table's own periodicity/accumulated selection above.
+  // Chart always drills to real monthly, non-cumulative figures across the
+  // same validated date range, regardless of the table's own
+  // periodicity/accumulated selection above.
   const chartFilters = useMemo(
     () => ({ ...baseFilters, periodicity: "Monthly", accumulated_values: 0 }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [company, fiscalYear, costCenter, project, financeBook],
+    [company, fromDate, toDate, costCenter, project, financeBook],
   );
   const { data: chartReport, isLoading: chartLoading } = useQueryReport(
     "Profit and Loss Statement",
     chartFilters,
-    Boolean(company && fiscalYear),
+    Boolean(company && fromDate && toDate),
   );
 
   const allRows = ((data?.result ?? []) as unknown as PLRow[]).filter((r) => r && typeof r.account === "string");
@@ -188,6 +211,27 @@ export function ReportProfitAndLossPage() {
     });
   const expandAll = () => setCollapsed(new Set());
   const collapseAll = () => setCollapsed(new Set(bodyRows.filter((r) => r.is_group).map((r) => r.account)));
+
+  // "Level" collapses every group row exactly at the chosen boundary depth
+  // (indent === level - 1) — shallower groups stay expanded, anything past
+  // the boundary is hidden underneath them. A level past the tree's real
+  // depth naturally matches no rows, i.e. fully expanded.
+  const [levelInput, setLevelInput] = useState(2);
+  const applyLevel = (lvl: number) =>
+    setCollapsed(new Set(bodyRows.filter((r) => r.is_group && r.indent === lvl - 1).map((r) => r.account)));
+
+  // Default the tree to Level 2 the first time each fresh report result
+  // loads — guarded so it only fires once per load, not every time the
+  // user's own clicks change `collapsed`.
+  const appliedDefaultLevel = useRef(false);
+  useEffect(() => {
+    if (bodyRows.length > 0 && !appliedDefaultLevel.current) {
+      appliedDefaultLevel.current = true;
+      applyLevel(2);
+    }
+    if (bodyRows.length === 0) appliedDefaultLevel.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bodyRows]);
 
   const exportRows = () => {
     const cols = [
@@ -225,6 +269,7 @@ export function ReportProfitAndLossPage() {
 
   return (
     <div className="space-y-4">
+      <LoadingOverlay show={isPreparing} label="Generating Profit and Loss Statement…" />
       <PageHeader
         title="Profit and Loss Statement"
         subtitle="Income and expenses — computed live by ERPNext's report engine"
@@ -251,7 +296,7 @@ export function ReportProfitAndLossPage() {
       ) : (
         <>
           <Card className="p-4">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div>
                 <Label htmlFor="pl-fy">Fiscal Year</Label>
                 <Select id="pl-fy" value={fiscalYear} onChange={(e) => setFiscalYear(e.target.value)}>
@@ -261,6 +306,28 @@ export function ReportProfitAndLossPage() {
                     </option>
                   ))}
                 </Select>
+              </div>
+              <div>
+                <Label htmlFor="pl-from">From Date</Label>
+                <Input
+                  id="pl-from"
+                  type="date"
+                  value={fromDate}
+                  min={fyMeta?.year_start_date}
+                  max={toDate || fyMeta?.year_end_date}
+                  onChange={(e) => setFromDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="pl-to">To Date</Label>
+                <Input
+                  id="pl-to"
+                  type="date"
+                  value={toDate}
+                  min={fromDate || fyMeta?.year_start_date}
+                  max={fyMeta?.year_end_date}
+                  onChange={(e) => setToDate(e.target.value)}
+                />
               </div>
               <div>
                 <Label htmlFor="pl-periodicity">Periodicity</Label>
@@ -404,7 +471,7 @@ export function ReportProfitAndLossPage() {
 
               <ChartCard
                 title="Monthly income vs expense"
-                subtitle={`Fiscal year ${fiscalYear} · ${chartCurrency}`}
+                subtitle={`${fromDate} to ${toDate} · ${chartCurrency}`}
                 actions={
                   <div className="flex gap-1 rounded-lg bg-muted p-1">
                     <Button variant={chartMode === "Bars" ? "default" : "ghost"} size="sm" className="h-7 px-3" onClick={() => setChartMode("Bars")}>
@@ -485,6 +552,29 @@ export function ReportProfitAndLossPage() {
                   </>
                 )}
               </ChartCard>
+
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold">Statement</p>
+                  <p className="text-xs text-muted-foreground">{shown.length} rows shown</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label htmlFor="pl-level" className="text-xs font-medium text-muted-foreground">
+                    Level
+                  </label>
+                  <Input
+                    id="pl-level"
+                    type="number"
+                    min={1}
+                    value={levelInput}
+                    onChange={(e) => setLevelInput(Number(e.target.value) || 1)}
+                    className="h-8 w-16"
+                  />
+                  <Button size="sm" variant="outline" onClick={() => applyLevel(levelInput)}>
+                    Set Level
+                  </Button>
+                </div>
+              </div>
 
               <div className="overflow-hidden rounded-lg border border-border bg-card dark:border-white/10 dark:bg-white/5">
                 <div className="overflow-x-auto">
@@ -589,7 +679,7 @@ export function ReportProfitAndLossPage() {
 
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <TrendingUp className="h-4 w-4" />
-                Amounts in {chartCurrency} · Fiscal Year {fiscalYear}
+                Amounts in {chartCurrency} · {fiscalYear} ({fromDate} to {toDate})
               </div>
             </>
           )}

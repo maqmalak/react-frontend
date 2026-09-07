@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronRight,
   ChevronDown,
@@ -20,14 +20,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FrappeLinkField } from "@/components/forms/field-primitives";
 import { EmptyState } from "@/components/common/empty-state";
+import { LoadingOverlay } from "@/components/common/loading-overlay";
 import { KpiCard } from "@/pages/Dashboard/KpiCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChartCard } from "@/components/charts/chart-card";
 import { BarChart, LineChart } from "@/components/charts/charts";
-import { useQueryReport, useFiscalYears, useChartOfAccounts } from "@/hooks/useAccounting";
+import { useQueryReport, useFiscalYears, useChartOfAccounts, useMonthlyTrialBalanceTrend } from "@/hooks/useAccounting";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { formatNumber } from "@/utils/currency";
-import { asNumber, cn } from "@/utils/cn";
+import { cn } from "@/utils/cn";
+import { clampToToday } from "@/utils/dates";
 import { exportToCsv } from "@/utils/export";
 import { humanizeError } from "@/services/frappe";
 
@@ -150,12 +152,15 @@ export function ReportTrialBalancePage() {
   const fyMeta = fiscalYears?.find((fy) => fy.name === fiscalYear);
 
   // Reset the date range to the fiscal year's own bounds whenever the fiscal
-  // year changes (including its first load) — narrowing from there is what
-  // drives ERPNext's own "opening as of From Date" recalculation below.
+  // year changes (including its first load), capped at today — a fiscal year
+  // that hasn't ended yet shouldn't have its still-future months requested —
+  // narrowing from there is what drives ERPNext's own "opening as of From
+  // Date" recalculation below. The date inputs still let a user widen up to
+  // the fiscal year's real end date.
   useEffect(() => {
     if (fyMeta?.year_start_date && fyMeta?.year_end_date) {
       setFromDate(fyMeta.year_start_date);
-      setToDate(fyMeta.year_end_date);
+      setToDate(clampToToday(fyMeta.year_end_date) ?? fyMeta.year_end_date);
     }
   }, [fyMeta?.year_start_date, fyMeta?.year_end_date]);
 
@@ -171,7 +176,7 @@ export function ReportTrialBalancePage() {
     [company, fiscalYear, fromDate, toDate, costCenter],
   );
 
-  const { data, error, isLoading, mutate } = useQueryReport("Trial Balance", filters, Boolean(company && fiscalYear));
+  const { data, error, isLoading, isPreparing, mutate } = useQueryReport("Trial Balance", filters, Boolean(company && fiscalYear));
 
   // Trial Balance rows don't carry root_type themselves — look it up from the
   // real Chart of Accounts (same doctype field ERPNext itself groups by).
@@ -184,6 +189,7 @@ export function ReportTrialBalancePage() {
   const totalRow = allRows.find((r) => r.account === "'Total'");
   const bodyRows = allRows.filter((r) => r.account !== "'Total'");
   const shown = visibleRows(bodyRows, collapsed);
+  const chartCurrency = allRows.find((r) => typeof r.currency === "string")?.currency ?? "PKR";
 
   // One net figure per head, read straight off the report's own root-level
   // group rows (indent 0) — no accounting math re-derived here.
@@ -200,63 +206,32 @@ export function ReportTrialBalancePage() {
   }, [bodyRows, rootTypeMap]);
 
   // Trial Balance itself has no periodicity filter (it's a single from/to
-  // snapshot), so the monthly trend is built from real General Ledger
-  // postings across the fiscal year — bucketed by month and by each entry's
-  // real account root_type, then accumulated into a running balance per head
-  // (the same "closing as of this month" reading the table above shows for
-  // the year as a whole).
-  const chartFilters = useMemo(
-    () => ({ company, from_date: fyMeta?.year_start_date, to_date: fyMeta?.year_end_date, show_opening_entries: 0 }),
-    [company, fyMeta],
-  );
-  const { data: glReport, isLoading: chartLoading } = useQueryReport(
-    "General Ledger",
-    chartFilters,
-    Boolean(company && fyMeta?.year_start_date && fyMeta?.year_end_date),
+  // snapshot), so the monthly trend is built from N small per-month Trial
+  // Balance calls — already server-aggregated per account — rather than
+  // fetching every raw General Ledger posting across the whole range and
+  // bucketing client-side, which for a full fiscal year of a busy company
+  // was heavy enough to push `General Ledger` into background "Prepared
+  // Report" mode (see useMonthlyTrialBalanceTrend).
+  const { data: monthlyRoots, isLoading: chartLoading } = useMonthlyTrialBalanceTrend(
+    company,
+    fiscalYear,
+    fromDate,
+    toDate,
+    Boolean(company && fiscalYear && fromDate && toDate),
   );
 
   const monthlyData = useMemo(() => {
-    if (!fyMeta?.year_start_date || !fyMeta?.year_end_date) return [];
-    const entries = (glReport?.result ?? []).filter(
-      (r) => typeof r.account === "string" && !(r.account as string).startsWith("'"),
-    );
-
-    const months: { key: string; label: string }[] = [];
-    const start0 = new Date(fyMeta.year_start_date);
-    const fyEnd = new Date(fyMeta.year_end_date);
-    for (let i = 0; i < 12; i++) {
-      const d = new Date(start0.getFullYear(), start0.getMonth() + i, 1);
-      if (d > fyEnd) break;
-      months.push({ key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleDateString("en-US", { month: "short", year: "numeric" }) });
-    }
-
-    const byMonth = new Map<string, Record<Head, { debit: number; credit: number }>>(
-      months.map((m) => [
-        m.key,
-        { Asset: { debit: 0, credit: 0 }, Liability: { debit: 0, credit: 0 }, Equity: { debit: 0, credit: 0 }, Income: { debit: 0, credit: 0 }, Expense: { debit: 0, credit: 0 } },
-      ]),
-    );
-
-    entries.forEach((e) => {
-      const d = new Date(String(e.posting_date));
-      const key = `${d.getFullYear()}-${d.getMonth()}`;
-      const bucket = byMonth.get(key);
-      const rt = rootTypeMap.get(String(e.account)) as Head | undefined;
-      if (bucket && rt) {
-        bucket[rt].debit += asNumber(e.debit);
-        bucket[rt].credit += asNumber(e.credit);
-      }
-    });
-
-    const cum: Record<Head, number> = { Asset: 0, Liability: 0, Equity: 0, Income: 0, Expense: 0 };
-    return months.map((m) => {
-      const b = byMonth.get(m.key)!;
-      HEADS.forEach((h) => {
-        cum[h] += DEBIT_NATURED.has(h) ? b[h].debit - b[h].credit : b[h].credit - b[h].debit;
+    if (!monthlyRoots) return [];
+    return monthlyRoots.map((m) => {
+      const net: Record<Head, number> = { Asset: 0, Liability: 0, Equity: 0, Income: 0, Expense: 0 };
+      Object.entries(m.totals).forEach(([account, { debit, credit }]) => {
+        const rt = rootTypeMap.get(account) as Head | undefined;
+        if (!rt) return;
+        net[rt] += DEBIT_NATURED.has(rt) ? debit - credit : credit - debit;
       });
-      return { month: m.label, Asset: cum.Asset, Liability: cum.Liability, Equity: cum.Equity, Income: cum.Income, Expense: cum.Expense };
+      return { month: m.month, ...net };
     });
-  }, [glReport, fyMeta, rootTypeMap]);
+  }, [monthlyRoots, rootTypeMap]);
 
   const toggle = (account: string) =>
     setCollapsed((prev) => {
@@ -268,6 +243,27 @@ export function ReportTrialBalancePage() {
 
   const expandAll = () => setCollapsed(new Set());
   const collapseAll = () => setCollapsed(new Set(bodyRows.filter((r) => r.is_group_account).map((r) => r.account)));
+
+  // "Level" collapses every group row exactly at the chosen boundary depth
+  // (indent === level - 1) — shallower groups stay expanded, anything past
+  // the boundary is hidden underneath them. A level past the tree's real
+  // depth naturally matches no rows, i.e. fully expanded.
+  const [levelInput, setLevelInput] = useState(2);
+  const applyLevel = (lvl: number) =>
+    setCollapsed(new Set(bodyRows.filter((r) => r.is_group_account && r.indent === lvl - 1).map((r) => r.account)));
+
+  // Default the tree to Level 2 the first time each fresh report result
+  // loads — guarded so it only fires once per load, not every time the
+  // user's own clicks change `collapsed`.
+  const appliedDefaultLevel = useRef(false);
+  useEffect(() => {
+    if (bodyRows.length > 0 && !appliedDefaultLevel.current) {
+      appliedDefaultLevel.current = true;
+      applyLevel(2);
+    }
+    if (bodyRows.length === 0) appliedDefaultLevel.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bodyRows]);
 
   const balanced = totalRow ? Math.abs(totalRow.closing_debit - totalRow.closing_credit) < 0.005 : true;
   const outOfBalanceBy = totalRow ? Math.abs(totalRow.closing_debit - totalRow.closing_credit) : 0;
@@ -315,25 +311,10 @@ export function ReportTrialBalancePage() {
 
   return (
     <div className="space-y-4">
+      <LoadingOverlay show={isPreparing} label="Generating Trial Balance…" />
       <PageHeader
         title="Trial Balance"
         subtitle="Opening, activity and closing balance per account, straight from ERPNext's report engine"
-        actions={
-          <>
-            <Button variant="outline" size="sm" onClick={expandAll} disabled={!bodyRows.length}>
-              <ChevronsUpDown className="h-4 w-4" />
-              Expand all
-            </Button>
-            <Button variant="outline" size="sm" onClick={collapseAll} disabled={!bodyRows.length}>
-              <ChevronsDownUp className="h-4 w-4" />
-              Collapse all
-            </Button>
-            <Button size="sm" onClick={exportRows} disabled={!bodyRows.length}>
-              <Download className="h-4 w-4" />
-              Export
-            </Button>
-          </>
-        }
       />
 
       <div className="flex flex-wrap items-end gap-3">
@@ -407,6 +388,8 @@ export function ReportTrialBalancePage() {
                   tone={meta.tone}
                   colorValue
                   sparkline={monthlyData.map((m) => m[h])}
+                  labelClassName="font-bold"
+                  valueClassName="text-lg"
                 />
               );
             })}
@@ -414,7 +397,7 @@ export function ReportTrialBalancePage() {
 
           <ChartCard
             title="Monthly activity"
-            subtitle={fyMeta ? `Fiscal year ${fiscalYear} · running closing balance per head` : undefined}
+            subtitle={fromDate && toDate ? `${fromDate} to ${toDate} · net change per head, per month` : undefined}
             actions={
               <div className="flex gap-1 rounded-lg bg-muted p-1">
                 <Button variant={chartMode === "Bars" ? "default" : "ghost"} size="sm" className="h-7 px-3" onClick={() => setChartMode("Bars")}>
@@ -455,9 +438,9 @@ export function ReportTrialBalancePage() {
                   })}
                 </div>
                 {chartMode === "Bars" ? (
-                  <BarChart data={monthlyData} xKey="month" series={HEAD_SERIES.filter((s) => !hiddenHeads.has(s.key))} money />
+                  <BarChart data={monthlyData} xKey="month" series={HEAD_SERIES.filter((s) => !hiddenHeads.has(s.key))} money currency={chartCurrency} />
                 ) : (
-                  <LineChart data={monthlyData} xKey="month" series={HEAD_SERIES.filter((s) => !hiddenHeads.has(s.key))} money />
+                  <LineChart data={monthlyData} xKey="month" series={HEAD_SERIES.filter((s) => !hiddenHeads.has(s.key))} money currency={chartCurrency} />
                 )}
               </>
             )}
@@ -472,12 +455,61 @@ export function ReportTrialBalancePage() {
             ))}
           </div>
 
+          <div className="flex flex-nowrap items-center justify-between gap-3 overflow-x-auto">
+            <div className="shrink-0">
+              <p className="text-sm font-semibold">Statement</p>
+              <p className="text-xs text-muted-foreground">{shown.length} rows shown</p>
+            </div>
+            <div className="flex shrink-0 flex-nowrap items-center gap-2">
+              <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 hover:bg-background hover:shadow-sm"
+                  onClick={expandAll}
+                  disabled={!bodyRows.length}
+                  title="Expand all"
+                >
+                  <ChevronsUpDown className="h-4 w-4 text-primary" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 hover:bg-background hover:shadow-sm"
+                  onClick={collapseAll}
+                  disabled={!bodyRows.length}
+                  title="Collapse all"
+                >
+                  <ChevronsDownUp className="h-4 w-4 text-primary" />
+                </Button>
+              </div>
+              <label htmlFor="tb-level" className="whitespace-nowrap text-xs font-medium text-muted-foreground">
+                Level
+              </label>
+              <Input
+                id="tb-level"
+                type="number"
+                min={1}
+                value={levelInput}
+                onChange={(e) => setLevelInput(Number(e.target.value) || 1)}
+                className="h-8 w-14"
+              />
+              <Button size="sm" variant="outline" className="whitespace-nowrap" onClick={() => applyLevel(levelInput)}>
+                Set Level
+              </Button>
+              <Button variant="primary" size="sm" className="whitespace-nowrap" onClick={exportRows} disabled={!bodyRows.length}>
+                <Download className="h-4 w-4" />
+                Export
+              </Button>
+            </div>
+          </div>
+
           <div className="overflow-hidden rounded-lg border border-border bg-card dark:border-white/10 dark:bg-white/5">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[900px] border-collapse text-sm">
                 <thead>
                   <tr className="bg-muted/50">
-                    <th rowSpan={2} className="border-b border-border px-4 py-2.5 text-left align-bottom text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                    <th rowSpan={2} className="sticky left-0 z-20 border-b border-r border-border bg-muted px-4 py-2.5 text-left align-bottom text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                       Account
                     </th>
                     <th colSpan={2} className="border-b border-l border-border px-4 py-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
@@ -525,7 +557,10 @@ export function ReportTrialBalancePage() {
                           isGroup ? "cursor-pointer bg-muted/30 hover:bg-muted/50" : "hover:bg-muted/20",
                         )}
                       >
-                        <td className="px-4 py-2.5" style={{ paddingLeft: 16 + r.indent * 20 }}>
+                        <td
+                          className={cn("sticky left-0 z-10 border-r border-border/60 bg-card px-4 py-2.5", isGroup && "bg-muted/60")}
+                          style={{ paddingLeft: 16 + r.indent * 20 }}
+                        >
                           <span
                             className={cn(
                               "inline-flex items-center gap-2",
@@ -561,7 +596,7 @@ export function ReportTrialBalancePage() {
                 {totalRow && (
                   <tfoot>
                     <tr className="bg-muted/60">
-                      <td className="border-t-2 border-border px-4 py-3 font-bold">Total</td>
+                      <td className="sticky left-0 z-10 border-t-2 border-r border-border bg-muted px-4 py-3 font-bold">Total</td>
                       <td className="border-l border-t-2 border-border px-4 py-3 text-right font-bold tabular-nums">{money(totalRow.opening_debit)}</td>
                       <td className="border-t-2 border-border px-4 py-3 text-right font-bold tabular-nums">{money(totalRow.opening_credit)}</td>
                       <td className="border-l border-t-2 border-border px-4 py-3 text-right font-bold tabular-nums">{money(totalRow.debit)}</td>

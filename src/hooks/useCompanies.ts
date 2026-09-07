@@ -5,7 +5,7 @@ import type { Company } from "@/types/frappe";
 export function useCompanies(enabled = true) {
   return useFrappeGetDocList<Company>(
     "Company",
-    { fields: ["name", "company_name", "default_currency", "abbreviation"], orderBy: { field: "name", order: "asc" } },
+    { fields: ["name", "company_name", "default_currency", "abbr"], orderBy: { field: "name", order: "asc" } },
     enabled ? "apparel.companies" : null,
   );
 }

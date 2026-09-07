@@ -114,7 +114,7 @@ export function LoginPage() {
       <div className="relative z-10 flex flex-col justify-center px-6 py-12 sm:px-10 lg:col-span-2 lg:px-14 xl:px-20">
         <div className="mx-auto w-full max-w-sm">
           <div className="mb-6 flex flex-col items-center gap-3 text-center lg:items-start lg:text-left">
-            <Logo className="h-13 w-auto" />
+            <Logo className="h-15 w-auto" />
             <p className="text-sm text-muted-foreground">
               Sign in with your ERPNext account to continue.
             </p>
@@ -189,18 +189,17 @@ export function LoginPage() {
         <h2 className="animate-fade-in text-[32px] font-semibold leading-[1.1] tracking-tight xl:text-[36px]">
           The all-in-one workspace for{" "}
           <span className="bg-gradient-to-r from-primary to-sky-500 bg-clip-text text-transparent">
-            Manufactring &amp; Trading
+            apparel import &amp; export
           </span>
         </h2>
         <p className="mt-5 max-w-[440px] animate-fade-in text-[17px] leading-relaxed text-muted-foreground">
-          Accounting & Finance, Buying, Selling, import, export, shipments, Manufacturing, HR & Payroll, CRM, Projects,
-          production, Stock — every step synced live against your ERPNext backend.
+          Purchase orders, import shipments, landed costs, LC Proforma, export shipments and
+          production — every step synced live against your ERPNext backend.
         </p>
 
         <div className="mt-6 flex animate-fade-in items-center gap-6">
           {[
             { value: String(loginApps.length), label: "modules" },
-            { value: "React", label: "frontend" },
             { value: "ERPNext", label: "backend" },
             { value: "Live", label: "real-time sync" },
           ].map((s) => (
@@ -221,7 +220,7 @@ export function LoginPage() {
             <div
               key={rowIndex}
               className="flex gap-1"
-              style={{ marginTop: rowIndex === 0 ? 0 : -19, marginLeft: rowIndex % 2 === 1 ? 54 : 0 }}
+              style={{ marginTop: rowIndex === 0 ? 0 : -19, marginLeft: rowIndex % 2 === 1 ? 44 : 0 }}
             >
               {row.map((tile) => {
                 if (tile === "logo") {
@@ -229,7 +228,7 @@ export function LoginPage() {
                     <div
                       key="brand"
                       title="MicroMax Solution"
-                      className="hex-tile flex h-24 w-[104px] shrink-0 flex-col items-center justify-center bg-white shadow-[0_0_0_1px_hsl(var(--primary)/0.35)]"
+                      className="hex-tile flex h-24 w-[84px] shrink-0 flex-col items-center justify-center bg-white shadow-[0_0_0_1px_hsl(var(--primary)/0.35)]"
                     >
                       <Logo variant="mark" className="h-10 w-auto" />
                     </div>
@@ -241,14 +240,14 @@ export function LoginPage() {
                   <div
                     key={app.id}
                     title={app.label}
-                    className="hex-tile flex h-24 w-[104px] shrink-0 flex-col items-center justify-center gap-1.5 border border-border bg-card transition-transform duration-200 hover:-translate-y-1 dark:border-white/10 dark:bg-white/5"
+                    className="hex-tile flex h-24 w-[84px] shrink-0 flex-col items-center justify-center gap-1.5 border border-border bg-card transition-transform duration-200 hover:-translate-y-1 dark:border-white/10 dark:bg-white/5"
                   >
                     <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${app.colorClass}`}>
                       <Icon className="h-4.5 w-4.5" />
                     </span>
                     <span
-                      className={`block w-full max-w-[120px] whitespace-normal break-words px-0.5 text-center font-medium leading-[1.15] text-foreground ${
-                        app.label.length > 9 ? "text-[10px]" : "text-[10px]"
+                      className={`block w-full max-w-[100px] whitespace-normal break-words px-0.5 text-center font-medium leading-[1.15] text-foreground ${
+                        app.label.length > 9 ? "text-[9px]" : "text-[10px]"
                       }`}
                     >
                       {app.label}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { SlidersHorizontal, ChevronUp, ChevronDown } from "lucide-react";
+import { SlidersHorizontal, ChevronUp, ChevronDown, Play, Wallet, ArrowDownRight, ArrowUpRight, Landmark } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,13 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/common/empty-state";
+import { LoadingOverlay } from "@/components/common/loading-overlay";
 import { KpiCard } from "@/pages/Dashboard/KpiCard";
 import { FrappeDataTable, type ColumnDef } from "@/components/tables/data-table";
 import { FrappeLinkField } from "@/components/forms/field-primitives";
 import { useQueryReport, useFiscalYears } from "@/hooks/useAccounting";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { formatNumber } from "@/utils/currency";
-import { asNumber } from "@/utils/cn";
+import { asNumber, cn } from "@/utils/cn";
 import { todayISO } from "@/utils/dates";
 import { humanizeError } from "@/services/frappe";
 import type { QueryReportColumn } from "@/types/frappe";
@@ -47,6 +48,11 @@ function isSpecialRow(r: Record<string, unknown>): boolean {
 }
 function specialLabel(r: Record<string, unknown>): string {
   return String(r.account).slice(1, -1);
+}
+
+/** GL `balance` is already a running (debit - credit) figure — positive is a debit balance, negative a credit one, no root-type netting needed (unlike Trial Balance's per-head totals). */
+function balanceWithDrCr(n: number): string {
+  return `${formatNumber(Math.abs(n), 2)} ${n >= 0 ? "Dr" : "Cr"}`;
 }
 
 /**
@@ -94,15 +100,28 @@ export function ReportGeneralLedgerPage() {
     [company, fromDate, toDate, financeBook, account, partyType, party, costCenter, project, opts],
   );
 
-  const { data, error, isLoading, mutate } = useQueryReport(
+  // General Ledger pulls every raw posting in the range — expensive for a
+  // wide date range or "all accounts" — so it only runs when the user
+  // explicitly clicks Generate, not on every filter change. Changing any
+  // filter afterwards invalidates the last run (rather than silently
+  // re-running with new filters) so a stale result is never mistaken for
+  // the current selection.
+  const [generatedFiltersKey, setGeneratedFiltersKey] = useState<string | null>(null);
+  const filtersKey = JSON.stringify(filters);
+  const hasGenerated = generatedFiltersKey === filtersKey;
+
+  const { data, error, isLoading, isPreparing, mutate } = useQueryReport(
     "General Ledger",
     filters,
-    Boolean(company && fromDate && toDate),
+    Boolean(company && fromDate && toDate && hasGenerated),
   );
 
   const allRows = (data?.result ?? []).filter((r) => r && Object.keys(r).length > 0);
   const openingRow = allRows.find((r) => isSpecialRow(r) && specialLabel(r) === "Opening");
   const totalRow = allRows.find((r) => isSpecialRow(r) && specialLabel(r) === "Total");
+  // Same row, just with the account field's literal `'Total'` quoting
+  // stripped for display in the table's own footer.
+  const footerTotalRow = totalRow ? { ...totalRow, account: "Total" } : undefined;
   const closingRow = allRows.find((r) => isSpecialRow(r) && specialLabel(r).startsWith("Closing"));
   const entryRows = allRows.filter((r) => !isSpecialRow(r));
 
@@ -116,6 +135,24 @@ export function ReportGeneralLedgerPage() {
     [entryRows],
   );
 
+  // Grouped off every entry (not the voucher-type-filtered `filteredRows`) so
+  // the breakdown stays meaningful even once the user has narrowed the table
+  // to a single voucher type — otherwise it would just show that one row.
+  const voucherTypeSummary = useMemo(() => {
+    const byType = new Map<string, { count: number; debit: number; credit: number }>();
+    entryRows.forEach((r) => {
+      const vt = String(r.voucher_type ?? "—") || "—";
+      const bucket = byType.get(vt) ?? { count: 0, debit: 0, credit: 0 };
+      bucket.count += 1;
+      bucket.debit += asNumber(r.debit);
+      bucket.credit += asNumber(r.credit);
+      byType.set(vt, bucket);
+    });
+    return [...byType.entries()]
+      .map(([voucherType, v]) => ({ voucherType, ...v, net: v.debit - v.credit }))
+      .sort((a, b) => b.debit + b.credit - (a.debit + a.credit));
+  }, [entryRows]);
+
   const columns: QueryReportColumn[] = (data?.columns ?? []).filter((c) => !c.hidden);
 
   const tableColumns: ColumnDef<Record<string, unknown>>[] = useMemo(
@@ -126,6 +163,13 @@ export function ReportGeneralLedgerPage() {
           key: c.fieldname,
           label: c.label,
           align: numeric ? "right" : "left",
+          // Same green/amber convention as the Debit/Credit summary cards above.
+          cellClassName:
+            c.fieldname === "debit"
+              ? "text-emerald-600 dark:text-emerald-400"
+              : c.fieldname === "credit"
+              ? "text-amber-600 dark:text-amber-400"
+              : undefined,
           getValue: (r) => {
             const v = r[c.fieldname];
             return typeof v === "number" || typeof v === "string" ? v : String(v ?? "");
@@ -164,10 +208,14 @@ export function ReportGeneralLedgerPage() {
     setCostCenter("");
     setProject("");
     setOpts(Object.fromEntries(GL_OPTIONS.map((o) => [o.key, o.def])));
+    setGeneratedFiltersKey(null);
   };
+
+  const generateLedger = () => setGeneratedFiltersKey(filtersKey);
 
   return (
     <div className="space-y-4">
+      <LoadingOverlay show={isPreparing} label="Generating General Ledger…" />
       <PageHeader title="General Ledger" subtitle="Every posted GL entry, account by account — computed live by ERPNext" />
 
       {!company ? (
@@ -195,11 +243,23 @@ export function ReportGeneralLedgerPage() {
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <div>
                     <Label htmlFor="gl-from">From Date</Label>
-                    <Input id="gl-from" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                    <Input
+                      id="gl-from"
+                      type="date"
+                      value={fromDate}
+                      max={toDate || undefined}
+                      onChange={(e) => setFromDate(e.target.value)}
+                    />
                   </div>
                   <div>
                     <Label htmlFor="gl-to">To Date</Label>
-                    <Input id="gl-to" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                    <Input
+                      id="gl-to"
+                      type="date"
+                      value={toDate}
+                      min={fromDate || undefined}
+                      onChange={(e) => setToDate(e.target.value)}
+                    />
                   </div>
                   <div>
                     <Label>Finance Book</Label>
@@ -284,40 +344,91 @@ export function ReportGeneralLedgerPage() {
                   ))}
                 </div>
 
-                <div className="mt-4">
+                <div className="mt-4 flex items-center justify-end gap-2">
                   <Button variant="outline" size="sm" onClick={clearFilters}>
                     Clear all
+                  </Button>
+                  <Button variant="primary" size="sm" onClick={generateLedger} disabled={!company || !fromDate || !toDate}>
+                    <Play className="h-4 w-4" />
+                    Generate Ledger
                   </Button>
                 </div>
               </div>
             )}
           </Card>
 
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <KpiCard label="Opening Balance" value={formatNumber(openingBalance, 2)} loading={isLoading} />
-            <KpiCard label="Total Debit" value={formatNumber(totalDebit, 2)} loading={isLoading} />
-            <KpiCard label="Total Credit" value={formatNumber(totalCredit, 2)} loading={isLoading} />
-            <KpiCard label="Closing Balance" value={formatNumber(closingBalance, 2)} tone="info" loading={isLoading} />
-          </div>
+          {!hasGenerated ? (
+            <EmptyState
+              title="Set your filters and generate"
+              description="Every posted GL entry in the range gets pulled straight from ERPNext — narrow it down by date and account first, then click Generate Ledger to run it."
+              actionLabel="Generate Ledger"
+              onAction={company && fromDate && toDate ? generateLedger : undefined}
+            />
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <KpiCard label="Opening Balance" value={balanceWithDrCr(openingBalance)} icon={Wallet} loading={isLoading} />
+                <KpiCard label="Total Debit" value={formatNumber(totalDebit, 2)} icon={ArrowDownRight} tone="success" loading={isLoading} />
+                <KpiCard label="Total Credit" value={formatNumber(totalCredit, 2)} icon={ArrowUpRight} tone="warning" loading={isLoading} />
+                <KpiCard label="Closing Balance" value={balanceWithDrCr(closingBalance)} icon={Landmark} tone="info" loading={isLoading} />
+              </div>
 
-          <FrappeDataTable
-            columns={tableColumns}
-            rows={filteredRows}
-            rowKey={(r) => String(r.gl_entry)}
-            loading={isLoading}
-            error={error}
-            onRetry={() => void mutate()}
-            searchPlaceholder="Search account, voucher, party, remarks…"
-            exportFilename="general-ledger"
-            title="Ledger Entries"
-            subtitle={`${filteredRows.length} entries${totalRow ? "" : " (partial totals — no report summary row for this filter set)"}`}
-            emptyTitle="No GL entries"
-            emptyDescription={error ? humanizeError(error) : "No GL entries posted in this date range for the selected filters."}
-            initialPageSize={25}
-            pageSizeOptions={[25, 50, 100]}
-            defaultHiddenColumns={columns.filter((c) => HIDE_BY_DEFAULT.has(c.fieldname)).map((c) => c.fieldname)}
-            defaultSortKey="posting_date"
-          />
+              <FrappeDataTable
+                columns={tableColumns}
+                rows={filteredRows}
+                rowKey={(r) => String(r.gl_entry)}
+                loading={isLoading}
+                error={error}
+                onRetry={() => void mutate()}
+                searchPlaceholder="Search account, voucher, party, remarks…"
+                exportFilename="general-ledger"
+                title="Ledger Entries"
+                subtitle={`${filteredRows.length} entries${totalRow ? "" : " (partial totals — no report summary row for this filter set)"}`}
+                emptyTitle="No GL entries"
+                emptyDescription={error ? humanizeError(error) : "No GL entries posted in this date range for the selected filters."}
+                initialPageSize={25}
+                pageSizeOptions={[25, 50, 100]}
+                defaultHiddenColumns={columns.filter((c) => HIDE_BY_DEFAULT.has(c.fieldname)).map((c) => c.fieldname)}
+                defaultSortKey="posting_date"
+                striped
+                frozenColumns={5}
+                totalRow={footerTotalRow}
+              />
+
+              {!isLoading && !error && voucherTypeSummary.length > 0 && (
+                <Card className="overflow-hidden p-0">
+                  <div className="border-b border-border px-4 py-3">
+                    <h3 className="text-sm font-semibold">Summary by Voucher Type</h3>
+                    <p className="text-xs text-muted-foreground">Every entry in range, grouped by voucher type — independent of the Voucher Type filter above</p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[560px] border-collapse text-sm">
+                      <thead>
+                        <tr className="bg-muted/50 text-left">
+                          <th className="whitespace-nowrap px-4 py-2 text-xs font-semibold text-muted-foreground">Voucher Type</th>
+                          <th className="whitespace-nowrap px-4 py-2 text-right text-xs font-semibold text-muted-foreground">Entries</th>
+                          <th className="whitespace-nowrap px-4 py-2 text-right text-xs font-semibold text-muted-foreground">Debit</th>
+                          <th className="whitespace-nowrap px-4 py-2 text-right text-xs font-semibold text-muted-foreground">Credit</th>
+                          <th className="whitespace-nowrap px-4 py-2 text-right text-xs font-semibold text-muted-foreground">Net</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {voucherTypeSummary.map((v, i) => (
+                          <tr key={v.voucherType} className={cn("border-b border-border last:border-0", i % 2 === 1 && "bg-accent/40")}>
+                            <td className="px-4 py-2 font-medium">{v.voucherType}</td>
+                            <td className="px-4 py-2 text-right tabular-nums">{v.count}</td>
+                            <td className="px-4 py-2 text-right tabular-nums">{formatNumber(v.debit, 2)}</td>
+                            <td className="px-4 py-2 text-right tabular-nums">{formatNumber(v.credit, 2)}</td>
+                            <td className="px-4 py-2 text-right tabular-nums">{balanceWithDrCr(v.net)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              )}
+            </>
+          )}
         </>
       )}
     </div>

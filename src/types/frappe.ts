@@ -405,7 +405,7 @@ export interface Company {
   name: string;
   company_name?: string;
   default_currency?: string;
-  abbreviation?: string;
+  abbr?: string;
 }
 
 // ------------------------------------------------------------- Misc / users
@@ -792,6 +792,18 @@ export interface QueryReportResult {
   result: Record<string, unknown>[];
   report_summary?: QueryReportSummaryItem[];
   chart?: QueryReportChart;
+}
+
+/** A report configured to run as a background job — `run` alone returns this shape until the job completes. */
+export interface PreparedReportDoc {
+  name: string;
+  status: "Queued" | "Started" | "Completed" | "Error" | "Failed";
+}
+
+/** Raw `frappe.desk.query_report.run` response before we know whether it ran synchronously or as a Prepared Report. */
+export interface RawQueryReportResponse extends Partial<QueryReportResult> {
+  prepared_report?: boolean;
+  doc?: PreparedReportDoc | null;
 }
 
 export type DocTypeName =

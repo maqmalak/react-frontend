@@ -45,6 +45,17 @@ export function todayISO(): string {
   return toISODate(new Date());
 }
 
+/**
+ * The earlier of a given ISO date and today — clamps a fiscal year's own end
+ * date (which may fall in the future) so period-based reports don't request
+ * data for months that haven't happened yet.
+ */
+export function clampToToday(date?: string | null): string | undefined {
+  if (!date) return undefined;
+  const today = todayISO();
+  return date < today ? date : today;
+}
+
 /** Human "x days ago" / "in x days". */
 export function relativeDays(value?: string | null): string {
   const d = parseDate(value);

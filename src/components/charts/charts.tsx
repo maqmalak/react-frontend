@@ -56,13 +56,20 @@ export interface ChartProps<T = Record<string, any>> {
   /** Currency code for `money` formatting. Defaults to USD. */
   currency?: string;
   legend?: boolean;
+  /**
+   * BarChart only: a field on each data row holding a CSS color for that
+   * row's bar (e.g. green for a positive value, rose for negative) —
+   * overrides the series' own flat color per-point. Ignored with more than
+   * one series, where a single color-per-category wouldn't be meaningful.
+   */
+  colorKey?: string;
 }
 
 function axisFormatter(money: boolean, currency: string, v: number) {
   return money ? formatMoney(v, currency, { compact: true }) : formatNumber(v, 0);
 }
 
-export function BarChart({ data, series, xKey, height = 260, money, currency = "USD", legend }: ChartProps) {
+export function BarChart({ data, series, xKey, height = 260, money, currency = "USD", legend, colorKey }: ChartProps) {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <RCBar data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -80,14 +87,9 @@ export function BarChart({ data, series, xKey, height = 260, money, currency = "
         />
         {legend && <Legend wrapperStyle={{ fontSize: 12 }} />}
         {series.map((s, i) => (
-          <Bar
-            key={s.key}
-            dataKey={s.key}
-            name={s.label}
-            fill={s.color ?? CHART_COLORS[i % CHART_COLORS.length]}
-            radius={[4, 4, 0, 0]}
-            maxBarSize={40}
-          />
+          <Bar key={s.key} dataKey={s.key} name={s.label} fill={s.color ?? CHART_COLORS[i % CHART_COLORS.length]} radius={[4, 4, 0, 0]} maxBarSize={40}>
+            {colorKey && series.length === 1 && data.map((d, di) => <Cell key={di} fill={(d as any)[colorKey] ?? s.color ?? CHART_COLORS[i % CHART_COLORS.length]} />)}
+          </Bar>
         ))}
       </RCBar>
     </ResponsiveContainer>
