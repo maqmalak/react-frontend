@@ -750,6 +750,7 @@ export interface JournalEntry {
   name?: string;
   naming_series?: string;
   voucher_type?: string;
+  from_template?: string;
   company: string;
   posting_date: string;
   accounts: JournalEntryAccountRow[];
@@ -806,6 +807,271 @@ export interface RawQueryReportResponse extends Partial<QueryReportResult> {
   doc?: PreparedReportDoc | null;
 }
 
+// ----------------------------------------------------------------- Activity (Comment / ToDo / Version)
+
+export interface FrappeComment {
+  name: string;
+  comment_type: "Comment" | "Info" | "Workflow" | string;
+  reference_doctype: string;
+  reference_name: string;
+  content: string;
+  comment_by?: string;
+  comment_email?: string;
+  owner: string;
+  creation: string;
+}
+
+export interface FrappeToDo {
+  name: string;
+  allocated_to: string;
+  reference_type: string;
+  reference_name: string;
+  description?: string;
+  status: "Open" | "Closed" | "Cancelled";
+  priority?: "Low" | "Medium" | "High" | "Urgent";
+  assigned_by?: string;
+  date?: string;
+  creation: string;
+}
+
+export interface FrappeVersion {
+  name: string;
+  ref_doctype: string;
+  docname: string;
+  data: string;
+  owner: string;
+  creation: string;
+}
+
+// ------ CRM (Frappe CRM app: CRM Lead / CRM Deal / CRM Task / FCRM Note / CRM Call Log / CRM Organization / CRM Notification / CRM View Settings / CRM Dashboard) + core Frappe Event (meeting calendar)
+
+export interface CrmLead {
+  name?: string;
+  naming_series?: string;
+  salutation?: string;
+  first_name?: string;
+  middle_name?: string;
+  last_name?: string;
+  lead_name?: string;
+  gender?: string;
+  status?: string;
+  email?: string;
+  website?: string;
+  mobile_no?: string;
+  phone?: string;
+  no_of_employees?: string;
+  annual_revenue?: number;
+  lead_owner?: string;
+  source?: string;
+  industry?: string;
+  image?: string;
+  job_title?: string;
+  organization?: string;
+  converted?: 0 | 1;
+  territory?: string;
+  lost_reason?: string;
+  lost_notes?: string;
+  total?: number;
+  net_total?: number;
+  owner?: string;
+  creation?: string;
+  modified?: string;
+  _assign?: string;
+}
+
+export interface CrmDeal {
+  name?: string;
+  naming_series?: string;
+  organization?: string;
+  organization_name?: string;
+  probability?: number;
+  annual_revenue?: number;
+  website?: string;
+  next_step?: string;
+  lead?: string;
+  lead_name?: string;
+  deal_owner?: string;
+  email?: string;
+  mobile_no?: string;
+  phone?: string;
+  status?: string;
+  industry?: string;
+  salutation?: string;
+  first_name?: string;
+  last_name?: string;
+  gender?: string;
+  contact?: string;
+  currency?: string;
+  exchange_rate?: number;
+  deal_value?: number;
+  expected_deal_value?: number;
+  expected_closure_date?: string;
+  closed_date?: string;
+  territory?: string;
+  source?: string;
+  job_title?: string;
+  lost_reason?: string;
+  lost_notes?: string;
+  total?: number;
+  net_total?: number;
+  owner?: string;
+  creation?: string;
+  modified?: string;
+  _assign?: string;
+}
+
+export interface CrmTask {
+  name?: string;
+  title: string;
+  priority?: "Low" | "Medium" | "High";
+  status?: "Backlog" | "Todo" | "In Progress" | "Done" | "Cancelled";
+  start_date?: string;
+  due_date?: string;
+  description?: string;
+  assigned_to?: string;
+  reference_doctype?: string;
+  reference_docname?: string;
+  creation?: string;
+  modified?: string;
+}
+
+export interface CrmNote {
+  name?: string;
+  title?: string;
+  content?: string;
+  reference_doctype?: string;
+  reference_docname?: string;
+  owner?: string;
+  creation?: string;
+  modified?: string;
+}
+
+export interface CrmCallLog {
+  name?: string;
+  id?: string;
+  from?: string;
+  to?: string;
+  status?: string;
+  type?: "Incoming" | "Outgoing";
+  medium?: string;
+  telephony_medium?: string;
+  start_time?: string;
+  end_time?: string;
+  duration?: number;
+  recording_url?: string;
+  note?: string;
+  receiver?: string;
+  caller?: string;
+  reference_doctype?: string;
+  reference_docname?: string;
+}
+
+export interface CrmContactRow {
+  name?: string;
+  contact?: string;
+  full_name?: string;
+  email?: string;
+  mobile_no?: string;
+  phone?: string;
+  gender?: string;
+  is_primary?: 0 | 1;
+}
+
+export interface CrmOrganization {
+  name?: string;
+  organization_name?: string;
+  website?: string;
+  organization_logo?: string;
+  no_of_employees?: string;
+  annual_revenue?: number;
+  industry?: string;
+  territory?: string;
+  currency?: string;
+  address?: string;
+  exchange_rate?: number;
+}
+
+export interface CrmNotification {
+  name?: string;
+  type?: string;
+  from_user?: string;
+  to_user?: string;
+  read?: 0 | 1;
+  message?: string;
+  notification_text?: string;
+  reference_doctype?: string;
+  reference_name?: string;
+  creation?: string;
+}
+
+/** A single widget entry from `CRM Dashboard.layout` (a JSON array). */
+export interface CrmDashboardWidget {
+  name: string;
+  type: "number_chart" | "axis_chart" | "donut_chart" | "spacer";
+  tooltip?: string;
+  layout: { x: number; y: number; w: number; h: number; i: string };
+  data?: unknown;
+}
+
+/** One column of a kanban board, as returned by `crm.api.doc.get_data`. */
+export interface CrmKanbanColumn {
+  name: string;
+  count?: number;
+  title?: string;
+  color?: string;
+}
+
+/** Per-user list/kanban view config (`CRM View Settings` doctype). */
+export interface CrmViewSettings {
+  name?: string;
+  user?: string;
+  dt?: string;
+  label?: string;
+  type?: "list" | "kanban" | "group_by";
+  columns?: string;
+  rows?: string;
+  filters?: string;
+  order_by?: string;
+  kanban_columns?: string;
+  kanban_fields?: string;
+  column_field?: string;
+  group_by_field?: string;
+  title_field?: string;
+  route_name?: string;
+  icon?: string;
+  pinned?: 0 | 1;
+  public?: 0 | 1;
+  is_default?: 0 | 1;
+  is_standard?: 0 | 1;
+  load_default_columns?: 0 | 1;
+}
+
+export interface FrappeEventParticipant {
+  name?: string;
+  reference_doctype?: string;
+  reference_docname?: string;
+  email?: string;
+}
+
+/** Core Frappe `Event` doctype — used here for CRM meetings/calendar (no CRM-specific meeting doctype exists). */
+export interface FrappeEvent {
+  name?: string;
+  subject: string;
+  event_category?: "Event" | "Meeting" | "Call" | "Sent/Received Email" | "Other";
+  event_type?: "Private" | "Public";
+  starts_on?: string;
+  ends_on?: string;
+  all_day?: 0 | 1;
+  status?: "Open" | "Completed" | "Closed" | "Cancelled";
+  location?: string;
+  description?: string;
+  color?: string;
+  reference_doctype?: string;
+  reference_docname?: string;
+  event_participants?: FrappeEventParticipant[];
+  owner?: string;
+}
+
 export type DocTypeName =
   | "Item"
   | "Customer"
@@ -827,4 +1093,12 @@ export type DocTypeName =
   | "Export Packing Details"
   | "Landed Cost Voucher"
   | "Payment Entry"
-  | "GL Entry";
+  | "GL Entry"
+  | "CRM Lead"
+  | "CRM Deal"
+  | "CRM Task"
+  | "FCRM Note"
+  | "CRM Call Log"
+  | "CRM Organization"
+  | "CRM Notification"
+  | "Event";

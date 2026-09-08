@@ -98,7 +98,7 @@ export function Header({
         </Button>
       )}
 
-      {brand && <Logo className="h-10 w-auto shrink-0" />}
+      {brand && <Logo className="h-12 w-auto shrink-0" />}
       <Breadcrumbs />
 
       <div className="ml-auto flex items-center gap-1.5 sm:gap-2">

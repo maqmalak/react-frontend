@@ -40,6 +40,7 @@ export function FieldRenderer({
   errors,
   readOnly,
   fetchValues,
+  hideLabel,
 }: {
   meta: FormFieldMeta;
   values: FormValues;
@@ -47,6 +48,8 @@ export function FieldRenderer({
   errors?: Record<string, string>;
   readOnly?: boolean;
   fetchValues?: FormValues;
+  /** Skip the field's own label — for contexts that already show it elsewhere (e.g. a table column header). */
+  hideLabel?: boolean;
 }) {
   const { fieldname, fieldtype } = meta;
   const label = meta.label ?? fieldname.replace(/_/g, " ");
@@ -134,7 +137,7 @@ export function FieldRenderer({
 
   return (
     <div className={cn("space-y-1", fieldtype === "Check" && "pt-5")}>
-      {fieldtype !== "Check" && (
+      {fieldtype !== "Check" && !hideLabel && (
         <Label required={meta.reqd}>{label}</Label>
       )}
       {input}

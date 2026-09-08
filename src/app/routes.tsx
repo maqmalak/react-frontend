@@ -36,6 +36,12 @@ const LandedCostVouchersPage = lazy(() => import("@/pages/Purchase/LandedCostVou
 const LandedCostVoucherFormPage = lazy(() => import("@/pages/Purchase/LandedCostVoucherFormPage").then((m) => ({ default: m.LandedCostVoucherFormPage })));
 const LandedCostVoucherDetailPage = lazy(() => import("@/pages/Purchase/LandedCostVoucherDetailPage").then((m) => ({ default: m.LandedCostVoucherDetailPage })));
 const WorkOrdersPage = lazy(() => import("@/pages/Production/WorkOrdersPage").then((m) => ({ default: m.WorkOrdersPage })));
+const CrmLeadsPage = lazy(() => import("@/pages/CRM/LeadsPage").then((m) => ({ default: m.LeadsPage })));
+const CrmLeadDetailPage = lazy(() => import("@/pages/CRM/LeadDetailPage").then((m) => ({ default: m.LeadDetailPage })));
+const CrmLeadFormPage = lazy(() => import("@/pages/CRM/LeadFormPage").then((m) => ({ default: m.LeadFormPage })));
+const CrmDealsPage = lazy(() => import("@/pages/CRM/DealsPage").then((m) => ({ default: m.DealsPage })));
+const CrmDealDetailPage = lazy(() => import("@/pages/CRM/DealDetailPage").then((m) => ({ default: m.DealDetailPage })));
+const CrmDealFormPage = lazy(() => import("@/pages/CRM/DealFormPage").then((m) => ({ default: m.DealFormPage })));
 const UsersPage = lazy(() => import("@/pages/Admin/UsersPage").then((m) => ({ default: m.UsersPage })));
 const UserFormPage = lazy(() => import("@/pages/Admin/UserFormPage").then((m) => ({ default: m.UserFormPage })));
 const UserDetailPage = lazy(() => import("@/pages/Admin/UserDetailPage").then((m) => ({ default: m.UserDetailPage })));
@@ -189,7 +195,23 @@ export function AppRoutes() {
 
         {/* New module previews (Desktop / login only for now) */}
         <Route path="selling" element={<ComingSoonPage title="Selling" description="Quotations, sales orders and customers" />} />
-        <Route path="crm" element={<ComingSoonPage title="CRM" description="Leads, opportunities and customer engagement" />} />
+
+        {/* CRM */}
+        <Route path="crm" element={<Navigate to="/crm/leads" replace />} />
+        <Route path="crm/leads" element={<Suspense fallback={<FullPageLoader />}><CrmLeadsPage /></Suspense>} />
+        <Route path="crm/leads/new" element={<Suspense fallback={<FullPageLoader />}><CrmLeadFormPage /></Suspense>} />
+        <Route path="crm/leads/:name" element={<Suspense fallback={<FullPageLoader />}><CrmLeadDetailPage /></Suspense>} />
+        <Route path="crm/leads/:name/edit" element={<Suspense fallback={<FullPageLoader />}><CrmLeadFormPage /></Suspense>} />
+        <Route path="crm/deals" element={<Suspense fallback={<FullPageLoader />}><CrmDealsPage /></Suspense>} />
+        <Route path="crm/deals/new" element={<Suspense fallback={<FullPageLoader />}><CrmDealFormPage /></Suspense>} />
+        <Route path="crm/deals/:name" element={<Suspense fallback={<FullPageLoader />}><CrmDealDetailPage /></Suspense>} />
+        <Route path="crm/deals/:name/edit" element={<Suspense fallback={<FullPageLoader />}><CrmDealFormPage /></Suspense>} />
+        <Route path="crm/contacts" element={<ComingSoonPage title="Contacts" description="Contacts linked to leads and deals (coming soon)" />} />
+        <Route path="crm/organizations" element={<ComingSoonPage title="Accounts" description="Organizations / accounts (coming soon)" />} />
+        <Route path="crm/follow-ups" element={<ComingSoonPage title="Follow-ups" description="Reminders and follow-up tasks (coming soon)" />} />
+        <Route path="crm/calendar" element={<ComingSoonPage title="Calendar" description="Meeting calendar (coming soon)" />} />
+        <Route path="crm/dashboard" element={<ComingSoonPage title="CRM Dashboard" description="Pipeline analytics (coming soon)" />} />
+
         <Route path="subcontracting" element={<ComingSoonPage title="Subcontracting" description="Subcontracting orders and receipts" />} />
         <Route path="assets" element={<ComingSoonPage title="Assets" description="Fixed asset register, depreciation and maintenance" />} />
         <Route path="support" element={<ComingSoonPage title="Support" description="Issues and customer support tickets" />} />

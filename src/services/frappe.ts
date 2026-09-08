@@ -140,6 +140,31 @@ export function postCall<T = unknown>(method: string, params?: Record<string, un
   return wrap<T>(http.post(`/api/method/${method}`, params ?? {}));
 }
 
+export interface FrappeFile {
+  name: string;
+  file_name: string;
+  file_url: string;
+  file_size?: number;
+  is_private?: 0 | 1;
+  creation: string;
+  owner?: string;
+}
+
+/** Upload a file and attach it to a document via Frappe's standard `/api/method/upload_file` endpoint. */
+export function uploadFile(
+  file: File,
+  opts: { doctype: string; docname: string; isPrivate?: boolean },
+): Promise<FrappeFile> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("doctype", opts.doctype);
+  form.append("docname", opts.docname);
+  form.append("is_private", opts.isPrivate === false ? "0" : "1");
+  // Override the instance's default JSON content-type so the browser sets
+  // the correct `multipart/form-data; boundary=...` header for FormData.
+  return wrap<FrappeFile>(http.post("/api/method/upload_file", form, { headers: { "Content-Type": undefined } }));
+}
+
 /**
  * Call `run_doc_method` (Frappe's endpoint for whitelisted Document *instance*
  * methods, e.g. `LandedCostVoucher.get_items_from_purchase_receipts`). Unlike
@@ -253,6 +278,6 @@ export function humanizeError(error: unknown): string {
   return "Something went wrong. Please try again.";
 }
 
-function stripHtml(s: string): string {
+export function stripHtml(s: string): string {
   return s.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }

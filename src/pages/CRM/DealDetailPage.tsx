@@ -1,0 +1,238 @@
+import { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import toast from "react-hot-toast";
+import { Handshake, Pencil, Phone, Mail, CheckSquare, MessageSquare, Plus } from "lucide-react";
+import { PageHeader } from "@/components/common/page-header";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { SectionCard } from "@/components/common/section-card";
+import { StatusBadge } from "@/components/common/status-badge";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog } from "@/components/ui/dialog";
+import { FrappeForm } from "@/components/forms/frappe-form";
+import { CRM_TASK_FIELDS } from "@/components/forms/form-configs";
+import { useCrmDeal } from "@/hooks/useCrmDeals";
+import { useCrmActivities, useCrmNotes } from "@/hooks/useCrmActivities";
+import { useCrmTasks, useCrmTaskMutations } from "@/hooks/useCrmTasks";
+import { humanizeError } from "@/services/frappe";
+import { formatDateTime } from "@/utils/dates";
+import { formatMoney } from "@/utils/currency";
+import { notifyDataChanged } from "@/hooks/useRealtime";
+import type { CrmTask } from "@/types/frappe";
+
+export function DealDetailPage() {
+  const { name } = useParams<{ name: string }>();
+  const navigate = useNavigate();
+  const { data: deal, error, isLoading, mutate } = useCrmDeal(name);
+  const { comments, isLoading: activitiesLoading, addComment } = useCrmActivities(name);
+  const { data: notes } = useCrmNotes("CRM Deal", name);
+  const { data: tasks, mutate: mutateTasks } = useCrmTasks({ referenceDoctype: "CRM Deal", referenceDocname: name });
+  const { createDoc: createTask, setStatus, loading: taskSaving } = useCrmTaskMutations();
+
+  const [comment, setComment] = useState("");
+  const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [taskValues, setTaskValues] = useState<Partial<CrmTask>>({ status: "Todo", priority: "Medium" });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="h-8 w-48 animate-pulse rounded bg-muted" />
+        <div className="h-40 w-full animate-pulse rounded-md bg-muted" />
+      </div>
+    );
+  }
+  if (error || !deal) {
+    return (
+      <div className="py-10 text-center">
+        <p className="text-sm text-muted-foreground">{humanizeError(error) || "Deal not found"}</p>
+        <Button className="mt-3" onClick={() => void mutate()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  const title = deal.organization || deal.organization_name || deal.name;
+
+  const submitComment = async () => {
+    if (!comment.trim()) return;
+    try {
+      await addComment(comment.trim(), "CRM Deal");
+      setComment("");
+      toast.success("Comment added");
+    } catch (err) {
+      toast.error(humanizeError(err));
+    }
+  };
+
+  const submitTask = async () => {
+    if (!taskValues.title || !taskValues.due_date) {
+      toast.error("Title and due date are required");
+      return;
+    }
+    try {
+      await createTask({
+        ...taskValues,
+        reference_doctype: "CRM Deal",
+        reference_docname: name,
+      });
+      toast.success("Follow-up task created");
+      notifyDataChanged();
+      setTaskModalOpen(false);
+      setTaskValues({ status: "Todo", priority: "Medium" });
+      void mutateTasks();
+    } catch (err) {
+      toast.error(humanizeError(err));
+    }
+  };
+
+  const markTaskDone = async (task: CrmTask) => {
+    try {
+      await setStatus(task.name!, "Done");
+      void mutateTasks();
+    } catch (err) {
+      toast.error(humanizeError(err));
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title={title ?? "Deal"}
+        subtitle={deal.lead_name || deal.email}
+        icon={<Handshake className="h-5 w-5" />}
+        actions={
+          <Button onClick={() => navigate(`/crm/deals/${encodeURIComponent(name!)}/edit`)}>
+            <Pencil className="h-4 w-4" /> Edit
+          </Button>
+        }
+      />
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <Card className="p-4">
+          <p className="text-sm text-muted-foreground">Status</p>
+          <StatusBadge status={deal.status} />
+        </Card>
+        <Card className="p-4">
+          <p className="text-sm text-muted-foreground">Value</p>
+          <p className="font-bold">{formatMoney(deal.deal_value ?? deal.expected_deal_value, deal.currency)}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-sm text-muted-foreground">Email</p>
+          <p className="flex items-center gap-1.5 truncate font-medium"><Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />{deal.email || "—"}</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-sm text-muted-foreground">Phone</p>
+          <p className="flex items-center gap-1.5 font-medium"><Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />{deal.mobile_no || deal.phone || "—"}</p>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="space-y-4 lg:col-span-2">
+          <SectionCard title="Activity">
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <Textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="Add a comment…"
+                  className="min-h-[60px] flex-1"
+                />
+                <Button onClick={() => void submitComment()} disabled={!comment.trim()}>
+                  <MessageSquare className="h-4 w-4" /> Post
+                </Button>
+              </div>
+              {activitiesLoading ? (
+                <div className="h-16 w-full animate-pulse rounded bg-muted" />
+              ) : comments.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">No activity yet.</p>
+              ) : (
+                <ul className="space-y-3 border-t border-border pt-3">
+                  {comments.map((c) => (
+                    <li key={c.name} className="text-sm">
+                      <p className="text-muted-foreground">
+                        <span className="font-medium text-foreground">{c.owner}</span>{" "}
+                        <span dangerouslySetInnerHTML={{ __html: c.content }} />
+                      </p>
+                      <p className="text-xs text-muted-foreground">{formatDateTime(c.creation)}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </SectionCard>
+        </div>
+
+        <div className="space-y-4">
+          <SectionCard
+            title="Follow-ups"
+            actions={
+              <Button size="sm" variant="outline" onClick={() => setTaskModalOpen(true)}>
+                <Plus className="h-3.5 w-3.5" /> Add
+              </Button>
+            }
+          >
+            {(tasks ?? []).length === 0 ? (
+              <p className="text-sm text-muted-foreground">No follow-ups scheduled.</p>
+            ) : (
+              <ul className="space-y-2">
+                {(tasks ?? []).map((t) => (
+                  <li key={t.name} className="flex items-start justify-between gap-2 rounded-md border border-border p-2">
+                    <div>
+                      <p className="text-sm font-medium">{t.title}</p>
+                      <p className="text-xs text-muted-foreground">{formatDateTime(t.due_date)}</p>
+                      <Badge variant="outline" className="mt-1">{t.status}</Badge>
+                    </div>
+                    {t.status !== "Done" && (
+                      <button
+                        className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-primary"
+                        title="Mark done"
+                        onClick={() => void markTaskDone(t)}
+                      >
+                        <CheckSquare className="h-4 w-4" />
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </SectionCard>
+
+          <SectionCard title="Notes">
+            {(notes ?? []).length === 0 ? (
+              <p className="text-sm text-muted-foreground">No notes yet.</p>
+            ) : (
+              <ul className="space-y-2">
+                {(notes ?? []).map((n) => (
+                  <li key={n.name} className="rounded-md border border-border p-2 text-sm">
+                    <p className="font-medium">{n.title}</p>
+                    <p className="text-xs text-muted-foreground">{formatDateTime(n.modified)}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </SectionCard>
+        </div>
+      </div>
+
+      <Dialog open={taskModalOpen} onClose={() => setTaskModalOpen(false)} title="New Follow-up">
+        <div className="space-y-4">
+          <FrappeForm
+            fields={CRM_TASK_FIELDS}
+            values={taskValues}
+            onChange={(f, v) => setTaskValues((prev) => ({ ...prev, [f]: v }))}
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setTaskModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => void submitTask()} disabled={taskSaving}>
+              Create Follow-up
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+    </div>
+  );
+}

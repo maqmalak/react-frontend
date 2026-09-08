@@ -10,7 +10,9 @@ import { useAuth } from "./useAuth";
 interface CompanyContextValue {
   company?: string;
   setCompany: (company: string) => void;
-  companies: { name: string; label: string }[];
+  companies: { name: string; label: string; currency?: string }[];
+  /** `default_currency` of the currently selected company, if known. */
+  companyCurrency?: string;
   isLoading: boolean;
 }
 
@@ -25,9 +27,11 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   );
 
   const companies = React.useMemo(
-    () => (data ?? []).map((c) => ({ name: c.name, label: c.company_name ?? c.name })),
+    () => (data ?? []).map((c) => ({ name: c.name, label: c.company_name ?? c.name, currency: c.default_currency })),
     [data],
   );
+
+  const companyCurrency = companies.find((c) => c.name === company)?.currency;
 
   // Pick a sensible default once the list resolves.
   React.useEffect(() => {
@@ -44,7 +48,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <CompanyContext.Provider value={{ company, setCompany, companies, isLoading }}>
+    <CompanyContext.Provider value={{ company, setCompany, companies, companyCurrency, isLoading }}>
       {children}
     </CompanyContext.Provider>
   );

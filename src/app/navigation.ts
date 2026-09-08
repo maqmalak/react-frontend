@@ -39,6 +39,11 @@ import {
   TrendingUp,
   PieChart,
   Sliders,
+  UserPlus,
+  Building2 as OrgIcon,
+  CheckSquare,
+  CalendarDays,
+  LayoutGrid,
   type LucideIcon,
 } from "lucide-react";
 
@@ -188,7 +193,33 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
     },
   ],
   selling: [{ items: [{ label: "Selling", to: "/selling", icon: ShoppingBag }] }],
-  crm: [{ items: [{ label: "CRM", to: "/crm", icon: Handshake }] }],
+  crm: [
+    {
+      title: "Overview",
+      items: [{ label: "Dashboard", to: "/crm/dashboard", icon: LayoutGrid }],
+    },
+    {
+      title: "Pipeline",
+      items: [
+        { label: "Leads", to: "/crm/leads", icon: UserPlus },
+        { label: "Deals", to: "/crm/deals", icon: Handshake },
+      ],
+    },
+    {
+      title: "Relationships",
+      items: [
+        { label: "Contacts", to: "/crm/contacts", icon: Users },
+        { label: "Accounts", to: "/crm/organizations", icon: OrgIcon },
+      ],
+    },
+    {
+      title: "Activities",
+      items: [
+        { label: "Follow-ups", to: "/crm/follow-ups", icon: CheckSquare },
+        { label: "Calendar", to: "/crm/calendar", icon: CalendarDays },
+      ],
+    },
+  ],
   subcontracting: [{ items: [{ label: "Subcontracting", to: "/subcontracting", icon: Cog }] }],
   assets: [{ items: [{ label: "Assets", to: "/assets", icon: Building2 }] }],
   support: [{ items: [{ label: "Support", to: "/support", icon: LifeBuoy }] }],
@@ -308,6 +339,11 @@ export const ROUTE_TITLES: Record<string, string> = {
   suppliers: "Suppliers",
   lc: "LC",
   new: "New",
+  leads: "Leads",
+  deals: "Deals",
+  organizations: "Accounts",
+  "follow-ups": "Follow-ups",
+  calendar: "Calendar",
 };
 
 export function titleForSegment(segment: string): string {

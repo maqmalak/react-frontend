@@ -1,6 +1,8 @@
 import * as React from "react";
-import { Copy, Plus, Trash2 } from "lucide-react";
+import { Columns3, Copy, Eye, EyeOff, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { cn } from "@/utils/cn";
 import { type FormFieldMeta } from "@/components/forms/field-primitives";
 import { FieldRenderer } from "@/components/forms/frappe-form";
@@ -23,6 +25,14 @@ export interface EditableChildTableProps {
   readOnly?: boolean;
   emptyMessage?: string;
   className?: string;
+  /** Adds a row-selection checkbox column plus a "Delete Selected" bulk action (desktop only). */
+  selectable?: boolean;
+  /** Adds a per-row edit icon (desktop only) that opens the row's fields in a dialog — handy when there are more columns than fit comfortably in the grid. */
+  editableInDialog?: boolean;
+  /** Extra fields shown only in the row-edit dialog, on top of `columns` — for less-used fields that don't need a permanent grid column. */
+  extraDialogColumns?: FormFieldMeta[];
+  /** Adds a "Columns" button to show/hide inline grid columns (desktop only). Hidden columns still appear in the row-edit dialog. */
+  columnPicker?: boolean;
 }
 
 /**
@@ -44,19 +54,89 @@ export function EditableChildTable({
   readOnly,
   emptyMessage = "No rows yet. Click Add Row to begin.",
   className,
+  selectable,
+  editableInDialog,
+  extraDialogColumns,
+  columnPicker,
 }: EditableChildTableProps) {
   const linkFieldnames = React.useMemo(
     () => columns.filter((c) => c.fieldtype === "Link").map((c) => c.fieldname),
     [columns],
   );
+  const [selectedRows, setSelectedRows] = React.useState<Set<number>>(new Set());
+  const [editingIndex, setEditingIndex] = React.useState<number | null>(null);
+  const [hiddenFields, setHiddenFields] = React.useState<Set<string>>(new Set());
+
+  const visibleColumns = React.useMemo(
+    () => columns.filter((c) => !hiddenFields.has(c.fieldname)),
+    [columns, hiddenFields],
+  );
+  const dialogColumns = React.useMemo(
+    () => [...columns, ...(extraDialogColumns ?? [])],
+    [columns, extraDialogColumns],
+  );
+
+  const toggleField = (fieldname: string) =>
+    setHiddenFields((prev) => {
+      const next = new Set(prev);
+      if (next.has(fieldname)) next.delete(fieldname);
+      else next.add(fieldname);
+      return next;
+    });
+
+  const toggleRow = (i: number) =>
+    setSelectedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+
+  const deleteSelected = () => {
+    if (!onRemoveRow) return;
+    Array.from(selectedRows)
+      .sort((a, b) => b - a)
+      .forEach((i) => onRemoveRow(i));
+    setSelectedRows(new Set());
+  };
 
   return (
     <div className={cn("space-y-3", className)}>
-      {!readOnly && onAddRow && (
-        <div className="flex items-center justify-end">
-          <Button variant="outline" size="sm" onClick={onAddRow}>
-            <Plus className="h-4 w-4" /> Add Row
-          </Button>
+      {(onAddRow || columnPicker || (!readOnly && selectable && selectedRows.size > 0)) && (
+        <div className="flex items-center justify-end gap-2">
+          {!readOnly && selectable && selectedRows.size > 0 && onRemoveRow && (
+            <Button variant="outline" size="sm" onClick={deleteSelected}>
+              <Trash2 className="h-4 w-4" /> Delete Selected ({selectedRows.size})
+            </Button>
+          )}
+          {columnPicker && (
+            <DropdownMenu
+              trigger={
+                <Button variant="outline" size="sm">
+                  <Columns3 className="h-4 w-4" /> Columns
+                </Button>
+              }
+              items={columns.map((c) => {
+                const hidden = hiddenFields.has(c.fieldname);
+                return {
+                  label: c.label ?? c.fieldname,
+                  icon: hidden ? (
+                    <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-3.5 w-3.5 text-primary" />
+                  ),
+                  onClick: () => toggleField(c.fieldname),
+                  disabled: visibleColumns.length <= 1 && !hidden,
+                };
+              })}
+              width="w-56"
+            />
+          )}
+          {!readOnly && onAddRow && (
+            <Button variant="outline" size="sm" onClick={onAddRow}>
+              <Plus className="h-4 w-4" /> Add Row
+            </Button>
+          )}
         </div>
       )}
 
@@ -71,10 +151,23 @@ export function EditableChildTable({
             <table className="w-full min-w-max border-collapse text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/50 text-left">
-                  <th className="sticky left-0 z-10 w-24 bg-muted/50 px-3 py-2 text-xs font-semibold text-muted-foreground">
-                    Actions
+                  <th className="sticky left-0 z-10 w-28 bg-muted/50 px-3 py-2 text-xs font-semibold text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      {selectable && (
+                        <input
+                          type="checkbox"
+                          className="accent-primary"
+                          aria-label="Select all rows"
+                          checked={rows.length > 0 && selectedRows.size === rows.length}
+                          onChange={(e) =>
+                            setSelectedRows(e.target.checked ? new Set(rows.map((_, i) => i)) : new Set())
+                          }
+                        />
+                      )}
+                      Actions
+                    </div>
                   </th>
-                  {columns.map((col) => (
+                  {visibleColumns.map((col) => (
                     <th
                       key={col.fieldname}
                       className="min-w-[110px] whitespace-nowrap px-3 py-2 text-xs font-semibold text-muted-foreground"
@@ -88,7 +181,25 @@ export function EditableChildTable({
                 {rows.map((row, i) => (
                   <tr key={row.__uuid ?? i} className="border-b border-border last:border-0 hover:bg-muted/30">
                     <td className="sticky left-0 z-10 bg-card px-2 py-1.5">
-                      <div className="flex gap-1">
+                      <div className="flex items-center gap-1">
+                        {selectable && (
+                          <input
+                            type="checkbox"
+                            className="accent-primary mr-0.5"
+                            aria-label={`Select row ${i + 1}`}
+                            checked={selectedRows.has(i)}
+                            onChange={() => toggleRow(i)}
+                          />
+                        )}
+                        {editableInDialog && (
+                          <button
+                            title="Edit row"
+                            className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                            onClick={() => setEditingIndex(i)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         {!readOnly && onDuplicateRow && (
                           <button
                             title="Duplicate row"
@@ -109,12 +220,13 @@ export function EditableChildTable({
                         )}
                       </div>
                     </td>
-                    {columns.map((col) => (
+                    {visibleColumns.map((col) => (
                       <td key={col.fieldname} className="px-1 py-1.5">
                         {renderCell?.(row, col) ?? (
                           <FieldRenderer
                             meta={{ ...col, read_only: col.read_only || readOnly }}
                             values={row}
+                            hideLabel
                             onChange={(fieldname, value) => {
                               onChange(i, fieldname, value);
                               if (linkFieldnames.includes(fieldname)) {
@@ -159,25 +271,32 @@ export function EditableChildTable({
                   </div>
                 </div>
                 <div className="grid grid-cols-1 gap-3">
-                  {columns.map((col) => (
-                    <div key={col.fieldname}>
-                      <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        {col.label}
-                      </label>
-                      {renderCell?.(row, col) ?? (
-                        <FieldRenderer
-                          meta={{ ...col, read_only: col.read_only || readOnly }}
-                          values={row}
-                          onChange={(fieldname, value) => {
-                            onChange(i, fieldname, value);
-                            if (linkFieldnames.includes(fieldname)) {
-                              onLinkChange?.(i, fieldname, value ?? "");
-                            }
-                          }}
-                        />
-                      )}
-                    </div>
-                  ))}
+                  {columns.map((col) => {
+                    const custom = renderCell?.(row, col);
+                    return (
+                      <div key={col.fieldname}>
+                        {custom ? (
+                          <>
+                            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              {col.label}
+                            </label>
+                            {custom}
+                          </>
+                        ) : (
+                          <FieldRenderer
+                            meta={{ ...col, read_only: col.read_only || readOnly }}
+                            values={row}
+                            onChange={(fieldname, value) => {
+                              onChange(i, fieldname, value);
+                              if (linkFieldnames.includes(fieldname)) {
+                                onLinkChange?.(i, fieldname, value ?? "");
+                              }
+                            }}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -196,6 +315,59 @@ export function EditableChildTable({
             ))}
           </div>
         </div>
+      )}
+
+      {editableInDialog && editingIndex !== null && rows[editingIndex] && (
+        <Dialog open onClose={() => setEditingIndex(null)} title={`Row ${editingIndex + 1}`} size="lg">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {dialogColumns.map((col) => {
+              const custom = renderCell?.(rows[editingIndex], col);
+              return (
+                <div key={col.fieldname}>
+                  {custom ? (
+                    <>
+                      <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        {col.label}
+                      </label>
+                      {custom}
+                    </>
+                  ) : (
+                    <FieldRenderer
+                      meta={{ ...col, read_only: col.read_only || readOnly }}
+                      values={rows[editingIndex]}
+                      onChange={(fieldname, value) => {
+                        onChange(editingIndex, fieldname, value);
+                        if (linkFieldnames.includes(fieldname)) {
+                          onLinkChange?.(editingIndex, fieldname, value ?? "");
+                        }
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-4 flex items-center justify-between">
+            {!readOnly && onRemoveRow ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive hover:bg-destructive/10"
+                onClick={() => {
+                  onRemoveRow(editingIndex);
+                  setEditingIndex(null);
+                }}
+              >
+                <Trash2 className="h-4 w-4" /> Delete Row
+              </Button>
+            ) : (
+              <span />
+            )}
+            <Button size="sm" onClick={() => setEditingIndex(null)}>
+              Done
+            </Button>
+          </div>
+        </Dialog>
       )}
     </div>
   );

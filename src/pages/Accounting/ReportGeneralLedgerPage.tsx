@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { SlidersHorizontal, ChevronUp, ChevronDown, Play, Wallet, ArrowDownRight, ArrowUpRight, Landmark } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { Card } from "@/components/ui/card";
@@ -43,6 +44,16 @@ const HIDE_BY_DEFAULT = new Set(["gl_entry", "party_type", "against_voucher_type
 
 const NUMERIC_TYPES = new Set(["Currency", "Float", "Int"]);
 
+// voucher_type -> the detail route this app has for it. voucher_no links only
+// go live for types we actually have a page for; everything else stays plain text.
+const VOUCHER_TYPE_ROUTES: Record<string, string> = {
+  "Journal Entry": "/accounting/journal-entries",
+  "Purchase Invoice": "/purchase/invoices",
+  "Purchase Receipt": "/purchase/receipts",
+  "Purchase Order": "/import/purchase-orders",
+  "Landed Cost Voucher": "/purchase/landed-costs",
+};
+
 function isSpecialRow(r: Record<string, unknown>): boolean {
   return typeof r.account === "string" && r.account.startsWith("'") && r.account.endsWith("'");
 }
@@ -62,16 +73,25 @@ function balanceWithDrCr(n: number): string {
  * desk report exactly; nothing here recomputes debit/credit/balance.
  */
 export function ReportGeneralLedgerPage() {
-  const { company } = useCompanyContext();
+  const navigate = useNavigate();
+  const { company, setCompany } = useCompanyContext();
   const { data: fiscalYears } = useFiscalYears();
   const latestFY = fiscalYears?.[0];
 
+  const [searchParams] = useSearchParams();
+  const voucherNoParam = searchParams.get("voucher_no") ?? "";
+  const companyParam = searchParams.get("company") ?? "";
+
   const [filtersOpen, setFiltersOpen] = useState(true);
-  const [fromDate, setFromDate] = useState("");
+  // Arriving with a specific voucher to look up (e.g. "View Ledger" from a
+  // Journal Entry) — widen the default range so the voucher's own posting
+  // date is never accidentally excluded by the usual fiscal-year default.
+  const [fromDate, setFromDate] = useState(voucherNoParam ? "2000-01-01" : "");
   const [toDate, setToDate] = useState(todayISO());
   const [financeBook, setFinanceBook] = useState("");
   const [account, setAccount] = useState("");
   const [voucherType, setVoucherType] = useState("");
+  const [voucherNo, setVoucherNo] = useState(voucherNoParam);
   const [partyType, setPartyType] = useState("");
   const [party, setParty] = useState("");
   const [costCenter, setCostCenter] = useState("");
@@ -84,6 +104,12 @@ export function ReportGeneralLedgerPage() {
     if (latestFY && !fromDate) setFromDate(latestFY.year_start_date ?? "");
   }, [latestFY, fromDate]);
 
+  // Sync the global company selector once, if a different company arrived via URL.
+  useEffect(() => {
+    if (companyParam && companyParam !== company) setCompany(companyParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyParam]);
+
   const filters = useMemo(
     () => ({
       company,
@@ -91,13 +117,14 @@ export function ReportGeneralLedgerPage() {
       to_date: toDate,
       finance_book: financeBook || undefined,
       account: account ? [account] : undefined,
+      voucher_no: voucherNo || undefined,
       party_type: partyType || undefined,
       party: partyType && party ? [party] : undefined,
       cost_center: costCenter ? [costCenter] : undefined,
       project: project ? [project] : undefined,
       ...opts,
     }),
-    [company, fromDate, toDate, financeBook, account, partyType, party, costCenter, project, opts],
+    [company, fromDate, toDate, financeBook, account, voucherNo, partyType, party, costCenter, project, opts],
   );
 
   // General Ledger pulls every raw posting in the range — expensive for a
@@ -179,11 +206,28 @@ export function ReportGeneralLedgerPage() {
             if (v === null || v === undefined || v === "") return "—";
             if (numeric) return formatNumber(asNumber(v), c.fieldtype === "Int" ? 0 : 2);
             if (c.fieldtype === "Date") return String(v);
+            if (c.fieldname === "voucher_no") {
+              const routeBase = VOUCHER_TYPE_ROUTES[String(r.voucher_type ?? "")];
+              if (routeBase) {
+                return (
+                  <button
+                    type="button"
+                    className="text-primary hover:underline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`${routeBase}/${encodeURIComponent(String(v))}`);
+                    }}
+                  >
+                    {String(v)}
+                  </button>
+                );
+              }
+            }
             return String(v);
           },
         };
       }),
-    [columns],
+    [columns, navigate],
   );
 
   const totalDebit = totalRow ? asNumber(totalRow.debit) : filteredRows.reduce((s, r) => s + asNumber(r.debit), 0);
@@ -196,13 +240,14 @@ export function ReportGeneralLedgerPage() {
     : 0;
 
   const activeFilterCount =
-    [financeBook, account, voucherType, partyType, costCenter, project].filter(Boolean).length +
+    [financeBook, account, voucherType, voucherNo, partyType, costCenter, project].filter(Boolean).length +
     Object.values(opts).filter(Boolean).length;
 
   const clearFilters = () => {
     setFinanceBook("");
     setAccount("");
     setVoucherType("");
+    setVoucherNo("");
     setPartyType("");
     setParty("");
     setCostCenter("");
@@ -212,6 +257,19 @@ export function ReportGeneralLedgerPage() {
   };
 
   const generateLedger = () => setGeneratedFiltersKey(filtersKey);
+
+  // Deep-linked with a voucher_no (e.g. "View Ledger" from a Journal Entry) —
+  // run automatically once we have everything the report needs, and collapse
+  // the filters panel since the user came here to see results, not tweak inputs.
+  const autoRan = useRef(false);
+  useEffect(() => {
+    if (autoRan.current || !voucherNoParam) return;
+    if (!company || !fromDate || !toDate) return;
+    autoRan.current = true;
+    setGeneratedFiltersKey(filtersKey);
+    setFiltersOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voucherNoParam, company, fromDate, toDate, filtersKey]);
 
   return (
     <div className="space-y-4">
@@ -275,6 +333,15 @@ export function ReportGeneralLedgerPage() {
                       meta={{ fieldname: "account", label: "Account", fieldtype: "Link", options: "Account", placeholder: "All accounts" }}
                       value={account}
                       onChange={setAccount}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="gl-voucher-no">Voucher No</Label>
+                    <Input
+                      id="gl-voucher-no"
+                      value={voucherNo}
+                      placeholder="e.g. ACC-JV-2026-00001"
+                      onChange={(e) => setVoucherNo(e.target.value)}
                     />
                   </div>
                   <div>

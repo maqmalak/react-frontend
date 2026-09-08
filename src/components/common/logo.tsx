@@ -2,12 +2,11 @@
 function LogoMark() {
   return (
     <>
-      <path d="M165 173 Q165 133 205 133 H258 V510 H205 Q165 510 165 470 Z" fill="#21999b" />
-      <path d="M278 300 Q278 270 308 270 H365 V510 H278 Z" fill="#21999b" />
-      <path d="M383 352 H425 Q470 352 470 397 V465 Q470 510 425 510 H383 Z" fill="#21999b" />
+      <rect x="165" y="133" width="93" height="377" rx="28" fill="#21999b" />
+      <rect x="278" y="133" width="87" height="295" rx="28" fill="#21999b" />
+      <rect x="383" y="133" width="87" height="377" rx="28" fill="#21999b" />
       <g fill="#ef5f21">
-        <rect x="404" y="278" width="66" height="15" rx="3" transform="rotate(45 437 285)" />
-        <rect x="404" y="278" width="66" height="15" rx="3" transform="rotate(-45 437 285)" />
+        <path d="M352 158 L418 158 L332 302 L402 302 L238 492 L298 330 L232 330 Z" />
       </g>
     </>
   );
@@ -53,11 +52,11 @@ export function Logo({
       </text>
       <text
         x="113"
-        y="96"
+        y="92"
         fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif"
-        fontSize="19"
+        fontSize="13"
         fontWeight="700"
-        letterSpacing="4"
+        letterSpacing="4.6"
         className={subClass}
       >
         SOLUTION

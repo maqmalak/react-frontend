@@ -391,6 +391,13 @@ export const JOURNAL_ENTRY_FIELDS: FormFieldMeta[] = [
     reqd: true,
     default: "Journal Entry",
   },
+  {
+    fieldname: "from_template",
+    label: "From Template",
+    fieldtype: "Link",
+    options: "Journal Entry Template",
+    description: "Optional — load a saved template's accounting lines below.",
+  },
   { fieldname: "company", label: "Company", fieldtype: "Link", options: "Company", reqd: true },
   { fieldname: "posting_date", label: "Posting Date", fieldtype: "Date", reqd: true, default: "Today" },
   { fieldname: "column_break_je_0", fieldtype: "Column Break" },
@@ -398,7 +405,29 @@ export const JOURNAL_ENTRY_FIELDS: FormFieldMeta[] = [
   { fieldname: "total_credit", label: "Total Credit", fieldtype: "Currency", read_only: true },
   { fieldname: "section_break_je_remark", label: "Reference", fieldtype: "Section Break" },
   { fieldname: "user_remark", label: "Remark", fieldtype: "Text" },
+  // Shown/hidden together via the "Toggle Extra Fields" header button — its own
+  // (untitled) section so `user_remark` above stays full-width, while these pair
+  // up side by side (each Column Break starts a new 2-field row).
+  { fieldname: "section_break_je_extra", fieldtype: "Section Break" },
+  { fieldname: "mode_of_payment", label: "Mode of Payment", fieldtype: "Link", options: "Mode of Payment", hidden: true },
+  { fieldname: "bill_no", label: "Bill No", fieldtype: "Data", hidden: true },
+  { fieldname: "column_break_je_extra_1", fieldtype: "Column Break" },
+  { fieldname: "bill_date", label: "Bill Date", fieldtype: "Date", hidden: true },
+  { fieldname: "due_date", label: "Due Date", fieldtype: "Date", hidden: true },
+  { fieldname: "column_break_je_extra_2", fieldtype: "Column Break" },
+  { fieldname: "is_opening", label: "Is Opening", fieldtype: "Select", options: "No\nYes", hidden: true },
+  { fieldname: "pay_to_recd_from", label: "Pay To / Recd From", fieldtype: "Data", hidden: true },
 ];
+
+/** Fieldnames toggled by the Journal Entry form's "Toggle Extra Fields" button. */
+export const JOURNAL_ENTRY_EXTRA_FIELDNAMES = [
+  "mode_of_payment",
+  "bill_no",
+  "bill_date",
+  "due_date",
+  "is_opening",
+  "pay_to_recd_from",
+] as const;
 
 /** "Accounting Entries" table — the actual debit/credit lines. Must balance to save. */
 export const JOURNAL_ENTRY_ACCOUNT_COLUMNS: FormFieldMeta[] = [
@@ -413,4 +442,119 @@ export const JOURNAL_ENTRY_ACCOUNT_COLUMNS: FormFieldMeta[] = [
   { fieldname: "cost_center", label: "Cost Center", fieldtype: "Link", options: "Cost Center" },
   { fieldname: "debit_in_account_currency", label: "Debit", fieldtype: "Currency" },
   { fieldname: "credit_in_account_currency", label: "Credit", fieldtype: "Currency" },
+];
+
+/** Extra Journal Entry Account fields shown only in the row-edit dialog — kept off the compact inline grid. */
+export const JOURNAL_ENTRY_ACCOUNT_EXTRA_FIELDS: FormFieldMeta[] = [
+  { fieldname: "bank_account", label: "Bank Account", fieldtype: "Link", options: "Bank Account" },
+  { fieldname: "account_currency", label: "Account Currency", fieldtype: "Link", options: "Currency", read_only: true },
+  { fieldname: "exchange_rate", label: "Exchange Rate", fieldtype: "Float" },
+  { fieldname: "project", label: "Project", fieldtype: "Link", options: "Project" },
+  {
+    fieldname: "reference_type",
+    label: "Reference Type",
+    fieldtype: "Select",
+    options:
+      "\nSales Invoice\nPurchase Invoice\nJournal Entry\nSales Order\nPurchase Order\nExpense Claim\nAsset\nLoan\nPayroll Entry\nEmployee Advance",
+  },
+  { fieldname: "reference_name", label: "Reference Name", fieldtype: "Data" },
+  { fieldname: "reference_due_date", label: "Reference Due Date", fieldtype: "Date" },
+  { fieldname: "is_advance", label: "Is Advance", fieldtype: "Select", options: "No\nYes" },
+  { fieldname: "user_remark", label: "Row Remark", fieldtype: "Text" },
+];
+
+/**
+ * CRM Lead fields — mirrors the field set on the installed Frappe CRM app's
+ * `CRM Lead` doctype (see apps/crm/crm/fcrm/doctype/crm_lead/crm_lead.json in
+ * the backend container). Only the fields useful for a compact create/edit
+ * form are included; SLA/sync-only fields are left off.
+ */
+export const CRM_LEAD_FIELDS: FormFieldMeta[] = [
+  { fieldname: "section_break_person", label: "Contact", fieldtype: "Section Break" },
+  { fieldname: "salutation", label: "Salutation", fieldtype: "Link", options: "Salutation" },
+  { fieldname: "first_name", label: "First Name", fieldtype: "Data", reqd: true },
+  { fieldname: "last_name", label: "Last Name", fieldtype: "Data" },
+  { fieldname: "column_break_person", fieldtype: "Column Break" },
+  { fieldname: "email", label: "Email", fieldtype: "Data" },
+  { fieldname: "mobile_no", label: "Mobile No.", fieldtype: "Data" },
+  { fieldname: "phone", label: "Phone", fieldtype: "Data" },
+  { fieldname: "gender", label: "Gender", fieldtype: "Link", options: "Gender" },
+
+  { fieldname: "section_break_org", label: "Organization", fieldtype: "Section Break" },
+  { fieldname: "organization", label: "Organization", fieldtype: "Data" },
+  { fieldname: "job_title", label: "Job Title", fieldtype: "Data" },
+  { fieldname: "website", label: "Website", fieldtype: "Data" },
+  { fieldname: "column_break_org", fieldtype: "Column Break" },
+  { fieldname: "no_of_employees", label: "No. of Employees", fieldtype: "Select", options: "1-10\n11-50\n51-200\n201-500\n501-1000\n1000+" },
+  { fieldname: "annual_revenue", label: "Annual Revenue", fieldtype: "Currency" },
+  { fieldname: "industry", label: "Industry", fieldtype: "Link", options: "CRM Industry" },
+
+  { fieldname: "section_break_qualify", label: "Qualification", fieldtype: "Section Break" },
+  { fieldname: "status", label: "Status", fieldtype: "Link", options: "CRM Lead Status" },
+  { fieldname: "source", label: "Source", fieldtype: "Link", options: "CRM Lead Source" },
+  { fieldname: "column_break_qualify", fieldtype: "Column Break" },
+  { fieldname: "lead_owner", label: "Lead Owner", fieldtype: "Link", options: "User" },
+  { fieldname: "territory", label: "Territory", fieldtype: "Link", options: "CRM Territory" },
+
+  { fieldname: "section_break_lost", label: "Lost Details", fieldtype: "Section Break" },
+  { fieldname: "lost_reason", label: "Lost Reason", fieldtype: "Link", options: "CRM Lost Reason" },
+  { fieldname: "lost_notes", label: "Lost Notes", fieldtype: "Text" },
+];
+
+/**
+ * CRM Deal fields — mirrors `CRM Deal` (apps/crm/crm/fcrm/doctype/crm_deal/crm_deal.json).
+ */
+export const CRM_DEAL_FIELDS: FormFieldMeta[] = [
+  { fieldname: "section_break_org", label: "Organization", fieldtype: "Section Break" },
+  { fieldname: "organization", label: "Organization", fieldtype: "Data", reqd: true },
+  { fieldname: "website", label: "Website", fieldtype: "Data" },
+  { fieldname: "industry", label: "Industry", fieldtype: "Link", options: "CRM Industry" },
+  { fieldname: "column_break_org", fieldtype: "Column Break" },
+  { fieldname: "annual_revenue", label: "Annual Revenue", fieldtype: "Currency" },
+  { fieldname: "no_of_employees", label: "No. of Employees", fieldtype: "Select", options: "1-10\n11-50\n51-200\n201-500\n501-1000\n1000+" },
+  { fieldname: "lead", label: "From Lead", fieldtype: "Link", options: "CRM Lead", read_only: true },
+
+  { fieldname: "section_break_person", label: "Primary Contact", fieldtype: "Section Break" },
+  { fieldname: "salutation", label: "Salutation", fieldtype: "Link", options: "Salutation" },
+  { fieldname: "first_name", label: "First Name", fieldtype: "Data" },
+  { fieldname: "last_name", label: "Last Name", fieldtype: "Data" },
+  { fieldname: "column_break_person", fieldtype: "Column Break" },
+  { fieldname: "email", label: "Primary Email", fieldtype: "Data" },
+  { fieldname: "mobile_no", label: "Primary Mobile No.", fieldtype: "Data" },
+  { fieldname: "phone", label: "Primary Phone", fieldtype: "Data" },
+
+  { fieldname: "section_break_deal", label: "Deal", fieldtype: "Section Break" },
+  { fieldname: "status", label: "Status", fieldtype: "Link", options: "CRM Deal Status" },
+  { fieldname: "deal_owner", label: "Deal Owner", fieldtype: "Link", options: "User" },
+  { fieldname: "probability", label: "Probability (%)", fieldtype: "Float" },
+  { fieldname: "column_break_deal", fieldtype: "Column Break" },
+  { fieldname: "currency", label: "Currency", fieldtype: "Link", options: "Currency", default: "USD" },
+  { fieldname: "deal_value", label: "Deal Value", fieldtype: "Currency" },
+  { fieldname: "expected_deal_value", label: "Expected Deal Value", fieldtype: "Currency" },
+  { fieldname: "expected_closure_date", label: "Expected Closure Date", fieldtype: "Date" },
+
+  { fieldname: "section_break_qualify", label: "Qualification", fieldtype: "Section Break" },
+  { fieldname: "source", label: "Source", fieldtype: "Link", options: "CRM Lead Source" },
+  { fieldname: "territory", label: "Territory", fieldtype: "Link", options: "CRM Territory" },
+  { fieldname: "column_break_qualify", fieldtype: "Column Break" },
+  { fieldname: "next_step", label: "Next Step", fieldtype: "Data" },
+  { fieldname: "closed_date", label: "Closed Date", fieldtype: "Date", read_only: true },
+
+  { fieldname: "section_break_lost", label: "Lost Details", fieldtype: "Section Break" },
+  { fieldname: "lost_reason", label: "Lost Reason", fieldtype: "Link", options: "CRM Lost Reason" },
+  { fieldname: "lost_notes", label: "Lost Notes", fieldtype: "Text" },
+];
+
+/**
+ * CRM Task fields (follow-ups/reminders — `CRM Task`), used both standalone
+ * (Follow-ups page) and embedded in a Lead/Deal detail page's quick-add form.
+ */
+export const CRM_TASK_FIELDS: FormFieldMeta[] = [
+  { fieldname: "title", label: "Title", fieldtype: "Data", reqd: true },
+  { fieldname: "status", label: "Status", fieldtype: "Select", options: "Backlog\nTodo\nIn Progress\nDone\nCancelled", default: "Todo" },
+  { fieldname: "column_break_task", fieldtype: "Column Break" },
+  { fieldname: "priority", label: "Priority", fieldtype: "Select", options: "Low\nMedium\nHigh", default: "Medium" },
+  { fieldname: "due_date", label: "Due Date & Reminder Time", fieldtype: "Datetime", reqd: true },
+  { fieldname: "section_break_task_desc", label: "Description", fieldtype: "Section Break" },
+  { fieldname: "description", label: "Description", fieldtype: "Text Editor" },
 ];

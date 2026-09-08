@@ -188,6 +188,21 @@ export async function submitJournalEntry(name: string): Promise<void> {
   await postCall("frappe.client.submit", { doc: full });
 }
 
+/** Count of (non-cancelled) GL Entries posted for a voucher — used to confirm a submit actually posted entries. */
+export async function countPostedGLEntries(voucherType: string, voucherNo: string): Promise<number> {
+  const rows = await getCall<{ name: string }[]>("frappe.client.get_list", {
+    doctype: "GL Entry",
+    filters: JSON.stringify([
+      ["voucher_type", "=", voucherType],
+      ["voucher_no", "=", voucherNo],
+      ["is_cancelled", "=", 0],
+    ]),
+    fields: JSON.stringify(["name"]),
+    limit_page_length: 0,
+  });
+  return rows.length;
+}
+
 // -------------------------------------------------------------------- Reports
 
 const PREPARED_REPORT_POLL_MS = 2500;

@@ -168,7 +168,7 @@ export function FrappeLinkField({
     };
   }, [open, updateMenuPos]);
 
-  const filters: unknown[][] = [];
+  const filters: unknown[][] = Array.isArray(meta.filters) ? [...(meta.filters as unknown[][])] : [];
   if (doctype === "Customer" || doctype === "Supplier" || doctype === "Item") {
     filters.push(["disabled", "=", 0]);
   }

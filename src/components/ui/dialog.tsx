@@ -1,4 +1,5 @@
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/utils/cn";
 
@@ -39,7 +40,7 @@ export function Dialog({ open, onClose, title, description, children, className,
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:p-6">
       <div
         className="fixed inset-0 bg-black/50 backdrop-blur-sm"
@@ -72,6 +73,7 @@ export function Dialog({ open, onClose, title, description, children, className,
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

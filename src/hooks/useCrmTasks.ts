@@ -1,0 +1,114 @@
+import {
+  useFrappeGetDocList,
+  useFrappeCreateDoc,
+  useFrappeUpdateDoc,
+  useFrappeDeleteDoc,
+} from "frappe-react-sdk";
+import type { CrmTask } from "@/types/frappe";
+
+const CRM_TASK_FIELDS = [
+  "name",
+  "title",
+  "description",
+  "status",
+  "priority",
+  "start_date",
+  "due_date",
+  "assigned_to",
+  "reference_doctype",
+  "reference_docname",
+  "modified",
+] as const;
+
+/**
+ * CRM Tasks — the follow-up/reminder mechanism for Leads & Deals
+ * (`reference_doctype`/`reference_docname` points back at the CRM Lead or
+ * CRM Deal). Pass `referenceDoctype`/`referenceDocname` to scope to one
+ * record's follow-ups, or omit both for the global Follow-ups page.
+ */
+export function useCrmTasks(args?: {
+  referenceDoctype?: string;
+  referenceDocname?: string;
+  status?: string[];
+  dueBefore?: string;
+  limit?: number;
+  enabled?: boolean;
+}) {
+  const { referenceDoctype, referenceDocname, status, dueBefore, limit = 200, enabled = true } = args ?? {};
+  const filters: unknown[][] = [];
+  if (referenceDoctype) filters.push(["reference_doctype", "=", referenceDoctype]);
+  if (referenceDocname) filters.push(["reference_docname", "=", referenceDocname]);
+  if (status && status.length > 0) filters.push(["status", "in", status]);
+  if (dueBefore) filters.push(["due_date", "<=", dueBefore]);
+
+  return useFrappeGetDocList<CrmTask>(
+    "CRM Task",
+    {
+      fields: CRM_TASK_FIELDS as unknown as (keyof CrmTask)[],
+      filters: filters as any,
+      limit,
+      orderBy: { field: "due_date", order: "asc" },
+    },
+    enabled ? `apparel.crm.tasks.${JSON.stringify({ referenceDoctype, referenceDocname, status, dueBefore, limit })}` : null,
+  );
+}
+
+/** Create / Update / Delete mutations for CRM Task. */
+export function useCrmTaskMutations(onSuccess?: (doc: CrmTask) => void) {
+  const create = useFrappeCreateDoc<CrmTask>();
+  const update = useFrappeUpdateDoc<CrmTask>();
+  const del = useFrappeDeleteDoc();
+
+  return {
+    createDoc: async (values: Partial<CrmTask>) => {
+      const doc = await create.createDoc("CRM Task", values as CrmTask);
+      onSuccess?.(doc);
+      return doc;
+    },
+    updateDoc: async (name: string, values: Partial<CrmTask>) => {
+      const doc = await update.updateDoc("CRM Task", name, values);
+      onSuccess?.(doc);
+      return doc;
+    },
+    /** Convenience one-liner for the "mark done" / "snooze" quick actions. */
+    setStatus: async (name: string, taskStatus: CrmTask["status"]) => {
+      const doc = await update.updateDoc("CRM Task", name, { status: taskStatus });
+      onSuccess?.(doc);
+      return doc;
+    },
+    reschedule: async (name: string, due_date: string) => {
+      const doc = await update.updateDoc("CRM Task", name, { due_date });
+      onSuccess?.(doc);
+      return doc;
+    },
+    deleteDoc: (name: string) => del.deleteDoc("CRM Task", name),
+    loading: create.loading || update.loading || del.loading,
+    error: create.error || update.error || del.error,
+  };
+}
+
+const OPEN_STATUSES: CrmTask["status"][] = ["Backlog", "Todo", "In Progress"];
+
+/** Splits open tasks into overdue / due-today / upcoming buckets for the Follow-ups page. */
+export function bucketCrmTasks(rows: CrmTask[] | undefined) {
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0, 10);
+  const overdue: CrmTask[] = [];
+  const dueToday: CrmTask[] = [];
+  const upcoming: CrmTask[] = [];
+
+  (rows ?? [])
+    .filter((t) => OPEN_STATUSES.includes(t.status))
+    .forEach((t) => {
+      if (!t.due_date) {
+        upcoming.push(t);
+        return;
+      }
+      const dueDay = t.due_date.slice(0, 10);
+      if (dueDay < todayStr) overdue.push(t);
+      else if (dueDay === todayStr) dueToday.push(t);
+      else upcoming.push(t);
+    });
+
+  return { overdue, dueToday, upcoming };
+}

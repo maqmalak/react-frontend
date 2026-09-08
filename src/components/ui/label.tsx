@@ -11,7 +11,7 @@ export function Label({
   return (
     <label
       htmlFor={htmlFor}
-      className={cn("mb-1.5 block text-xs font-medium text-muted-foreground", className)}
+      className={cn("mb-1.5 block text-xs font-semibold text-muted-foreground", className)}
       {...props}
     >
       {children}
