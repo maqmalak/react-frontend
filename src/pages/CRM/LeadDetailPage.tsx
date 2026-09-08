@@ -15,6 +15,8 @@ import { CRM_TASK_FIELDS } from "@/components/forms/form-configs";
 import { useCrmLead } from "@/hooks/useCrmLeads";
 import { useCrmActivities, useCrmNotes } from "@/hooks/useCrmActivities";
 import { useCrmTasks, useCrmTaskMutations } from "@/hooks/useCrmTasks";
+import { ConnectionsPanel, EmailPanel, useLinkedEvents, type ConnectionGroup } from "@/components/crm/doc-panels";
+import { useFrappeGetDocList } from "frappe-react-sdk";
 import { humanizeError } from "@/services/frappe";
 import { formatDateTime } from "@/utils/dates";
 import { notifyDataChanged } from "@/hooks/useRealtime";
@@ -28,6 +30,34 @@ export function LeadDetailPage() {
   const { data: notes } = useCrmNotes("CRM Lead", name);
   const { data: tasks, mutate: mutateTasks } = useCrmTasks({ referenceDoctype: "CRM Lead", referenceDocname: name });
   const { createDoc: createTask, setStatus, loading: taskSaving } = useCrmTaskMutations();
+  const { data: linkedDeals, isLoading: dealsLoading } = useFrappeGetDocList<{ name: string; organization: string; status: string; deal_value: number }>("CRM Deal", {
+    fields: ["name", "organization", "status", "deal_value"],
+    filters: [["lead", "=", name ?? ""]],
+    orderBy: { field: "modified", order: "desc" },
+    limit: 20,
+  }, name ? `apparel.crm.lead.deals.${name}` : null);
+  const { events: linkedEvents, isLoading: eventsLoading } = useLinkedEvents("CRM Lead", name);
+
+  const connectionGroups: ConnectionGroup[] = [
+    {
+      title: "Deals",
+      items: (linkedDeals ?? []).map((d) => ({
+        label: d.organization || d.name,
+        sub: `${d.status}${d.deal_value ? ` · ${d.deal_value.toLocaleString()}` : ""}`,
+        to: `/crm/deals/${encodeURIComponent(d.name)}`,
+        tone: "emerald" as const,
+      })),
+    },
+    {
+      title: "Scheduled Activities",
+      items: linkedEvents.map((e) => ({
+        label: e.subject || "(untitled)",
+        sub: `${e.event_type} · ${formatDateTime(e.starts_on)}`,
+        to: "/crm/calendar",
+        tone: "indigo" as const,
+      })),
+    },
+  ];
 
   const [comment, setComment] = useState("");
   const [taskModalOpen, setTaskModalOpen] = useState(false);
@@ -161,9 +191,16 @@ export function LeadDetailPage() {
               )}
             </div>
           </SectionCard>
+
+          <EmailPanel
+            referenceDoctype="CRM Lead"
+            referenceDocname={name}
+            defaultRecipient={lead.email}
+          />
         </div>
 
         <div className="space-y-4">
+          <ConnectionsPanel groups={connectionGroups} loading={dealsLoading || eventsLoading} />
           <SectionCard
             title="Follow-ups"
             actions={

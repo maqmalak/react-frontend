@@ -42,6 +42,14 @@ const CrmLeadFormPage = lazy(() => import("@/pages/CRM/LeadFormPage").then((m) =
 const CrmDealsPage = lazy(() => import("@/pages/CRM/DealsPage").then((m) => ({ default: m.DealsPage })));
 const CrmDealDetailPage = lazy(() => import("@/pages/CRM/DealDetailPage").then((m) => ({ default: m.DealDetailPage })));
 const CrmDealFormPage = lazy(() => import("@/pages/CRM/DealFormPage").then((m) => ({ default: m.DealFormPage })));
+const CrmTasksPage = lazy(() => import("@/pages/CRM/TasksPage").then((m) => ({ default: m.default })));
+const CrmNotesPage = lazy(() => import("@/pages/CRM/NotesPage").then((m) => ({ default: m.default })));
+const CrmCallLogsPage = lazy(() => import("@/pages/CRM/CallLogsPage").then((m) => ({ default: m.default })));
+const CrmContractsPage = lazy(() => import("@/pages/CRM/ContractsPage").then((m) => ({ default: m.default })));
+const CrmContactsPage = lazy(() => import("@/pages/CRM/ContactsPage").then((m) => ({ default: m.default })));
+const CrmOrganizationsPage = lazy(() => import("@/pages/CRM/OrganizationsPage").then((m) => ({ default: m.default })));
+const CrmFollowUpsPage = lazy(() => import("@/pages/CRM/FollowUpsPage").then((m) => ({ default: m.default })));
+const CrmCalendarPage = lazy(() => import("@/pages/CRM/CalendarPage").then((m) => ({ default: m.default })));
 const UsersPage = lazy(() => import("@/pages/Admin/UsersPage").then((m) => ({ default: m.UsersPage })));
 const UserFormPage = lazy(() => import("@/pages/Admin/UserFormPage").then((m) => ({ default: m.UserFormPage })));
 const UserDetailPage = lazy(() => import("@/pages/Admin/UserDetailPage").then((m) => ({ default: m.UserDetailPage })));
@@ -206,10 +214,14 @@ export function AppRoutes() {
         <Route path="crm/deals/new" element={<Suspense fallback={<FullPageLoader />}><CrmDealFormPage /></Suspense>} />
         <Route path="crm/deals/:name" element={<Suspense fallback={<FullPageLoader />}><CrmDealDetailPage /></Suspense>} />
         <Route path="crm/deals/:name/edit" element={<Suspense fallback={<FullPageLoader />}><CrmDealFormPage /></Suspense>} />
-        <Route path="crm/contacts" element={<ComingSoonPage title="Contacts" description="Contacts linked to leads and deals (coming soon)" />} />
-        <Route path="crm/organizations" element={<ComingSoonPage title="Accounts" description="Organizations / accounts (coming soon)" />} />
-        <Route path="crm/follow-ups" element={<ComingSoonPage title="Follow-ups" description="Reminders and follow-up tasks (coming soon)" />} />
-        <Route path="crm/calendar" element={<ComingSoonPage title="Calendar" description="Meeting calendar (coming soon)" />} />
+        <Route path="crm/contacts" element={<Suspense fallback={<FullPageLoader />}><CrmContactsPage /></Suspense>} />
+        <Route path="crm/contracts" element={<Suspense fallback={<FullPageLoader />}><CrmContractsPage /></Suspense>} />
+        <Route path="crm/organizations" element={<Suspense fallback={<FullPageLoader />}><CrmOrganizationsPage /></Suspense>} />
+        <Route path="crm/notes" element={<Suspense fallback={<FullPageLoader />}><CrmNotesPage /></Suspense>} />
+        <Route path="crm/tasks" element={<Suspense fallback={<FullPageLoader />}><CrmTasksPage /></Suspense>} />
+        <Route path="crm/call-logs" element={<Suspense fallback={<FullPageLoader />}><CrmCallLogsPage /></Suspense>} />
+        <Route path="crm/follow-ups" element={<Suspense fallback={<FullPageLoader />}><CrmFollowUpsPage /></Suspense>} />
+        <Route path="crm/calendar" element={<Suspense fallback={<FullPageLoader />}><CrmCalendarPage /></Suspense>} />
         <Route path="crm/dashboard" element={<ComingSoonPage title="CRM Dashboard" description="Pipeline analytics (coming soon)" />} />
 
         <Route path="subcontracting" element={<ComingSoonPage title="Subcontracting" description="Subcontracting orders and receipts" />} />

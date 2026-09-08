@@ -15,6 +15,8 @@ import { CRM_TASK_FIELDS } from "@/components/forms/form-configs";
 import { useCrmDeal } from "@/hooks/useCrmDeals";
 import { useCrmActivities, useCrmNotes } from "@/hooks/useCrmActivities";
 import { useCrmTasks, useCrmTaskMutations } from "@/hooks/useCrmTasks";
+import { ConnectionsPanel, EmailPanel, useLinkedEvents, type ConnectionGroup } from "@/components/crm/doc-panels";
+import { useFrappeGetDocList } from "frappe-react-sdk";
 import { humanizeError } from "@/services/frappe";
 import { formatDateTime } from "@/utils/dates";
 import { formatMoney } from "@/utils/currency";
@@ -29,6 +31,33 @@ export function DealDetailPage() {
   const { data: notes } = useCrmNotes("CRM Deal", name);
   const { data: tasks, mutate: mutateTasks } = useCrmTasks({ referenceDoctype: "CRM Deal", referenceDocname: name });
   const { createDoc: createTask, setStatus, loading: taskSaving } = useCrmTaskMutations();
+  const { data: leadDocs, isLoading: leadLoading } = useFrappeGetDocList<{ name: string; lead_name: string; status: string; email: string }>("CRM Lead", {
+    fields: ["name", "lead_name", "status", "email"],
+    filters: [["name", "=", deal?.lead ?? "none"]],
+    limit: 1,
+  }, deal?.lead ? `apparel.crm.deal.lead.${deal.lead}` : null);
+  const { events: linkedEvents, isLoading: eventsLoading } = useLinkedEvents("CRM Deal", name);
+
+  const connectionGroups: ConnectionGroup[] = [
+    {
+      title: "Linked Lead",
+      items: (leadDocs ?? []).map((l) => ({
+        label: l.lead_name || l.name,
+        sub: `${l.status}${l.email ? ` · ${l.email}` : ""}`,
+        to: `/crm/leads/${encodeURIComponent(l.name)}`,
+        tone: "sky" as const,
+      })),
+    },
+    {
+      title: "Scheduled Activities",
+      items: linkedEvents.map((e) => ({
+        label: e.subject || "(untitled)",
+        sub: `${e.event_type} · ${formatDateTime(e.starts_on)}`,
+        to: "/crm/calendar",
+        tone: "indigo" as const,
+      })),
+    },
+  ];
 
   const [comment, setComment] = useState("");
   const [taskModalOpen, setTaskModalOpen] = useState(false);
@@ -162,9 +191,16 @@ export function DealDetailPage() {
               )}
             </div>
           </SectionCard>
+
+          <EmailPanel
+            referenceDoctype="CRM Deal"
+            referenceDocname={name}
+            defaultRecipient={deal.email}
+          />
         </div>
 
         <div className="space-y-4">
+          <ConnectionsPanel groups={connectionGroups} loading={leadLoading || eventsLoading} />
           <SectionCard
             title="Follow-ups"
             actions={

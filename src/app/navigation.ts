@@ -42,6 +42,11 @@ import {
   UserPlus,
   Building2 as OrgIcon,
   CheckSquare,
+  StickyNote,
+  Phone,
+  FileSignature,
+  Repeat,
+  Contact2,
   CalendarDays,
   LayoutGrid,
   type LucideIcon,
@@ -199,23 +204,32 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
       items: [{ label: "Dashboard", to: "/crm/dashboard", icon: LayoutGrid }],
     },
     {
+      title: "Relationships",
+      items: [
+        { label: "Contacts", to: "/crm/contacts", icon: Contact2 },
+        { label: "Organizations", to: "/crm/organizations", icon: OrgIcon },
+      ],
+    },
+    {
       title: "Pipeline",
       items: [
         { label: "Leads", to: "/crm/leads", icon: UserPlus },
         { label: "Deals", to: "/crm/deals", icon: Handshake },
+        { label: "Contracts", to: "/crm/contracts", icon: FileSignature },
       ],
     },
     {
-      title: "Relationships",
+      title: "Work",
       items: [
-        { label: "Contacts", to: "/crm/contacts", icon: Users },
-        { label: "Accounts", to: "/crm/organizations", icon: OrgIcon },
+        { label: "Tasks", to: "/crm/tasks", icon: CheckSquare },
+        { label: "Notes", to: "/crm/notes", icon: StickyNote },
+        { label: "Call Logs", to: "/crm/call-logs", icon: Phone },
       ],
     },
     {
       title: "Activities",
       items: [
-        { label: "Follow-ups", to: "/crm/follow-ups", icon: CheckSquare },
+        { label: "Follow-ups", to: "/crm/follow-ups", icon: Repeat },
         { label: "Calendar", to: "/crm/calendar", icon: CalendarDays },
       ],
     },

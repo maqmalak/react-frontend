@@ -4,6 +4,7 @@ import { cn } from "@/utils/cn";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/common/empty-state";
+import { statusDotClass } from "@/components/common/status-color";
 
 export interface KanbanColumnDef {
   /** The raw value stored in `groupField` for rows in this column (e.g. a status name). */
@@ -119,8 +120,8 @@ export function KanbanBoard<T extends Record<string, any>>({
             <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
               <div className="flex items-center gap-2">
                 <span
-                  className="h-2 w-2 rounded-full"
-                  style={{ backgroundColor: col.color || "hsl(var(--primary))" }}
+                  className={cn("h-2 w-2 rounded-full", statusDotClass(col.title || col.value))}
+                  style={col.color ? { backgroundColor: col.color } : undefined}
                   aria-hidden="true"
                 />
                 <span className="text-sm font-semibold">{col.title || col.value}</span>

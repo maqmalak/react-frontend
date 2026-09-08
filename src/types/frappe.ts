@@ -989,6 +989,7 @@ export interface CrmOrganization {
   currency?: string;
   address?: string;
   exchange_rate?: number;
+  modified?: string;
 }
 
 export interface CrmNotification {
@@ -1070,6 +1071,7 @@ export interface FrappeEvent {
   reference_docname?: string;
   event_participants?: FrappeEventParticipant[];
   owner?: string;
+  modified?: string;
 }
 
 export type DocTypeName =
