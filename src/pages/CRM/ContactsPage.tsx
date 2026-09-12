@@ -2,7 +2,9 @@ import { Contact2, Mail, Phone, Building2, Sparkles } from "lucide-react";
 import { CrmManagementPage, type CrmManagementConfig } from "@/components/crm/CrmManagementPage";
 import type { ColumnDef } from "@/components/tables/data-table";
 import { StatusBadge } from "@/components/common/status-badge";
+import { WhatsAppIcon } from "@/components/common/whatsapp-icon";
 import { relativeDays } from "@/utils/dates";
+import { whatsappUrl } from "@/utils/whatsapp";
 
 interface ContactRow {
   name?: string;
@@ -48,13 +50,27 @@ const columns: ColumnDef<ContactRow>[] = [
     label: "Phone",
     render: (r) => {
       const v = r.mobile_no || r.phone;
-      return v ? (
-        <a href={`tel:${v}`} className="inline-flex items-center gap-1.5 text-sm">
-          <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-          {v}
-        </a>
-      ) : (
-        <span className="text-sm text-muted-foreground">—</span>
+      if (!v) return <span className="text-sm text-muted-foreground">—</span>;
+      const wa = whatsappUrl(v);
+      return (
+        <span className="inline-flex items-center gap-1.5 text-sm">
+          <a href={`tel:${v}`} className="inline-flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+            <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+            {v}
+          </a>
+          {wa && (
+            <a
+              href={wa}
+              target="_blank"
+              rel="noreferrer"
+              title="Call on WhatsApp"
+              onClick={(e) => e.stopPropagation()}
+              className="text-emerald-600 hover:text-emerald-500 dark:text-emerald-400"
+            >
+              <WhatsAppIcon className="h-3.5 w-3.5" />
+            </a>
+          )}
+        </span>
       );
     },
     getValue: (r) => r.mobile_no || r.phone,

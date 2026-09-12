@@ -192,10 +192,25 @@ export function FrappeForm({
               {col.flatMap((meta) => {
                 if (meta.hidden || meta.depends_on) return [];
                 if (meta.read_only && !meta.fetch_if_empty) {
+                  // Text/Text Editor values can run to hundreds of characters
+                  // (e.g. a scraper's raw extract) — a fixed single-line h-9
+                  // box doesn't clip or grow for that, it just lets the text
+                  // spill out over whatever sits above/below it. Long-form
+                  // fieldtypes get a wrapping, height-flexible box instead;
+                  // short fieldtypes keep the compact single-line box but
+                  // truncate rather than overflow.
+                  const longForm = meta.fieldtype === "Text" || meta.fieldtype === "Text Editor";
                   return [
                     <div key={meta.fieldname} className="space-y-1">
                       <Label>{meta.label}</Label>
-                      <div className="flex h-9 items-center rounded-md border border-dashed border-border px-3 text-sm text-muted-foreground">
+                      <div
+                        className={cn(
+                          "rounded-md border border-dashed border-border px-3 text-sm text-muted-foreground",
+                          longForm
+                            ? "whitespace-pre-wrap py-2 leading-relaxed"
+                            : "flex h-9 items-center truncate",
+                        )}
+                      >
                         {formatReadonly(meta, values[meta.fieldname])}
                       </div>
                     </div>,
@@ -222,7 +237,7 @@ export function FrappeForm({
   );
 }
 
-function formatReadonly(meta: FormFieldMeta, value: unknown): string {
+export function formatReadonly(meta: FormFieldMeta, value: unknown): string {
   if (value === null || value === undefined || value === "") return "—";
   if (meta.fieldtype === "Check") return value ? "Yes" : "No";
   return String(value);

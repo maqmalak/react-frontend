@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { UserPlus, Save, Trash2 } from "lucide-react";
+import { UserPlus, Save, Trash2, User, Building2, ListChecks, CircleOff, HeartHandshake } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/common/status-badge";
-import { FrappeForm } from "@/components/forms/frappe-form";
+import { FieldRenderer } from "@/components/forms/frappe-form";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CRM_LEAD_FIELDS } from "@/components/forms/form-configs";
 import { useCrmLead, useCrmLeadMutations } from "@/hooks/useCrmLeads";
@@ -14,6 +14,53 @@ import { useAuth } from "@/hooks/useAuth";
 import { notifyDataChanged } from "@/hooks/useRealtime";
 import { humanizeError } from "@/services/frappe";
 import type { CrmLead } from "@/types/frappe";
+
+/**
+ * The Lead form is organized into titled cards (mirroring FCRM's side
+ * sections): each card shows a flat subset of `CRM_LEAD_FIELDS` in a
+ * 2-column grid.
+ */
+const LEAD_FORM_TABS = [
+  {
+    id: "person",
+    label: "Person",
+    icon: User,
+    fields: ["salutation", "first_name", "last_name", "email", "mobile_no", "phone", "gender"],
+  },
+  {
+    id: "organization",
+    label: "Organization",
+    icon: Building2,
+    fields: ["organization", "job_title", "website", "no_of_employees", "annual_revenue", "industry"],
+  },
+  {
+    id: "qualification",
+    label: "Qualification",
+    icon: ListChecks,
+    fields: ["status", "source", "lead_owner", "territory"],
+  },
+  {
+    id: "fundraising",
+    label: "Fundraising Details",
+    icon: HeartHandshake,
+    fields: [
+      "priority",
+      "csr_department",
+      "address",
+      "focus_area",
+      "education_focus",
+      "proposed_ask",
+      "first_contact_date",
+      "remarks",
+    ],
+  },
+  {
+    id: "lost",
+    label: "Lost Details",
+    icon: CircleOff,
+    fields: ["lost_reason", "lost_notes"],
+  },
+] as const;
 
 export function LeadFormPage() {
   const { name } = useParams<{ name?: string }>();
@@ -28,6 +75,17 @@ export function LeadFormPage() {
   const [values, setValues] = useState<Partial<CrmLead>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  /** Each section renders as its own card — keeps that section's own Section Break as its title. */
+  const sectionFields = useMemo(
+    () =>
+      LEAD_FORM_TABS.map((tab) => ({
+        tab,
+        fields: CRM_LEAD_FIELDS.filter((f) => (tab.fields as readonly string[]).includes(f.fieldname)),
+      })),
+    [],
+  );
+
 
   useEffect(() => {
     document.title = name && !isNew ? `Lead — ${name}` : "New Lead";
@@ -89,7 +147,7 @@ export function LeadFormPage() {
     } catch (err) {
       toast.error(humanizeError(err));
     }
-  }, [values, validate, canWrite, isNew, createDoc, updateDoc, name, mutate, navigate]);
+  }, [values, errors, validate, canWrite, isNew, createDoc, updateDoc, name, mutate, navigate]);
 
   const handleDelete = useCallback(async () => {
     if (!doc?.name) return;
@@ -159,9 +217,35 @@ export function LeadFormPage() {
         </Card>
       )}
 
-      <Card className="p-5">
-        <FrappeForm fields={CRM_LEAD_FIELDS} values={values} errors={errors} readOnly={readOnly} onChange={onChange} />
-      </Card>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {sectionFields.map(({ tab, fields }) => {
+          const Icon = tab.icon;
+          const hasError = fields.some((f) => errors[f.fieldname]);
+          return (
+            <Card key={tab.id} className="p-5">
+              <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold">
+                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <Icon className="h-4 w-4" />
+                </span>
+                {tab.label}
+                {hasError && <span className="h-1.5 w-1.5 rounded-full bg-destructive" title="Has errors" />}
+              </h3>
+              <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+                {fields.map((meta) => (
+                  <FieldRenderer
+                    key={meta.fieldname}
+                    meta={meta}
+                    values={values}
+                    onChange={onChange}
+                    errors={errors}
+                    readOnly={readOnly}
+                  />
+                ))}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
 
       <ConfirmDialog
         open={confirmDelete}

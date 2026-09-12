@@ -26,6 +26,7 @@ const CRM_LEAD_FIELDS = [
   "converted",
   "image",
   "modified",
+  "priority",
 ] as const;
 
 /** List CRM Leads (flat list view — use useCrmLeadKanban for the pipeline board). */

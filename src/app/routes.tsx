@@ -42,6 +42,7 @@ const CrmLeadFormPage = lazy(() => import("@/pages/CRM/LeadFormPage").then((m) =
 const CrmDealsPage = lazy(() => import("@/pages/CRM/DealsPage").then((m) => ({ default: m.DealsPage })));
 const CrmDealDetailPage = lazy(() => import("@/pages/CRM/DealDetailPage").then((m) => ({ default: m.DealDetailPage })));
 const CrmDealFormPage = lazy(() => import("@/pages/CRM/DealFormPage").then((m) => ({ default: m.DealFormPage })));
+const CrmDashboardPageLazy = lazy(() => import("@/pages/CRM/DashboardPage").then((m) => ({ default: m.CrmDashboardPage })));
 const CrmTasksPage = lazy(() => import("@/pages/CRM/TasksPage").then((m) => ({ default: m.default })));
 const CrmNotesPage = lazy(() => import("@/pages/CRM/NotesPage").then((m) => ({ default: m.default })));
 const CrmCallLogsPage = lazy(() => import("@/pages/CRM/CallLogsPage").then((m) => ({ default: m.default })));
@@ -49,7 +50,13 @@ const CrmContractsPage = lazy(() => import("@/pages/CRM/ContractsPage").then((m)
 const CrmContactsPage = lazy(() => import("@/pages/CRM/ContactsPage").then((m) => ({ default: m.default })));
 const CrmOrganizationsPage = lazy(() => import("@/pages/CRM/OrganizationsPage").then((m) => ({ default: m.default })));
 const CrmFollowUpsPage = lazy(() => import("@/pages/CRM/FollowUpsPage").then((m) => ({ default: m.default })));
+const CrmProspectScraperPage = lazy(() => import("@/pages/CRM/ProspectScraperPage").then((m) => ({ default: m.default })));
 const CrmCalendarPage = lazy(() => import("@/pages/CRM/CalendarPage").then((m) => ({ default: m.default })));
+const CrmLeadSourcesPage = lazy(() => import("@/pages/CRM/LeadSourcesPage").then((m) => ({ default: m.default })));
+const CrmLeadStatusesPage = lazy(() => import("@/pages/CRM/LeadStatusesPage").then((m) => ({ default: m.default })));
+const CrmTerritoriesPage = lazy(() => import("@/pages/CRM/TerritoriesPage").then((m) => ({ default: m.default })));
+const CrmIndustriesPage = lazy(() => import("@/pages/CRM/IndustriesPage").then((m) => ({ default: m.default })));
+const CrmSalutationsPage = lazy(() => import("@/pages/CRM/SalutationsPage").then((m) => ({ default: m.default })));
 const UsersPage = lazy(() => import("@/pages/Admin/UsersPage").then((m) => ({ default: m.UsersPage })));
 const UserFormPage = lazy(() => import("@/pages/Admin/UserFormPage").then((m) => ({ default: m.UserFormPage })));
 const UserDetailPage = lazy(() => import("@/pages/Admin/UserDetailPage").then((m) => ({ default: m.UserDetailPage })));
@@ -60,6 +67,7 @@ const AccountProfilePage = lazy(() => import("@/pages/Account/AccountProfilePage
 // Accounting
 const AccountingDashboardPage = lazy(() => import("@/pages/Accounting/AccountingDashboardPage").then((m) => ({ default: m.AccountingDashboardPage })));
 const GettingStartedPage = lazy(() => import("@/pages/Accounting/GettingStartedPage").then((m) => ({ default: m.GettingStartedPage })));
+const NotificationsPage = lazy(() => import("@/pages/Settings/NotificationsPage").then((m) => ({ default: m.NotificationsPage })));
 const ChartOfAccountsPage = lazy(() => import("@/pages/Accounting/ChartOfAccountsPage").then((m) => ({ default: m.ChartOfAccountsPage })));
 const CostCentersPage = lazy(() => import("@/pages/Accounting/CostCentersPage").then((m) => ({ default: m.CostCentersPage })));
 const FiscalYearsPage = lazy(() => import("@/pages/Accounting/FiscalYearsPage").then((m) => ({ default: m.FiscalYearsPage })));
@@ -188,7 +196,7 @@ export function AppRoutes() {
         {/* Settings */}
         <Route path="settings" element={<ComingSoonPage title="Settings" description="Company defaults and workspace preferences" />} />
         <Route path="settings/company" element={<ComingSoonPage title="Company" description="Default company, fiscal year and address" />} />
-        <Route path="settings/notifications" element={<ComingSoonPage title="Notifications" description="Alert preferences and email digests" />} />
+        <Route path="settings/notifications" element={<Suspense fallback={<FullPageLoader />}><NotificationsPage /></Suspense>} />
 
         {/* My Account */}
         <Route
@@ -221,8 +229,14 @@ export function AppRoutes() {
         <Route path="crm/tasks" element={<Suspense fallback={<FullPageLoader />}><CrmTasksPage /></Suspense>} />
         <Route path="crm/call-logs" element={<Suspense fallback={<FullPageLoader />}><CrmCallLogsPage /></Suspense>} />
         <Route path="crm/follow-ups" element={<Suspense fallback={<FullPageLoader />}><CrmFollowUpsPage /></Suspense>} />
+        <Route path="crm/prospect-scraper" element={<Suspense fallback={<FullPageLoader />}><CrmProspectScraperPage /></Suspense>} />
         <Route path="crm/calendar" element={<Suspense fallback={<FullPageLoader />}><CrmCalendarPage /></Suspense>} />
-        <Route path="crm/dashboard" element={<ComingSoonPage title="CRM Dashboard" description="Pipeline analytics (coming soon)" />} />
+        <Route path="crm/masters/lead-sources" element={<Suspense fallback={<FullPageLoader />}><CrmLeadSourcesPage /></Suspense>} />
+        <Route path="crm/masters/lead-statuses" element={<Suspense fallback={<FullPageLoader />}><CrmLeadStatusesPage /></Suspense>} />
+        <Route path="crm/masters/territories" element={<Suspense fallback={<FullPageLoader />}><CrmTerritoriesPage /></Suspense>} />
+        <Route path="crm/masters/industries" element={<Suspense fallback={<FullPageLoader />}><CrmIndustriesPage /></Suspense>} />
+        <Route path="crm/masters/salutations" element={<Suspense fallback={<FullPageLoader />}><CrmSalutationsPage /></Suspense>} />
+        <Route path="crm/dashboard" element={<Suspense fallback={<FullPageLoader />}><CrmDashboardPageLazy /></Suspense>} />
 
         <Route path="subcontracting" element={<ComingSoonPage title="Subcontracting" description="Subcontracting orders and receipts" />} />
         <Route path="assets" element={<ComingSoonPage title="Assets" description="Fixed asset register, depreciation and maintenance" />} />

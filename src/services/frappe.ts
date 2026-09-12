@@ -136,8 +136,12 @@ export function getCall<T = unknown>(method: string, params?: Record<string, unk
 }
 
 /** Generic POST to a whitelisted module-level method. */
-export function postCall<T = unknown>(method: string, params?: Record<string, unknown>): Promise<T> {
-  return wrap<T>(http.post(`/api/method/${method}`, params ?? {}));
+export function postCall<T = unknown>(
+  method: string,
+  params?: Record<string, unknown>,
+  config?: { timeout?: number },
+): Promise<T> {
+  return wrap<T>(http.post(`/api/method/${method}`, params ?? {}, config));
 }
 
 export interface FrappeFile {

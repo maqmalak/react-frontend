@@ -1,5 +1,6 @@
 import {
   LayoutDashboard,
+  Radar,
   Ship,
   FileText,
   Package,
@@ -48,6 +49,10 @@ import {
   Repeat,
   Contact2,
   CalendarDays,
+  Radio,
+  ListChecks,
+  MapPin,
+  Quote,
   LayoutGrid,
   type LucideIcon,
 } from "lucide-react";
@@ -216,6 +221,7 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
         { label: "Leads", to: "/crm/leads", icon: UserPlus },
         { label: "Deals", to: "/crm/deals", icon: Handshake },
         { label: "Contracts", to: "/crm/contracts", icon: FileSignature },
+        { label: "Prospect Scraper", to: "/crm/prospect-scraper", icon: Radar },
       ],
     },
     {
@@ -231,6 +237,16 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
       items: [
         { label: "Follow-ups", to: "/crm/follow-ups", icon: Repeat },
         { label: "Calendar", to: "/crm/calendar", icon: CalendarDays },
+      ],
+    },
+    {
+      title: "Masters",
+      items: [
+        { label: "Lead Sources", to: "/crm/masters/lead-sources", icon: Radio },
+        { label: "Lead Statuses", to: "/crm/masters/lead-statuses", icon: ListChecks },
+        { label: "Territories", to: "/crm/masters/territories", icon: MapPin },
+        { label: "Industries", to: "/crm/masters/industries", icon: Factory },
+        { label: "Salutations", to: "/crm/masters/salutations", icon: Quote },
       ],
     },
   ],

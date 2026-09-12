@@ -222,34 +222,54 @@ export function getCrmViews(doctype: string): Promise<CrmViewSettingsRow[]> {
   return postCall<CrmViewSettingsRow[]>("crm.api.views.get_views", { doctype });
 }
 
-/**
- * `crm.api.activities.get_activities` returns a standard Frappe "docinfo"
- * bundle, not a bespoke activity-timeline shape — confirmed against the live
- * backend. `docinfo.comments` is what we actually consume (see
- * useCrmActivities); the rest (versions/communications/attachments/...) is
- * left loosely typed since we don't render it yet.
- */
-export interface CrmActivitiesResponse {
-  docinfo: {
-    comments?: { name: string; creation: string; content: string; owner: string; comment_type: string }[];
-    [key: string]: unknown;
-  };
-  message?: unknown;
+/** A single entry in a Lead/Deal's activity timeline (see `CrmActivitiesResult`). */
+export interface CrmActivityItem {
+  name?: string;
+  activity_type: "creation" | "changed" | "added" | "removed" | "comment" | "communication" | "attachment_log";
+  creation: string;
+  owner?: string;
+  is_lead: boolean;
+  /** A plain string for "creation"; a {field, field_label, value, old_value} object for changed/added/removed; a communication/attachment payload for those types. */
+  data?: unknown;
+  /** Only set for activity_type "comment". */
+  content?: string;
+  /** Same-owner field changes made back-to-back get grouped under the first entry. */
+  other_versions?: CrmActivityItem[];
 }
 
 /**
- * Docinfo bundle (comments, versions, communications, ...) for a Lead or
- * Deal. Deliberately NOT using `postCall` here: that helper unwraps to
- * `response.data.message`, but this endpoint populates `frappe.response
- * ["docinfo"]` directly (Frappe's standard `get_docinfo` pattern) rather than
- * returning it as the function's `message` — confirmed against the live
- * backend (`message` came back empty while `docinfo` sat alongside it at the
- * top level). We need the full response body, not just `.message`.
+ * `crm.api.activities.get_activities` returns `[activities, calls, notes,
+ * tasks, attachments]` as the whitelisted method's actual return value
+ * (`message`) — confirmed against the live backend via a direct fetch()
+ * (`message` is a populated 5-element array, not empty as an earlier pass
+ * assumed). `docinfo` also sits alongside it at the top level (a side effect
+ * of this endpoint calling Frappe's `get_docinfo()` internally) but only
+ * carries the raw, unformatted comment list — `activities[0]` already
+ * includes comments plus creation/field-change/communication events with
+ * human-readable labels, so that's the one to render.
  */
-export function getCrmActivities(name: string): Promise<CrmActivitiesResponse> {
-  return http
-    .post("/api/method/crm.api.activities.get_activities", { name })
-    .then((res) => res.data as CrmActivitiesResponse);
+export interface CrmActivitiesResult {
+  activities: CrmActivityItem[];
+  calls: unknown[];
+  notes: unknown[];
+  tasks: unknown[];
+  attachments: unknown[];
+}
+
+export function getCrmActivities(name: string): Promise<CrmActivitiesResult> {
+  return http.post("/api/method/crm.api.activities.get_activities", { name }).then((res) => {
+    const message = res.data?.message;
+    const [activities, calls, notes, tasks, attachments] = Array.isArray(message)
+      ? message
+      : [[], [], [], [], []];
+    return {
+      activities: (activities ?? []) as CrmActivityItem[],
+      calls: calls ?? [],
+      notes: notes ?? [],
+      tasks: tasks ?? [],
+      attachments: attachments ?? [],
+    };
+  });
 }
 
 /** Tasks linked to a Lead/Deal via `CRM Task.reference_docname`. */
@@ -291,12 +311,26 @@ export function addCrmComment(
   });
 }
 
-/** The full dashboard: `CRM Dashboard.layout` widgets, each with its aggregated `data` attached. */
+export interface CrmDashboardWidgetRaw {
+  name: string;
+  type: "number_chart" | "axis_chart" | "donut_chart" | "spacer";
+  layout: { x: number; y: number; w: number; h: number; i: string };
+  data?: Record<string, any>;
+}
+
+/**
+ * The full dashboard: `CRM Dashboard.layout` widgets, each with its aggregated
+ * `data` attached server-side. The response is a plain array of widgets —
+ * confirmed against the live backend (`message` came back as `{0: {...}, 1:
+ * {...}, ...}`, i.e. an array, not `{title, layout}` as the doctype's own
+ * field naming might suggest; `get_dashboard` returns the layout list
+ * directly, not the `CRM Dashboard` document itself).
+ */
 export function getCrmDashboard(range?: {
   fromDate?: string;
   toDate?: string;
   user?: string;
-}): Promise<{ name: string; title: string; layout: Record<string, unknown>[] }> {
+}): Promise<CrmDashboardWidgetRaw[]> {
   return postCall("crm.api.dashboard.get_dashboard", {
     from_date: range?.fromDate,
     to_date: range?.toDate,
@@ -332,5 +366,103 @@ export function getCalendarEvents(
     start,
     end,
     filters: filters ?? undefined,
+  });
+}
+
+/**
+ * Donor-prospecting scraper (custom `apparel.crm_scraper` module — no
+ * equivalent in the vendored crm app). Given a batch of company/NGO URLs,
+ * the backend fetches each and best-effort extracts identity + CSR contact
+ * info into a `CRM Prospect Scrape` review-queue row (one row per URL,
+ * success or failure) — nothing here creates a `CRM Lead` directly.
+ *
+ * A full 25-URL batch can legitimately run past the client's default 60s
+ * timeout (each entry does up to two real HTTP fetches against a site that
+ * may itself be slow or bot-block, up to the backend's own 10s-per-request
+ * timeout) — confirmed live. Given a generous ceiling here since this is a
+ * one-off bulk action, not a background poll.
+ */
+export function scrapeCrmProspectUrls(urls: string[]): Promise<string[]> {
+  return postCall<string[]>("apparel.crm_scraper.scrape_urls", { urls }, { timeout: 240_000 });
+}
+
+/** Approve a reviewed `CRM Prospect Scrape` row into a real `CRM Lead`. */
+export function convertCrmProspectScrapeToLead(name: string): Promise<string> {
+  return callDocMethod<string>("convert_to_lead", "CRM Prospect Scrape", name);
+}
+
+/**
+ * Convert a `CRM Lead` to a `CRM Deal` — the vendored crm app's own
+ * whitelisted function (`crm.fcrm.doctype.crm_lead.crm_lead.convert_to_deal`,
+ * the same one the official Frappe CRM app's "Convert to Deal" button
+ * calls): marks the lead Qualified/converted, creates a Contact +
+ * Organization from its data, and returns the new Deal's name.
+ *
+ * That vendored function auto-copies any same-named field from Lead to Deal
+ * — including `annual_revenue`, which we relabeled "Expected Amount" (the
+ * donation ask) on the Lead, but which still means "the org's own revenue"
+ * on the Deal. So every converted Deal landed with the ask amount sitting
+ * in the wrong field while `deal_value`/`expected_deal_value` — the fields
+ * that actually drive pipeline totals — stayed at 0 (confirmed live).
+ * `expectedAmount` (pass the lead's `annual_revenue`) patches that: it goes
+ * into deal_value/expected_deal_value instead, and the wrongly-copied
+ * Deal.annual_revenue is cleared.
+ */
+export async function convertCrmLeadToDeal(leadName: string, expectedAmount?: number | null): Promise<string> {
+  const dealName = await postCall<string>("crm.fcrm.doctype.crm_lead.crm_lead.convert_to_deal", { lead: leadName });
+  if (expectedAmount) {
+    await postCall("frappe.client.set_value", {
+      doctype: "CRM Deal",
+      name: dealName,
+      fieldname: { deal_value: expectedAmount, expected_deal_value: expectedAmount, annual_revenue: null },
+    });
+  }
+  return dealName;
+}
+
+/**
+ * `frappe/whatsapp` app integration — installed alongside `crm` in this
+ * bench. Its conversation API is generic and reference-based (same shape as
+ * our Email panel), so a Lead/Deal's WhatsApp thread is just "every
+ * `WhatsApp Message` with this reference_doctype/reference_docname", with
+ * no CRM-specific wiring needed on the whatsapp app's side.
+ */
+export interface WhatsAppMessage {
+  name: string;
+  direction: "Outgoing" | "Incoming";
+  to?: string;
+  from?: string;
+  message: string;
+  status: "Pending" | "Sent" | "Delivered" | "Read" | "Failed";
+  is_template?: 0 | 1;
+  whatsapp_template?: string;
+  media_url?: string;
+  mime_type?: string;
+  reaction?: string;
+  error_message?: string;
+  reference_doctype?: string;
+  reference_docname?: string;
+  creation: string;
+}
+
+/** A document's WhatsApp thread — `references` is `[[doctype, docname]]`. */
+export function getWhatsAppMessages(references: [string, string][]): Promise<WhatsAppMessage[]> {
+  return postCall<WhatsAppMessage[]>("whatsapp.whatsapp.api.messages.get_messages", {
+    references: JSON.stringify(references),
+  });
+}
+
+/** Send a WhatsApp text message linked to a reference document; returns the new message's name. */
+export function sendWhatsAppMessage(args: {
+  to: string;
+  message: string;
+  referenceDoctype?: string;
+  referenceDocname?: string;
+}): Promise<string> {
+  return postCall<string>("whatsapp.whatsapp.api.messages.send_message", {
+    to: args.to,
+    message: args.message,
+    reference_doctype: args.referenceDoctype,
+    reference_docname: args.referenceDocname,
   });
 }

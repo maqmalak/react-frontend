@@ -13,13 +13,16 @@ import { Dialog } from "@/components/ui/dialog";
 import { FrappeForm } from "@/components/forms/frappe-form";
 import { CRM_TASK_FIELDS } from "@/components/forms/form-configs";
 import { useCrmDeal } from "@/hooks/useCrmDeals";
-import { useCrmActivities, useCrmNotes } from "@/hooks/useCrmActivities";
+import { useCrmActivities, useCrmNotes, describeCrmActivity } from "@/hooks/useCrmActivities";
 import { useCrmTasks, useCrmTaskMutations } from "@/hooks/useCrmTasks";
-import { ConnectionsPanel, EmailPanel, useLinkedEvents, type ConnectionGroup } from "@/components/crm/doc-panels";
+import { ConnectionsPanel, EmailPanel, WhatsAppPanel, useLinkedEvents, type ConnectionGroup } from "@/components/crm/doc-panels";
 import { useFrappeGetDocList } from "frappe-react-sdk";
 import { humanizeError } from "@/services/frappe";
 import { formatDateTime } from "@/utils/dates";
 import { formatMoney } from "@/utils/currency";
+import { whatsappUrl } from "@/utils/whatsapp";
+import { WhatsAppIcon } from "@/components/common/whatsapp-icon";
+import { useWhatsAppCall } from "@/hooks/useWhatsAppCall";
 import { notifyDataChanged } from "@/hooks/useRealtime";
 import type { CrmTask } from "@/types/frappe";
 
@@ -27,7 +30,7 @@ export function DealDetailPage() {
   const { name } = useParams<{ name: string }>();
   const navigate = useNavigate();
   const { data: deal, error, isLoading, mutate } = useCrmDeal(name);
-  const { comments, isLoading: activitiesLoading, addComment } = useCrmActivities(name);
+  const { activities, isLoading: activitiesLoading, addComment } = useCrmActivities(name);
   const { data: notes } = useCrmNotes("CRM Deal", name);
   const { data: tasks, mutate: mutateTasks } = useCrmTasks({ referenceDoctype: "CRM Deal", referenceDocname: name });
   const { createDoc: createTask, setStatus, loading: taskSaving } = useCrmTaskMutations();
@@ -59,6 +62,7 @@ export function DealDetailPage() {
     },
   ];
 
+  const { call } = useWhatsAppCall();
   const [comment, setComment] = useState("");
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [taskValues, setTaskValues] = useState<Partial<CrmTask>>({ status: "Todo", priority: "Medium" });
@@ -153,7 +157,20 @@ export function DealDetailPage() {
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Phone</p>
-          <p className="flex items-center gap-1.5 font-medium"><Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />{deal.mobile_no || deal.phone || "—"}</p>
+          <p className="flex items-center gap-1.5 font-medium">
+            <Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <span className="truncate">{deal.mobile_no || deal.phone || "—"}</span>
+            {whatsappUrl(deal.mobile_no || deal.phone) && (
+              <button
+                type="button"
+                title="Call on WhatsApp"
+                onClick={() => void call(deal.mobile_no || deal.phone, "CRM Deal", name)}
+                className="ml-auto shrink-0 text-emerald-600 hover:text-emerald-500 dark:text-emerald-400"
+              >
+                <WhatsAppIcon className="h-4 w-4" />
+              </button>
+            )}
+          </p>
         </Card>
       </div>
 
@@ -174,17 +191,32 @@ export function DealDetailPage() {
               </div>
               {activitiesLoading ? (
                 <div className="h-16 w-full animate-pulse rounded bg-muted" />
-              ) : comments.length === 0 ? (
+              ) : activities.length === 0 ? (
                 <p className="py-6 text-center text-sm text-muted-foreground">No activity yet.</p>
               ) : (
                 <ul className="space-y-3 border-t border-border pt-3">
-                  {comments.map((c) => (
-                    <li key={c.name} className="text-sm">
-                      <p className="text-muted-foreground">
-                        <span className="font-medium text-foreground">{c.owner}</span>{" "}
-                        <span dangerouslySetInnerHTML={{ __html: c.content }} />
-                      </p>
-                      <p className="text-xs text-muted-foreground">{formatDateTime(c.creation)}</p>
+                  {activities.map((a, i) => (
+                    <li key={a.name ?? `${a.activity_type}-${i}`} className="text-sm">
+                      {a.activity_type === "comment" ? (
+                        <p className="text-muted-foreground">
+                          <span className="font-medium text-foreground">{a.owner}</span>{" "}
+                          <span dangerouslySetInnerHTML={{ __html: a.content ?? "" }} />
+                        </p>
+                      ) : (
+                        <p className="text-muted-foreground">
+                          <span className="font-medium text-foreground">{a.owner}</span> {describeCrmActivity(a)}
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground">{formatDateTime(a.creation)}</p>
+                      {a.other_versions && a.other_versions.length > 0 && (
+                        <ul className="ml-3 mt-1 space-y-0.5 border-l border-border pl-2">
+                          {a.other_versions.map((v, vi) => (
+                            <li key={vi} className="text-xs text-muted-foreground">
+                              {describeCrmActivity(v)}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -196,6 +228,12 @@ export function DealDetailPage() {
             referenceDoctype="CRM Deal"
             referenceDocname={name}
             defaultRecipient={deal.email}
+          />
+
+          <WhatsAppPanel
+            referenceDoctype="CRM Deal"
+            referenceDocname={name}
+            defaultRecipient={deal.mobile_no || deal.phone}
           />
         </div>
 

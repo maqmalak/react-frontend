@@ -877,6 +877,14 @@ export interface CrmLead {
   creation?: string;
   modified?: string;
   _assign?: string;
+  priority?: string;
+  csr_department?: string;
+  address?: string;
+  focus_area?: string;
+  education_focus?: string;
+  proposed_ask?: string;
+  first_contact_date?: string;
+  remarks?: string;
 }
 
 export interface CrmDeal {
@@ -1005,6 +1013,37 @@ export interface CrmNotification {
   creation?: string;
 }
 
+/** A `CRM Prospect Scrape` review-queue row (custom `apparel` doctype, not vendored crm). */
+export interface CrmProspectScrape {
+  name?: string;
+  source_url?: string;
+  status?: "Pending Review" | "Approved" | "Rejected" | "Converted";
+  research_source?: string;
+  last_research_date?: string;
+  donor_name?: string;
+  donor_type?: string;
+  segment?: string;
+  website?: string;
+  donor_profile_url?: string;
+  country?: string;
+  city?: string;
+  address?: string;
+  csr_department?: string;
+  focus_area?: string;
+  proposed_ask?: string;
+  focal_person?: string;
+  designation?: string;
+  email?: string;
+  phone?: string;
+  contact_source?: string;
+  social_media?: string;
+  raw_extract?: string;
+  scrape_error?: string;
+  converted_lead?: string;
+  modified?: string;
+  creation?: string;
+}
+
 /** A single widget entry from `CRM Dashboard.layout` (a JSON array). */
 export interface CrmDashboardWidget {
   name: string;
@@ -1103,4 +1142,5 @@ export type DocTypeName =
   | "CRM Call Log"
   | "CRM Organization"
   | "CRM Notification"
+  | "CRM Prospect Scrape"
   | "Event";

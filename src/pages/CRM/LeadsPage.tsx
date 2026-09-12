@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import { useFrappeGetDocCount } from "frappe-react-sdk";
 import {
   UserPlus,
   Plus,
@@ -17,12 +18,18 @@ import {
   X,
   Building2,
   Mail,
+  Target,
+  Pencil,
+  MoreVertical,
+  Phone,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Avatar } from "@/components/ui/avatar";
+import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { StatCard } from "@/components/common/stat-card";
 import { avatarTone } from "@/components/common/avatar-tone";
 import { StatusBadge } from "@/components/common/status-badge";
@@ -30,12 +37,108 @@ import { FrappeDataTable, type ColumnDef } from "@/components/tables/data-table"
 import { FilterBar } from "@/components/filters/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { KanbanBoard, type KanbanColumnDef } from "@/components/crm/KanbanBoard";
+import { DropdownMenu } from "@/components/ui/dropdown-menu";
+import { WhatsAppIcon } from "@/components/common/whatsapp-icon";
 import { useCrmLeads, useCrmLeadMutations } from "@/hooks/useCrmLeads";
 import { useCrmKanban } from "@/hooks/useCrmViews";
+import { useMonthlyLeadTarget } from "@/hooks/useMonthlyLeadTarget";
+import { useWhatsAppCall } from "@/hooks/useWhatsAppCall";
 import { notifyDataChanged } from "@/hooks/useRealtime";
+import { convertCrmLeadToDeal } from "@/services/api";
 import { humanizeError } from "@/services/frappe";
 import { relativeDays } from "@/utils/dates";
+import { whatsappUrl } from "@/utils/whatsapp";
 import type { CrmLead } from "@/types/frappe";
+
+/** First-of-month, formatted the way Frappe filters expect ("YYYY-MM-DD"). */
+function startOfMonthISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+}
+
+/** Target / Achieved / Achieved% for leads created this calendar month. Target is editable inline (persisted per-browser — there's no backend concept for this to share across users). */
+function LeadTargetWidget() {
+  const { target, setTarget } = useMonthlyLeadTarget();
+  const { data: achieved } = useFrappeGetDocCount(
+    "CRM Lead",
+    [["creation", ">=", startOfMonthISO()]],
+    false,
+    "apparel.crm.leads.achieved-this-month",
+    { refreshInterval: 60_000 },
+  );
+
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(String(target));
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
+  const commit = () => {
+    const n = Number(draft);
+    if (Number.isFinite(n) && n > 0) setTarget(n);
+    setEditing(false);
+  };
+
+  const achievedCount = Number(achieved ?? 0);
+  const pct = Math.round((achievedCount / target) * 100);
+  const monthLabel = new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5 text-sm font-medium">
+          <Target className="h-4 w-4 text-primary" /> Lead Target — {monthLabel}
+        </span>
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-4">
+        <div>
+          <p className="text-xs text-muted-foreground">Target</p>
+          {editing ? (
+            <input
+              ref={inputRef}
+              type="number"
+              min={1}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={commit}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commit();
+                if (e.key === "Escape") {
+                  setDraft(String(target));
+                  setEditing(false);
+                }
+              }}
+              className="w-20 rounded border border-input bg-transparent text-xl font-bold tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          ) : (
+            <button
+              className="group flex items-center gap-1.5 text-xl font-bold tabular-nums"
+              onClick={() => {
+                setDraft(String(target));
+                setEditing(true);
+              }}
+              title="Edit target"
+            >
+              {target}
+              <Pencil className="h-3 w-3 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+            </button>
+          )}
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Achieved</p>
+          <p className="text-xl font-bold tabular-nums">{achievedCount}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Achieved %</p>
+          <p className={`text-xl font-bold tabular-nums ${pct >= 100 ? "text-emerald-600" : ""}`}>{pct}%</p>
+        </div>
+      </div>
+      <Progress value={pct} className="mt-3" />
+    </Card>
+  );
+}
 
 type ViewMode = "list" | "kanban";
 
@@ -49,6 +152,7 @@ export function LeadsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [pendingDelete, setPendingDelete] = useState<CrmLead | null>(null);
+  const [converting, setConverting] = useState<string | null>(null);
 
   const filters = useMemo(() => {
     const f: unknown[][] = [];
@@ -59,6 +163,7 @@ export function LeadsPage() {
 
   const { data, error, isLoading, mutate } = useCrmLeads({ filters, limit: 500, enabled: view === "list" });
   const { deleteDoc, updateDoc, loading: mutating } = useCrmLeadMutations();
+  const { call } = useWhatsAppCall();
 
   const {
     board,
@@ -170,6 +275,21 @@ export function LeadsPage() {
     }
   };
 
+  const handleConvertToDeal = async (row: CrmLead) => {
+    if (!row.name) return;
+    setConverting(row.name);
+    try {
+      const dealName = await convertCrmLeadToDeal(row.name, row.annual_revenue);
+      toast.success(`Deal ${dealName} created`);
+      notifyDataChanged();
+      navigate(`/crm/deals/${encodeURIComponent(dealName)}`);
+    } catch (err) {
+      toast.error(humanizeError(err));
+    } finally {
+      setConverting(null);
+    }
+  };
+
   const handleCardMove = async (row: CrmLead, newStatus: string) => {
     try {
       await updateDoc(row.name!, { status: newStatus });
@@ -211,6 +331,8 @@ export function LeadsPage() {
         <StatCard label="Converted" value={stats.converted} icon={<Handshake className="h-4 w-4" />} tone="emerald" />
       </div>
 
+      <LeadTargetWidget />
+
       {view === "list" ? (
         <FrappeDataTable<CrmLead>
           columns={columns}
@@ -227,6 +349,12 @@ export function LeadsPage() {
           searchable={false}
           rowActions={(r) => [
             { label: "Open", icon: <Eye className="h-4 w-4" />, onClick: () => navigate(`/crm/leads/${encodeURIComponent(r.name ?? "")}`) },
+            {
+              label: r.converted ? "Already converted" : "Convert to Deal",
+              icon: <Handshake className="h-4 w-4" />,
+              onClick: () => void handleConvertToDeal(r),
+              disabled: !!r.converted || converting === r.name,
+            },
             { separator: true, label: "" },
             { label: "Delete", icon: <Trash2 className="h-4 w-4" />, destructive: true, onClick: () => setPendingDelete(r) },
           ]}
@@ -271,6 +399,28 @@ export function LeadsPage() {
               <div className="flex min-w-0 items-center gap-2">
                 <Avatar name={leadDisplayName(r)} src={r.image} size="sm" className={avatarTone(leadDisplayName(r))} />
                 <p className="min-w-0 flex-1 truncate text-sm font-medium">{leadDisplayName(r)}</p>
+                <div draggable={false} onClick={(e) => e.stopPropagation()} onDragStart={(e) => e.preventDefault()}>
+                  <DropdownMenu
+                    trigger={
+                      <button
+                        className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                        aria-label="Lead actions"
+                      >
+                        <MoreVertical className="h-3.5 w-3.5" />
+                      </button>
+                    }
+                    items={[
+                      { label: "Open", icon: <Eye className="h-3.5 w-3.5" />, onClick: () => navigate(`/crm/leads/${encodeURIComponent(r.name ?? "")}`) },
+                      {
+                        label: r.converted ? "Already converted" : "Convert to Deal",
+                        icon: <Handshake className="h-3.5 w-3.5" />,
+                        onClick: () => void handleConvertToDeal(r),
+                        disabled: !!r.converted || converting === r.name,
+                      },
+                      { label: "Delete", icon: <Trash2 className="h-3.5 w-3.5" />, destructive: true, onClick: () => setPendingDelete(r) },
+                    ]}
+                  />
+                </div>
               </div>
               {r.organization && (
                 <p className="flex min-w-0 items-center gap-1 truncate text-xs text-muted-foreground">
@@ -280,6 +430,25 @@ export function LeadsPage() {
               {r.email && (
                 <p className="flex min-w-0 items-center gap-1 truncate text-xs text-muted-foreground">
                   <Mail className="h-3.5 w-3.5 shrink-0" />{r.email}
+                </p>
+              )}
+              {(r.mobile_no || r.phone) && (
+                <p className="flex min-w-0 items-center gap-1.5 truncate text-xs text-muted-foreground">
+                  <Phone className="h-3.5 w-3.5 shrink-0" />
+                  <span className="min-w-0 truncate">{r.mobile_no || r.phone}</span>
+                  {whatsappUrl(r.mobile_no || r.phone) && (
+                    <button
+                      type="button"
+                      title="Call on WhatsApp"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void call(r.mobile_no || r.phone, "CRM Lead", r.name);
+                      }}
+                      className="ml-auto shrink-0 text-emerald-600 hover:text-emerald-500 dark:text-emerald-400"
+                    >
+                      <WhatsAppIcon className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </p>
               )}
               <div className="flex min-w-0 items-center justify-between gap-2">

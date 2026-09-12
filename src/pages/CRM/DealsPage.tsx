@@ -15,6 +15,7 @@ import {
   Search,
   Mail,
   CalendarDays,
+  Phone,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
@@ -28,12 +29,15 @@ import { FrappeDataTable, type ColumnDef } from "@/components/tables/data-table"
 import { FilterBar } from "@/components/filters/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { KanbanBoard, type KanbanColumnDef } from "@/components/crm/KanbanBoard";
+import { WhatsAppIcon } from "@/components/common/whatsapp-icon";
 import { useCrmDeals, useCrmDealMutations } from "@/hooks/useCrmDeals";
 import { useCrmKanban } from "@/hooks/useCrmViews";
+import { useWhatsAppCall } from "@/hooks/useWhatsAppCall";
 import { notifyDataChanged } from "@/hooks/useRealtime";
 import { humanizeError } from "@/services/frappe";
 import { relativeDays, formatDate } from "@/utils/dates";
 import { formatMoney } from "@/utils/currency";
+import { whatsappUrl } from "@/utils/whatsapp";
 import type { CrmDeal } from "@/types/frappe";
 
 type ViewMode = "list" | "kanban";
@@ -67,6 +71,7 @@ export function DealsPage() {
 
   const { data, error, isLoading, mutate } = useCrmDeals({ filters, limit: 500, enabled: view === "list" });
   const { deleteDoc, updateDoc, loading: mutating } = useCrmDealMutations();
+  const { call } = useWhatsAppCall();
 
   const {
     board,
@@ -75,7 +80,7 @@ export function DealsPage() {
   } = useCrmKanban<CrmDeal>({
     doctype: "CRM Deal",
     columnField: "status",
-    kanbanFields: ["deal_value", "expected_deal_value", "currency", "lead_name"],
+    kanbanFields: ["deal_value", "expected_deal_value", "currency", "lead_name", "mobile_no", "phone"],
     enabled: view === "kanban",
   });
 
@@ -298,6 +303,27 @@ export function DealsPage() {
               {r.expected_closure_date && (
                 <p className="flex min-w-0 items-center gap-1 truncate text-xs text-muted-foreground">
                   <CalendarDays className="h-3.5 w-3.5 shrink-0" />{formatDate(r.expected_closure_date)}
+                </p>
+              )}
+              {(r.mobile_no || r.phone) && (
+                <p className="flex min-w-0 items-center gap-1.5 truncate text-xs text-muted-foreground">
+                  <Phone className="h-3.5 w-3.5 shrink-0" />
+                  <span className="min-w-0 truncate">{r.mobile_no || r.phone}</span>
+                  {whatsappUrl(r.mobile_no || r.phone) && (
+                    <button
+                      type="button"
+                      draggable={false}
+                      title="Call on WhatsApp"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void call(r.mobile_no || r.phone, "CRM Deal", r.name);
+                      }}
+                      onDragStart={(e) => e.preventDefault()}
+                      className="ml-auto shrink-0 text-emerald-600 hover:text-emerald-500 dark:text-emerald-400"
+                    >
+                      <WhatsAppIcon className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </p>
               )}
               <p className="text-sm font-semibold text-emerald-600">

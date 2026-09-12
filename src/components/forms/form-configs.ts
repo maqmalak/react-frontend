@@ -486,15 +486,36 @@ export const CRM_LEAD_FIELDS: FormFieldMeta[] = [
   { fieldname: "website", label: "Website", fieldtype: "Data" },
   { fieldname: "column_break_org", fieldtype: "Column Break" },
   { fieldname: "no_of_employees", label: "No. of Employees", fieldtype: "Select", options: "1-10\n11-50\n51-200\n201-500\n501-1000\n1000+" },
-  { fieldname: "annual_revenue", label: "Annual Revenue", fieldtype: "Currency" },
-  { fieldname: "industry", label: "Industry", fieldtype: "Link", options: "CRM Industry" },
+  // Repurposed for the donor-prospecting spreadsheet's "Expected Amount"
+  // (expected donation) rather than the company's own revenue — reusing the
+  // stock field instead of adding a new one, per instruction.
+  { fieldname: "annual_revenue", label: "Expected Amount", fieldtype: "Currency" },
+  // Repurposed for the spreadsheet's "Segment" (e.g. "Food / Personal Care").
+  { fieldname: "industry", label: "Segment", fieldtype: "Link", options: "CRM Industry" },
 
   { fieldname: "section_break_qualify", label: "Qualification", fieldtype: "Section Break" },
   { fieldname: "status", label: "Status", fieldtype: "Link", options: "CRM Lead Status" },
   { fieldname: "source", label: "Source", fieldtype: "Link", options: "CRM Lead Source" },
   { fieldname: "column_break_qualify", fieldtype: "Column Break" },
   { fieldname: "lead_owner", label: "Lead Owner", fieldtype: "Link", options: "User" },
-  { fieldname: "territory", label: "Territory", fieldtype: "Link", options: "CRM Territory" },
+  // Repurposed for the spreadsheet's "City" — reusing the stock Territory
+  // Link instead of adding a new free-text field, per instruction.
+  { fieldname: "territory", label: "City", fieldtype: "Link", options: "CRM Territory" },
+
+  {
+    fieldname: "section_break_fundraising",
+    label: "Fundraising Details",
+    fieldtype: "Section Break",
+  },
+  { fieldname: "priority", label: "Priority", fieldtype: "Select", options: "\nA+\nA\nB\nC" },
+  { fieldname: "csr_department", label: "CSR/ESG Department", fieldtype: "Data" },
+  { fieldname: "address", label: "Address", fieldtype: "Text" },
+  { fieldname: "column_break_fundraising", fieldtype: "Column Break" },
+  { fieldname: "focus_area", label: "Focus Area", fieldtype: "Data" },
+  { fieldname: "education_focus", label: "Education Focus", fieldtype: "Data" },
+  { fieldname: "proposed_ask", label: "Proposed Ask", fieldtype: "Text" },
+  { fieldname: "first_contact_date", label: "First Contact", fieldtype: "Date" },
+  { fieldname: "remarks", label: "Remarks", fieldtype: "Text" },
 
   { fieldname: "section_break_lost", label: "Lost Details", fieldtype: "Section Break" },
   { fieldname: "lost_reason", label: "Lost Reason", fieldtype: "Link", options: "CRM Lost Reason" },
@@ -557,4 +578,51 @@ export const CRM_TASK_FIELDS: FormFieldMeta[] = [
   { fieldname: "due_date", label: "Due Date & Reminder Time", fieldtype: "Datetime", reqd: true },
   { fieldname: "section_break_task_desc", label: "Description", fieldtype: "Section Break" },
   { fieldname: "description", label: "Description", fieldtype: "Text Editor" },
+];
+
+/** FCRM Note fields, used for the Lead/Deal detail page's quick-add Note form. */
+export const CRM_NOTE_FIELDS: FormFieldMeta[] = [
+  { fieldname: "title", label: "Title", fieldtype: "Data", reqd: true },
+  { fieldname: "content", label: "Content", fieldtype: "Text Editor", reqd: true },
+];
+
+/**
+ * `CRM Prospect Scrape` review-queue row — edited by hand before
+ * "Convert to Lead" (see `apparel.crm_scraper`). Scraper-filled fields stay
+ * editable here since the heuristics are best-effort, not authoritative.
+ */
+export const CRM_PROSPECT_SCRAPE_FIELDS: FormFieldMeta[] = [
+  { fieldname: "section_break_identity", label: "Identity", fieldtype: "Section Break" },
+  { fieldname: "donor_name", label: "Donor Name", fieldtype: "Data" },
+  { fieldname: "donor_type", label: "Donor Type", fieldtype: "Select", options: "\nCorporate\nFoundation\nNGO\nGovernment\nTrust\nIndividual\nInternational Agency\nOther" },
+  { fieldname: "segment", label: "Segment", fieldtype: "Data" },
+  { fieldname: "column_break_identity", fieldtype: "Column Break" },
+  { fieldname: "website", label: "Website", fieldtype: "Data" },
+  { fieldname: "donor_profile_url", label: "Donor Profile URL", fieldtype: "Data" },
+
+  { fieldname: "section_break_location", label: "Location", fieldtype: "Section Break" },
+  { fieldname: "country", label: "Country", fieldtype: "Data" },
+  { fieldname: "city", label: "City", fieldtype: "Data" },
+  { fieldname: "column_break_location", fieldtype: "Column Break" },
+  { fieldname: "address", label: "Address", fieldtype: "Text" },
+
+  { fieldname: "section_break_fundraising", label: "Fundraising", fieldtype: "Section Break" },
+  { fieldname: "csr_department", label: "CSR/ESG Department", fieldtype: "Data" },
+  { fieldname: "focus_area", label: "Focus Area", fieldtype: "Data" },
+  { fieldname: "column_break_fundraising", fieldtype: "Column Break" },
+  { fieldname: "proposed_ask", label: "Proposed Ask", fieldtype: "Text" },
+
+  { fieldname: "section_break_contact", label: "Contact", fieldtype: "Section Break" },
+  { fieldname: "focal_person", label: "Focal Person", fieldtype: "Data" },
+  { fieldname: "designation", label: "Designation", fieldtype: "Data" },
+  { fieldname: "column_break_contact", fieldtype: "Column Break" },
+  { fieldname: "email", label: "Email", fieldtype: "Data" },
+  { fieldname: "phone", label: "Phone", fieldtype: "Data" },
+  { fieldname: "contact_source", label: "Contact Source", fieldtype: "Data" },
+  { fieldname: "social_media", label: "Social Media", fieldtype: "Text" },
+
+  { fieldname: "section_break_review", label: "Review", fieldtype: "Section Break" },
+  { fieldname: "status", label: "Status", fieldtype: "Select", options: "Pending Review\nApproved\nRejected\nConverted" },
+  { fieldname: "raw_extract", label: "Raw Extract", fieldtype: "Text", read_only: true },
+  { fieldname: "scrape_error", label: "Scrape Error", fieldtype: "Data", read_only: true },
 ];

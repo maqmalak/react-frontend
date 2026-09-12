@@ -1,4 +1,5 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   List,
@@ -101,6 +102,29 @@ export function CrmManagementPage<T extends Record<string, any>>({ config }: { c
       fields: config.fields,
       orderBy: { field: "modified", order: "desc" },
     });
+
+  // Deep-link support: other pages (e.g. a Lead/Deal's Connections panel)
+  // link here as `?open=<name>` since Task/Note/Call Log have no detail
+  // route of their own — auto-open that row's edit dialog once it loads,
+  // then drop the param so Cancel/closing doesn't reopen it.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const openName = searchParams.get("open");
+    if (!openName || openName === openedRef.current) return;
+    const row = (rows ?? []).find((r) => String(r.name) === openName);
+    if (!row) return;
+    openedRef.current = openName;
+    setEditing(row);
+    setFormValues({ ...row });
+    setFormErrors({});
+    setDialogOpen(true);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("open");
+      return next;
+    }, { replace: true });
+  }, [searchParams, rows, setSearchParams]);
 
   const filtered = useMemo(() => {
     let out = rows ?? [];

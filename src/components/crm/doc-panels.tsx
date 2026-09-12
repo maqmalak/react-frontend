@@ -1,16 +1,31 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import useSWR from "swr";
 import { useFrappeGetDocList, useFrappeCreateDoc } from "frappe-react-sdk";
 import toast from "react-hot-toast";
-import { ChevronDown, ChevronRight, Mail, Send, Link2, CalendarDays, ListTodo, Inbox } from "lucide-react";
+import { ChevronDown, ChevronRight, Mail, Send, Link2, CalendarDays, ListTodo, Inbox, Paperclip, FileText, Download, MessageCircle } from "lucide-react";
 import { SectionCard } from "@/components/common/section-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { postCall, humanizeError } from "@/services/frappe";
+import { postCall, humanizeError, uploadFile, fileURL, type FrappeFile } from "@/services/frappe";
+import { getWhatsAppMessages, sendWhatsAppMessage } from "@/services/api";
 import { formatDateTime } from "@/utils/dates";
+import { cn } from "@/utils/cn";
+
+function formatBytes(bytes?: number): string {
+  if (!bytes || bytes <= 0) return "";
+  const units = ["B", "KB", "MB", "GB"];
+  let i = 0;
+  let n = bytes;
+  while (n >= 1024 && i < units.length - 1) {
+    n /= 1024;
+    i++;
+  }
+  return `${n.toFixed(n >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
+}
 
 /** Email row from the Communication doctype (filtered to a document). */
 export interface DocEmail {
@@ -23,8 +38,8 @@ export interface DocEmail {
   creation: string;
 }
 
-/** Strip HTML tags & collapse whitespace for a plain-text preview. */
-function textPreview(html: string, max = 140): string {
+/** Strip HTML tags & collapse whitespace for a plain-text preview (used for Email bodies and Note content, both stored as HTML by their Text Editor fields). */
+export function textPreview(html: string, max = 140): string {
   const text = html
     .replace(/<style[\s\S]*?<\/style>/gi, "")
     .replace(/<[^>]+>/g, " ")
@@ -94,7 +109,11 @@ export function EmailPanel({
     fields: [...EMAIL_FIELDS],
     filters: [
       ["reference_doctype", "=", referenceDoctype],
-      ["reference_docname", "=", referenceDocname ?? ""],
+      // Communication's own reference field is `reference_name`, unlike CRM
+      // Task/Note/Call Log/Event Participants which all use
+      // `reference_docname` — confirmed against the live backend (a filter
+      // on `reference_docname` here silently matched nothing).
+      ["reference_name", "=", referenceDocname ?? ""],
       ["communication_medium", "=", "Email"],
     ],
     orderBy: { field: "creation", order: "desc" },
@@ -130,7 +149,7 @@ export function EmailPanel({
             content: message.trim(),
             recipients: to.trim(),
             reference_doctype: referenceDoctype,
-            reference_docname: referenceDocname,
+            reference_name: referenceDocname,
           });
           toast.success("No outgoing mail server configured — email logged to the thread");
         } catch (logErr) {
@@ -233,6 +252,123 @@ export function EmailPanel({
   );
 }
 
+/**
+ * WhatsApp thread for a Lead/Deal, via the `frappe/whatsapp` app's generic
+ * reference-based conversation API (`whatsapp.whatsapp.api.messages`) — no
+ * CRM-specific code lives in that app; this panel is the only place that
+ * knows a Lead/Deal has a WhatsApp thread at all. Sending throws a clear,
+ * user-facing error until a WhatsApp Account is configured (Desk ->
+ * WhatsApp Account — access token, phone number ID from Meta's WhatsApp
+ * Business Cloud API), which this panel surfaces as a toast rather than a
+ * crash.
+ */
+export function WhatsAppPanel({
+  referenceDoctype,
+  referenceDocname,
+  defaultRecipient,
+  className,
+}: {
+  referenceDoctype: string;
+  referenceDocname?: string;
+  defaultRecipient?: string;
+  className?: string;
+}) {
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [to, setTo] = useState(defaultRecipient ?? "");
+  const [message, setMessage] = useState("");
+
+  const key = referenceDocname ? `apparel.doc.whatsapp.${referenceDoctype}.${referenceDocname}` : null;
+  const { data: messages, isLoading, mutate } = useSWR(
+    key,
+    () => getWhatsAppMessages([[referenceDoctype, referenceDocname!]]),
+    { refreshInterval: 15_000 },
+  );
+
+  const send = async () => {
+    if (!to.trim() || !message.trim()) {
+      toast.error("To and message are required");
+      return;
+    }
+    setSending(true);
+    try {
+      await sendWhatsAppMessage({
+        to: to.trim(),
+        message: message.trim(),
+        referenceDoctype,
+        referenceDocname,
+      });
+      toast.success("Message sent");
+      setMessage("");
+      setComposeOpen(false);
+      void mutate();
+    } catch (err) {
+      toast.error(humanizeError(err));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <SectionCard
+      title="WhatsApp"
+      className={className}
+      actions={
+        <Button size="sm" variant="outline" onClick={() => setComposeOpen((v) => !v)}>
+          <MessageCircle className="h-3.5 w-3.5" /> Message
+        </Button>
+      }
+    >
+      {composeOpen && (
+        <div className="mb-4 space-y-3 rounded-lg border border-border bg-muted/30 p-3">
+          <div className="space-y-1">
+            <Label htmlFor="wa-to" className="text-xs">To</Label>
+            <Input id="wa-to" value={to} onChange={(e) => setTo(e.target.value)} placeholder="+92 300 1234567" />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="wa-message" className="text-xs">Message</Label>
+            <Textarea id="wa-message" rows={3} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Write your message…" />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => setComposeOpen(false)}>Cancel</Button>
+            <Button size="sm" onClick={() => void send()} disabled={sending}>
+              <Send className="h-3.5 w-3.5" /> {sending ? "Sending…" : "Send"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">Loading messages…</p>
+      ) : !messages?.length ? (
+        <div className="flex flex-col items-center gap-1 py-4 text-center">
+          <MessageCircle className="h-5 w-5 text-muted-foreground/60" />
+          <p className="text-sm text-muted-foreground">No WhatsApp messages yet — start the conversation.</p>
+        </div>
+      ) : (
+        <ul className="space-y-2">
+          {messages.map((m) => (
+            <li
+              key={m.name}
+              className={cn(
+                "max-w-[85%] rounded-lg border border-border px-3 py-2 text-sm",
+                m.direction === "Outgoing" ? "ml-auto bg-primary/10" : "bg-muted/40",
+              )}
+            >
+              <p className="whitespace-pre-wrap break-words">{m.message}</p>
+              <p className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <span>{formatDateTime(m.creation)}</span>
+                {m.direction === "Outgoing" && <Badge variant="outline" className="px-1.5 py-0 text-[10px]">{m.status}</Badge>}
+                {m.error_message && <span className="text-destructive">· {m.error_message}</span>}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </SectionCard>
+  );
+}
+
 /** Card listing everything connected to a record — cross-linked docs, events, tasks. */
 export function ConnectionsPanel({
   groups,
@@ -321,5 +457,105 @@ export function useLinkedEvents(referenceDoctype: string, referenceDocname?: str
     isLoading: participants.isLoading || events.isLoading,
     mutate: () => { void participants.mutate(); void events.mutate(); },
   };
+}
+
+/**
+ * Files attached to a document (core Frappe `File` doctype, filtered by
+ * `attached_to_doctype`/`attached_to_name` — the same reverse-link mechanism
+ * as reference_doctype/reference_docname on Task/Note/Call Log, just named
+ * differently on File). Lists existing attachments and lets the user add
+ * more via the standard `upload_file` endpoint.
+ */
+export function AttachmentsPanel({
+  doctype,
+  docname,
+  className,
+}: {
+  doctype: string;
+  docname?: string;
+  className?: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const { data: files, isLoading, mutate } = useFrappeGetDocList<FrappeFile>(
+    "File",
+    {
+      fields: ["name", "file_name", "file_url", "file_size", "is_private", "creation"],
+      filters: docname
+        ? [
+            ["attached_to_doctype", "=", doctype],
+            ["attached_to_name", "=", docname],
+          ]
+        : [["name", "=", ""]],
+      orderBy: { field: "creation", order: "desc" },
+      limit: 50,
+    },
+    docname ? `apparel.doc.files.${doctype}.${docname}` : null,
+  );
+
+  const handleFile = async (file: File) => {
+    if (!docname) return;
+    setUploading(true);
+    try {
+      await uploadFile(file, { doctype, docname });
+      toast.success("File attached");
+      void mutate();
+    } catch (err) {
+      toast.error(humanizeError(err));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <SectionCard
+      title="Attachments"
+      className={className}
+      actions={
+        <>
+          <input
+            ref={inputRef}
+            type="file"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleFile(file);
+              e.target.value = "";
+            }}
+          />
+          <Button size="sm" variant="outline" onClick={() => inputRef.current?.click()} disabled={uploading || !docname}>
+            <Paperclip className="h-3.5 w-3.5" /> {uploading ? "Uploading…" : "Attach"}
+          </Button>
+        </>
+      }
+    >
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">Loading attachments…</p>
+      ) : (files ?? []).length === 0 ? (
+        <p className="text-sm text-muted-foreground">No attachments yet.</p>
+      ) : (
+        <ul className="space-y-2">
+          {(files ?? []).map((f) => (
+            <li key={f.name} className="flex items-center justify-between gap-2 rounded-md border border-border p-2">
+              <a
+                href={fileURL(f.file_url)}
+                target="_blank"
+                rel="noreferrer"
+                className="flex min-w-0 flex-1 items-center gap-2 text-sm hover:underline"
+              >
+                <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="truncate">{f.file_name}</span>
+              </a>
+              <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                {formatBytes(f.file_size)}
+                <Download className="h-3.5 w-3.5" />
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </SectionCard>
+  );
 }
 

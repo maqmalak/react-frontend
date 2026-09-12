@@ -1,6 +1,5 @@
 import useSWR from "swr";
-import { getCrmDashboard } from "@/services/api";
-import type { CrmDashboardWidget } from "@/types/frappe";
+import { getCrmDashboard, type CrmDashboardWidgetRaw } from "@/services/api";
 
 /**
  * The manager dashboard: `CRM Dashboard.layout` widgets with each one's
@@ -11,9 +10,9 @@ import type { CrmDashboardWidget } from "@/types/frappe";
  */
 export function useCrmDashboard(range?: { fromDate?: string; toDate?: string }) {
   const key = `apparel.crm.dashboard.${range?.fromDate ?? ""}.${range?.toDate ?? ""}`;
-  const { data, error, isLoading, mutate } = useSWR(key, () => getCrmDashboard(range));
+  const { data, error, isLoading, mutate } = useSWR<CrmDashboardWidgetRaw[]>(key, () => getCrmDashboard(range));
 
-  const widgets = (data?.layout ?? []) as unknown as CrmDashboardWidget[];
+  const widgets: CrmDashboardWidgetRaw[] = Array.isArray(data) ? data : Object.values(data ?? {}) as CrmDashboardWidgetRaw[];
 
-  return { title: data?.title, widgets, isLoading, error, mutate };
+  return { widgets, isLoading, error, mutate };
 }
