@@ -5,7 +5,11 @@ import type {
   LandedCostVoucher,
   PurchaseInvoice,
   PurchaseReceipt,
+  PurchaseOrder,
   SalesOrder,
+  DeliveryNote,
+  SalesInvoice,
+  RequestForQuotation,
 } from "@/types/frappe";
 
 /**
@@ -79,6 +83,82 @@ export function makePurchaseInvoiceFromPR(prName: string): Promise<PurchaseInvoi
   return postCall<PurchaseInvoice>(
     "erpnext.stock.doctype.purchase_receipt.purchase_receipt.make_purchase_invoice",
     { source_name: prName },
+  );
+}
+
+/** Build an unsaved Purchase Order from a submitted ("Purchase" type) Material Request. */
+export function makePurchaseOrderFromMR(mrName: string): Promise<PurchaseOrder> {
+  return postCall<PurchaseOrder>(
+    "erpnext.stock.doctype.material_request.material_request.make_purchase_order",
+    { source_name: mrName },
+  );
+}
+
+/** Build an unsaved Request for Quotation from a submitted ("Purchase" type) Material Request. */
+export function makeRequestForQuotationFromMR(mrName: string): Promise<RequestForQuotation> {
+  return postCall<RequestForQuotation>(
+    "erpnext.stock.doctype.material_request.material_request.make_request_for_quotation",
+    { source_name: mrName },
+  );
+}
+
+/**
+ * Build an unsaved Purchase Order prefill from a submitted RFQ, for one chosen
+ * supplier. Unlike the other "make_*" helpers this is pure client-side data
+ * shaping, not an ERPNext mapped-doc call — core ERPNext has no
+ * `request_for_quotation` link field on Purchase Order Item (only Supplier
+ * Quotation carries that; this app has no Supplier Quotation module), so
+ * there's no whitelisted server method to map RFQ -> PO directly, and no
+ * server-traceable link once created (the RFQ Detail page's "linked Purchase
+ * Orders" can't be queried the way Material Request's can).
+ */
+export function buildPurchaseOrderPrefillFromRFQ(
+  rfq: RequestForQuotation,
+  supplier: string,
+): Partial<PurchaseOrder> {
+  const supplierRow = (rfq.suppliers ?? []).find((s) => s.supplier === supplier);
+  return {
+    supplier,
+    supplier_name: supplierRow?.supplier_name || supplier,
+    company: rfq.company,
+    schedule_date: rfq.schedule_date,
+    items: (rfq.items ?? []).map((it) => ({
+      item_code: it.item_code,
+      item_name: it.item_name,
+      description: it.description,
+      qty: it.qty,
+      uom: it.uom,
+      stock_uom: it.stock_uom,
+      conversion_factor: it.conversion_factor,
+      warehouse: it.warehouse,
+      schedule_date: it.schedule_date,
+      rate: 0,
+      amount: 0,
+    })) as PurchaseOrder["items"],
+  };
+}
+
+/** Build an unsaved Delivery Note from a submitted Sales Order. */
+export function makeDeliveryNoteFromSO(soName: string): Promise<DeliveryNote> {
+  return postCall<DeliveryNote>(
+    "erpnext.selling.doctype.sales_order.sales_order.make_delivery_note",
+    { source_name: soName },
+  );
+}
+
+/** Build an unsaved Sales Invoice from a submitted Sales Order. */
+export function makeSalesInvoiceFromSO(soName: string): Promise<SalesInvoice> {
+  return postCall<SalesInvoice>(
+    "erpnext.selling.doctype.sales_order.sales_order.make_sales_invoice",
+    { source_name: soName },
+  );
+}
+
+/** Build an unsaved Sales Invoice from a submitted Delivery Note. */
+export function makeSalesInvoiceFromDN(dnName: string): Promise<SalesInvoice> {
+  return postCall<SalesInvoice>(
+    "erpnext.stock.doctype.delivery_note.delivery_note.make_sales_invoice",
+    { source_name: dnName },
   );
 }
 

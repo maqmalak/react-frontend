@@ -286,17 +286,15 @@ export function PurchaseInvoiceDetailPage() {
               <ul className="mb-4 space-y-1">
                 {(paymentEntries ?? []).map((pe) => (
                   <li key={pe.name}>
-                    <a
-                      href={`/app/payment-entry/${encodeURIComponent(pe.name)}`}
-                      target="_blank"
-                      rel="noreferrer"
+                    <Link
+                      to={`/accounting/payment-entries/${encodeURIComponent(pe.name)}`}
                       className="flex items-center justify-between gap-1.5 text-sm text-primary hover:underline"
                     >
                       <span className="flex items-center gap-1.5">
                         <Wallet className="h-3.5 w-3.5 opacity-60" /> {pe.name}
                       </span>
                       <span className="text-xs text-muted-foreground">{formatMoney(pe.paid_amount)}</span>
-                    </a>
+                    </Link>
                   </li>
                 ))}
               </ul>

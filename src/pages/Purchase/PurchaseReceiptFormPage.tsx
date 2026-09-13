@@ -255,6 +255,9 @@ export function PurchaseReceiptFormPage() {
       supplier_delivery_note: values.supplier_delivery_note || undefined,
       company: values.company,
       posting_date: values.posting_date || todayISO(),
+      // See erpnext.utilities.transaction_base.TransactionBase.validate_posting_time —
+      // without this, ERPNext silently forces posting_date/time to right now.
+      set_posting_time: 1,
       currency: values.currency || "USD",
       conversion_rate: conversionRate,
       buying_price_list: values.buying_price_list || undefined,

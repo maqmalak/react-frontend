@@ -604,7 +604,11 @@ function ShareDialog({
       await postCall("frappe.share.set_permission", {
         doctype,
         name: docname,
-        user: user ?? undefined,
+        // `user` is a required positional arg server-side (str | None, no
+        // default) — it must be present in the request body even for the
+        // "Everyone" row, so `null` here (not `undefined`, which JSON.stringify
+        // would drop the key for entirely and trip a "missing argument" error).
+        user: user ?? null,
         permission_to,
         value: value ? 1 : 0,
         everyone: everyone ? 1 : 0,

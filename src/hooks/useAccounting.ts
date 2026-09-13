@@ -462,13 +462,22 @@ export function useMonthlyTrialBalanceTrend(
     enabled && company && fiscalYear && months.length > 0 ? `apparel.report.monthly-trial-balance.${company}.${fiscalYear}.${fromDate}.${toDate}` : null;
 
   const { data, error, isLoading, mutate } = useSWR<MonthlyRootActivity[]>(key, async () => {
-    const responses = await Promise.all(
+    // Sequential, not `Promise.all` — firing all N months at once against the
+    // same "Trial Balance" report concurrently was enough load on its own to
+    // make individual executions cross Frappe's 15s auto-"Prepared Report"
+    // threshold (a self-inflicted version of the exact problem this
+    // month-by-month approach was meant to avoid — see the comment at the
+    // call site). One at a time keeps each call fast and never trips it.
+    const responses: Awaited<ReturnType<typeof fetchReportResult>>[] = [];
+    for (const m of months) {
       // Trial Balance requires `fiscal_year` even when from_date/to_date
       // narrow the window — it's the fiscal year the whole page has
       // selected, not a per-month value, since from_date/to_date already
       // pin the actual range each call covers.
-      months.map((m) => fetchReportResult("Trial Balance", { company, fiscal_year: fiscalYear, from_date: m.from, to_date: m.to, show_group_accounts: 1 })),
-    );
+      responses.push(
+        await fetchReportResult("Trial Balance", { company, fiscal_year: fiscalYear, from_date: m.from, to_date: m.to, show_group_accounts: 1 }),
+      );
+    }
     return months.map((m, i) => {
       const rows = (responses[i]?.result ?? []) as Record<string, unknown>[];
       const totals: Record<string, { debit: number; credit: number }> = {};

@@ -19,7 +19,6 @@ import {
   ShieldCheck,
   Receipt,
   Coins,
-  ShoppingBag,
   Handshake,
   Cog,
   Building2,
@@ -40,6 +39,7 @@ import {
   TrendingUp,
   PieChart,
   Sliders,
+  CreditCard,
   UserPlus,
   Building2 as OrgIcon,
   CheckSquare,
@@ -85,6 +85,8 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
     {
       title: "Import",
       items: [
+        { label: "Material Requests", to: "/import/material-requests", icon: ClipboardList },
+        { label: "Requests for Quotation", to: "/import/rfqs", icon: Quote },
         { label: "Purchase Orders", to: "/import/purchase-orders", icon: ShoppingCart },
         { label: "Import Shipments", to: "/import/shipments", icon: Container },
         { label: "Import Cost Sheets", to: "/import/cost-sheets", icon: Calculator },
@@ -126,7 +128,8 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
       title: "Inventory",
       items: [
         { label: "Stock", to: "/inventory/stock", icon: Warehouse },
-        { label: "Material Movement", to: "/inventory/movement", icon: ArrowLeftRight },
+        { label: "Material Movement", to: "/inventory/stock-entries", icon: ArrowLeftRight },
+        { label: "Stock Ledger", to: "/inventory/reports/stock-ledger", icon: BookOpen },
       ],
     },
   ],
@@ -173,7 +176,10 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
     },
     {
       title: "Transactions",
-      items: [{ label: "Journal Entries", to: "/accounting/journal-entries", icon: BookOpen }],
+      items: [
+        { label: "Journal Entries", to: "/accounting/journal-entries", icon: BookOpen },
+        { label: "Payment Entries", to: "/accounting/payment-entries", icon: CreditCard },
+      ],
     },
     {
       title: "Reports",
@@ -202,7 +208,16 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
       ],
     },
   ],
-  selling: [{ items: [{ label: "Selling", to: "/selling", icon: ShoppingBag }] }],
+  selling: [
+    {
+      title: "Selling",
+      items: [
+        { label: "Sales Orders", to: "/selling/sales-orders", icon: Handshake },
+        { label: "Delivery Notes", to: "/selling/delivery-notes", icon: Package },
+        { label: "Sales Invoices", to: "/selling/sales-invoices", icon: Receipt },
+      ],
+    },
+  ],
   crm: [
     {
       title: "Overview",
@@ -331,6 +346,7 @@ export const ROUTE_TITLES: Record<string, string> = {
   "tax-templates": "Tax Templates",
   sales: "Sales",
   "journal-entries": "Journal Entries",
+  "payment-entries": "Payment Entries",
   "general-ledger": "General Ledger",
   "trial-balance": "Trial Balance",
   "profit-and-loss": "Profit and Loss",
@@ -352,6 +368,9 @@ export const ROUTE_TITLES: Record<string, string> = {
   notifications: "Notifications",
   purchase: "Purchase",
   "purchase-orders": "Purchase Orders",
+  "material-requests": "Material Requests",
+  rfqs: "Requests for Quotation",
+  "stock-ledger": "Stock Ledger",
   receipts: "Purchase Receipts",
   invoices: "Purchase Invoices",
   "landed-costs": "Landed Cost Vouchers",
@@ -363,8 +382,11 @@ export const ROUTE_TITLES: Record<string, string> = {
   "work-orders": "Work Orders",
   status: "Status",
   stock: "Stock",
-  movement: "Material Movement",
+  "stock-entries": "Stock Entries",
   items: "Items",
+  "sales-orders": "Sales Orders",
+  "sales-invoices": "Sales Invoices",
+  "delivery-notes": "Delivery Notes",
   customers: "Customers",
   suppliers: "Suppliers",
   lc: "LC",

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
-import { ShoppingCart, Save, Send, Trash2 } from "lucide-react";
+import { FileText, Save, Send, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,29 +10,23 @@ import { FrappeForm } from "@/components/forms/frappe-form";
 import { EditableChildTable, type ChildRow } from "@/components/tables/child-table";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SectionCard } from "@/components/common/section-card";
-import {
-  PURCHASE_ORDER_FIELDS,
-  PURCHASE_ORDER_ITEM_COLUMNS,
-} from "@/components/forms/form-configs";
-import {
-  usePurchaseOrder,
-  usePurchaseOrderMutations,
-} from "@/hooks/usePurchaseOrders";
+import { SALES_INVOICE_FIELDS, SALES_INVOICE_ITEM_COLUMNS } from "@/components/forms/form-configs";
+import { useSalesInvoice, useSalesInvoiceMutations } from "@/hooks/useSalesInvoices";
 import { useItems } from "@/hooks/useItems";
-import { useSuppliers } from "@/hooks/useSuppliers";
+import { useCustomers } from "@/hooks/useCustomers";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { useAuth } from "@/hooks/useAuth";
 import { formatMoney } from "@/utils/currency";
 import { notifyDataChanged } from "@/hooks/useRealtime";
 import { humanizeError, postCall } from "@/services/frappe";
 import { todayISO } from "@/utils/dates";
-import type { PurchaseOrder, PurchaseOrderItem } from "@/types/frappe";
+import type { SalesInvoice, SalesInvoiceItem } from "@/types/frappe";
 
-function lineAmount(row: Pick<PurchaseOrderItem, "qty" | "rate">): number {
+function lineAmount(row: Pick<SalesInvoiceItem, "qty" | "rate">): number {
   return Number(row.qty || 0) * Number(row.rate || 0);
 }
 
-export function PurchaseOrderFormPage() {
+export function SalesInvoiceFormPage() {
   const { name } = useParams<{ name?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -41,37 +35,30 @@ export function PurchaseOrderFormPage() {
   const canWrite = hasRole();
   const { company } = useCompanyContext();
 
-  // A "Create Purchase Order" action on a Material Request or RFQ routes
-  // here with an unsaved (Material Request) or client-built (RFQ, which has
-  // no server mapped-doc method) document in router state.
-  const prefill = (location.state as { prefill?: Partial<PurchaseOrder> } | null)?.prefill;
+  // A "Create Sales Invoice" action on Sales Order/Delivery Note routes here
+  // with an unsaved, server-mapped document in router state.
+  const prefill = (location.state as { prefill?: Partial<SalesInvoice> } | null)?.prefill;
 
-  const { data: doc, error: docError, isLoading: docLoading, mutate } = usePurchaseOrder(
-    isNew ? undefined : name,
-  );
-  const { createDoc, updateDoc, deleteDoc, loading: saving } = usePurchaseOrderMutations();
+  const { data: doc, error: docError, isLoading: docLoading, mutate } = useSalesInvoice(isNew ? undefined : name);
+  const { createDoc, updateDoc, deleteDoc, loading: saving } = useSalesInvoiceMutations();
   const { data: items } = useItems({ enabled: true });
-  const { data: suppliers } = useSuppliers({ enabled: true });
+  const { data: customers } = useCustomers({ enabled: true });
 
   const itemLookup = useMemo(() => {
     const m = new Map<string, { item_name: string; stock_uom?: string; standard_rate?: number }>();
     (items ?? []).forEach((it) =>
-      m.set(it.name, {
-        item_name: it.item_name ?? it.name,
-        stock_uom: it.stock_uom,
-        standard_rate: it.standard_rate,
-      }),
+      m.set(it.name, { item_name: it.item_name ?? it.name, stock_uom: it.stock_uom, standard_rate: it.standard_rate }),
     );
     return m;
   }, [items]);
 
-  const supplierLookup = useMemo(() => {
+  const customerLookup = useMemo(() => {
     const m = new Map<string, string>();
-    (suppliers ?? []).forEach((s) => m.set(s.name, s.supplier_name ?? s.name));
+    (customers ?? []).forEach((c) => m.set(c.name, c.customer_name ?? c.name));
     return m;
-  }, [suppliers]);
+  }, [customers]);
 
-  const [values, setValues] = useState<Partial<PurchaseOrder>>({});
+  const [values, setValues] = useState<Partial<SalesInvoice>>({});
   const [itemRows, setItemRows] = useState<ChildRow[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [confirmSubmit, setConfirmSubmit] = useState(false);
@@ -79,7 +66,7 @@ export function PurchaseOrderFormPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    document.title = name && !isNew ? `Purchase Order — ${name}` : "Purchase Order";
+    document.title = name && !isNew ? `Sales Invoice — ${name}` : "Sales Invoice";
   }, [name, isNew]);
 
   useEffect(() => {
@@ -88,24 +75,15 @@ export function PurchaseOrderFormPage() {
       setItemRows((doc.items ?? []).map((r) => ({ ...r, __uuid: crypto.randomUUID() })));
     } else if (!docLoading && isNew) {
       if (prefill) {
-        setValues({
-          naming_series: "PUR-ORD-.YYYY.-",
-          transaction_date: todayISO(),
-          schedule_date: todayISO(),
-          currency: "USD",
-          conversion_rate: 1,
-          status: "Draft",
-          company: company || undefined,
-          ...prefill,
-        });
+        setValues(prefill);
         setItemRows((prefill.items ?? []).map((r) => ({ ...r, __uuid: crypto.randomUUID() })));
       } else {
         setValues({
-          naming_series: "PUR-ORD-.YYYY.-",
-          transaction_date: todayISO(),
-          schedule_date: todayISO(),
+          naming_series: "ACC-SINV-.YYYY.-",
+          posting_date: todayISO(),
           currency: "USD",
           conversion_rate: 1,
+          update_stock: 0,
           status: "Draft",
           company: company || undefined,
         });
@@ -117,9 +95,7 @@ export function PurchaseOrderFormPage() {
   const onChange = (fieldname: string, value: any) => {
     setValues((v) => {
       const next = { ...v, [fieldname]: value };
-      if (fieldname === "supplier") {
-        next.supplier_name = supplierLookup.get(value) ?? value;
-      }
+      if (fieldname === "customer") next.customer_name = customerLookup.get(value) ?? value;
       return next;
     });
     setErrors((e) => {
@@ -135,7 +111,7 @@ export function PurchaseOrderFormPage() {
         if (i !== index) return r;
         const next = { ...r, [fieldname]: value };
         if (fieldname === "qty" || fieldname === "rate") {
-          next.amount = lineAmount(next as Pick<PurchaseOrderItem, "qty" | "rate">);
+          next.amount = lineAmount(next as Pick<SalesInvoiceItem, "qty" | "rate">);
         }
         return next;
       }),
@@ -169,34 +145,18 @@ export function PurchaseOrderFormPage() {
   const addItemRow = () =>
     setItemRows((prev) => [
       ...prev,
-      {
-        item_code: "",
-        item_name: "",
-        qty: 1,
-        rate: 0,
-        amount: 0,
-        schedule_date: values.schedule_date || todayISO(),
-        uom: "Nos",
-        stock_uom: "Nos",
-        conversion_factor: 1,
-        __uuid: crypto.randomUUID(),
-      },
+      { item_code: "", item_name: "", qty: 1, rate: 0, amount: 0, uom: "Nos", stock_uom: "Nos", conversion_factor: 1, __uuid: crypto.randomUUID() },
     ]);
 
   const removeItemRow = (index: number) => setItemRows((prev) => prev.filter((_, i) => i !== index));
   const duplicateItemRow = (index: number) =>
-    setItemRows((prev) => [
-      ...prev.slice(0, index + 1),
-      { ...prev[index], __uuid: crypto.randomUUID(), name: undefined },
-      ...prev.slice(index + 1),
-    ]);
+    setItemRows((prev) => [...prev.slice(0, index + 1), { ...prev[index], __uuid: crypto.randomUUID(), name: undefined }, ...prev.slice(index + 1)]);
 
   const validate = useCallback((): boolean => {
     const required: [string, string][] = [
-      ["supplier", "Supplier"],
-      ["transaction_date", "Date"],
+      ["customer", "Customer"],
+      ["posting_date", "Date"],
       ["company", "Company"],
-      ["currency", "Currency"],
     ];
     const next: Record<string, string> = {};
     required.forEach(([f, label]) => {
@@ -207,6 +167,9 @@ export function PurchaseOrderFormPage() {
       if (!row.item_code) next[`item_${i}`] = `Row ${i + 1}: Item is required`;
       if (!row.qty || Number(row.qty) <= 0) next[`qty_${i}`] = `Row ${i + 1}: Qty must be > 0`;
     });
+    if (values.update_stock && !itemRows.every((r) => r.warehouse)) {
+      next["update_stock"] = "Every row needs a Warehouse when Update Stock is checked";
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
   }, [values, itemRows]);
@@ -218,8 +181,8 @@ export function PurchaseOrderFormPage() {
   }, [itemRows]);
 
   const buildPayload = useCallback((): Record<string, unknown> => {
-    const schedule = values.schedule_date || values.transaction_date || todayISO();
     const conversionRate = Number(values.conversion_rate || 1) || 1;
+    const updateStock = Boolean(values.update_stock);
 
     const items = itemRows.map(({ __uuid, name: _rowName, owner, creation, modified, modified_by, parent, parentfield, parenttype, docstatus, idx, ...rest }, i) => {
       const qty = Number(rest.qty || 0);
@@ -229,11 +192,10 @@ export function PurchaseOrderFormPage() {
       const stockUom = rest.stock_uom || uom;
       const itemName = rest.item_name || rest.item_code || "";
       return {
-        doctype: "Purchase Order Item",
+        doctype: "Sales Invoice Item",
         item_code: rest.item_code,
         item_name: itemName,
         description: rest.description || itemName,
-        schedule_date: rest.schedule_date || schedule,
         qty,
         uom,
         stock_uom: stockUom,
@@ -242,32 +204,35 @@ export function PurchaseOrderFormPage() {
         amount,
         base_rate: rate * conversionRate,
         base_amount: amount * conversionRate,
-        warehouse: rest.warehouse || values.set_warehouse || undefined,
+        warehouse: updateStock ? rest.warehouse || undefined : undefined,
+        cost_center: rest.cost_center || values.cost_center || undefined,
+        sales_order: rest.sales_order || undefined,
+        so_detail: rest.so_detail || undefined,
+        delivery_note: rest.delivery_note || undefined,
+        dn_detail: rest.dn_detail || undefined,
         idx: i + 1,
       };
     });
 
     return {
-      doctype: "Purchase Order",
-      naming_series: values.naming_series || "PUR-ORD-.YYYY.-",
-      supplier: values.supplier,
-      supplier_name: values.supplier_name || values.supplier,
+      doctype: "Sales Invoice",
+      naming_series: values.naming_series || "ACC-SINV-.YYYY.-",
+      customer: values.customer,
+      customer_name: values.customer_name || values.customer,
       company: values.company,
-      transaction_date: values.transaction_date || todayISO(),
-      schedule_date: schedule,
+      posting_date: values.posting_date || todayISO(),
+      // See erpnext.utilities.transaction_base.TransactionBase.validate_posting_time —
+      // without this, ERPNext silently forces posting_date/time to right now.
+      set_posting_time: 1,
+      due_date: values.due_date || undefined,
       currency: values.currency || "USD",
       conversion_rate: conversionRate,
-      buying_price_list: values.buying_price_list || undefined,
-      set_warehouse: values.set_warehouse || undefined,
-      supplier_address: (values as any).supplier_address || undefined,
-      contact_person: (values as any).contact_person || undefined,
-      shipping_address: values.shipping_address || undefined,
-      billing_address: values.billing_address || undefined,
+      selling_price_list: values.selling_price_list || undefined,
+      cost_center: values.cost_center || undefined,
+      update_stock: updateStock ? 1 : 0,
       payment_terms_template: values.payment_terms_template || undefined,
       tc_name: values.tc_name || undefined,
       terms: values.terms || undefined,
-      incoterm: values.incoterm || undefined,
-      named_place: values.named_place || undefined,
       status: values.status || "Draft",
       items,
     };
@@ -279,31 +244,26 @@ export function PurchaseOrderFormPage() {
       return;
     }
     if (!canWrite) {
-      toast.error("You do not have permission to save Purchase Orders");
+      toast.error("You do not have permission to save Sales Invoices");
       return;
     }
-
     const payload = buildPayload();
     try {
       if (isNew) {
-        const created = await createDoc(payload as Partial<PurchaseOrder>);
-        toast.success(`Purchase Order ${created.name ?? ""} created`);
+        const created = await createDoc(payload as Partial<SalesInvoice>);
+        toast.success(`Sales Invoice ${created.name ?? ""} created`);
         notifyDataChanged();
-        if (created?.name) {
-          navigate(`/import/purchase-orders/${encodeURIComponent(created.name)}`);
-        } else {
-          navigate("/import/purchase-orders");
-        }
+        navigate(created?.name ? `/selling/sales-invoices/${encodeURIComponent(created.name)}` : "/selling/sales-invoices");
       } else {
-        const updated = await updateDoc(name!, payload as Partial<PurchaseOrder>);
+        const updated = await updateDoc(name!, payload as Partial<SalesInvoice>);
         setValues(updated);
         setItemRows((updated.items ?? []).map((r) => ({ ...r, __uuid: crypto.randomUUID() })));
-        toast.success("Purchase Order updated");
+        toast.success("Sales Invoice updated");
         notifyDataChanged();
         void mutate();
       }
     } catch (err) {
-      console.error("Purchase Order save failed", err);
+      console.error("Sales Invoice save failed", err);
       toast.error(humanizeError(err));
     }
   }, [canWrite, validate, buildPayload, isNew, createDoc, updateDoc, name, mutate, navigate]);
@@ -312,15 +272,10 @@ export function PurchaseOrderFormPage() {
     if (!doc?.name || doc.docstatus !== 0) return;
     setSubmitting(true);
     try {
-      if (canWrite) {
-        await updateDoc(doc.name, buildPayload());
-      }
-      const full = await postCall<PurchaseOrder>("frappe.client.get", {
-        doctype: "Purchase Order",
-        name: doc.name,
-      });
+      if (canWrite) await updateDoc(doc.name, buildPayload());
+      const full = await postCall<SalesInvoice>("frappe.client.get", { doctype: "Sales Invoice", name: doc.name });
       await postCall("frappe.client.submit", { doc: full });
-      toast.success("Purchase Order submitted");
+      toast.success("Sales Invoice submitted");
       notifyDataChanged();
       void mutate();
       setConfirmSubmit(false);
@@ -332,18 +287,17 @@ export function PurchaseOrderFormPage() {
   }, [doc, canWrite, updateDoc, buildPayload, mutate]);
 
   const handleDelete = useCallback(async () => {
-    if (!doc?.name) return;
+    if (!name) return;
     try {
-      await deleteDoc(doc.name);
-      toast.success("Deleted");
+      await deleteDoc(name);
+      toast.success("Sales Invoice deleted");
       notifyDataChanged();
-      navigate("/import/purchase-orders");
+      navigate("/selling/sales-invoices");
     } catch (err) {
       toast.error(humanizeError(err));
-    } finally {
       setConfirmDelete(false);
     }
-  }, [doc?.name, deleteDoc, navigate]);
+  }, [name, deleteDoc, navigate]);
 
   const readOnly = !canWrite || (doc?.docstatus !== undefined && doc.docstatus > 0);
 
@@ -355,7 +309,6 @@ export function PurchaseOrderFormPage() {
       </div>
     );
   }
-
   if (docError) {
     return (
       <div className="py-10 text-center">
@@ -370,24 +323,16 @@ export function PurchaseOrderFormPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Purchase Order"
-        subtitle={isNew ? "New Purchase Order" : name}
-        icon={<ShoppingCart className="h-5 w-5" />}
+        title="Sales Invoice"
+        subtitle={isNew ? "New Sales Invoice" : name}
+        icon={<FileText className="h-5 w-5" />}
         actions={
           <>
-            <Button
-              variant="outline"
-              onClick={() => (isNew ? navigate("/import/purchase-orders") : navigate(-1))}
-              disabled={saving || submitting}
-            >
+            <Button variant="outline" onClick={() => (isNew ? navigate("/selling/sales-invoices") : navigate(-1))} disabled={saving || submitting}>
               Cancel
             </Button>
             {!isNew && doc?.docstatus === 0 && (
-              <Button
-                variant="outline"
-                onClick={() => setConfirmDelete(true)}
-                disabled={saving || !canWrite}
-              >
+              <Button variant="outline" onClick={() => setConfirmDelete(true)} disabled={saving || !canWrite}>
                 <Trash2 className="h-4 w-4" />
                 Delete
               </Button>
@@ -397,11 +342,7 @@ export function PurchaseOrderFormPage() {
               {isNew ? "Save" : "Update"}
             </Button>
             {!isNew && doc?.docstatus === 0 && (
-              <Button
-                variant="default"
-                onClick={() => setConfirmSubmit(true)}
-                disabled={saving || !canWrite || submitting}
-              >
+              <Button variant="default" onClick={() => setConfirmSubmit(true)} disabled={saving || !canWrite || submitting}>
                 <Send className="h-4 w-4" />
                 Submit
               </Button>
@@ -413,20 +354,11 @@ export function PurchaseOrderFormPage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Status</p>
-          <StatusBadge
-            status={
-              values.status ||
-              (doc?.docstatus === 1 ? "Submitted" : doc?.docstatus === 2 ? "Cancelled" : "Draft")
-            }
-          />
+          <StatusBadge status={values.status || (doc?.docstatus === 1 ? "Submitted" : doc?.docstatus === 2 ? "Cancelled" : "Draft")} />
         </Card>
         <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Supplier</p>
-          <p className="font-medium">
-            {values.supplier_name || values.supplier || (
-              <span className="text-muted-foreground"> — </span>
-            )}
-          </p>
+          <p className="text-sm text-muted-foreground">Customer</p>
+          <p className="font-medium">{values.customer_name || values.customer || <span className="text-muted-foreground"> — </span>}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Currency</p>
@@ -439,27 +371,13 @@ export function PurchaseOrderFormPage() {
       </div>
 
       {errors.items && <p className="text-sm text-destructive">{errors.items}</p>}
+      {errors.update_stock && <p className="text-sm text-destructive">{errors.update_stock}</p>}
 
-      <FrappeForm
-        fields={PURCHASE_ORDER_FIELDS}
-        values={values}
-        errors={errors}
-        readOnly={readOnly}
-        onChange={onChange}
-      />
+      <FrappeForm fields={SALES_INVOICE_FIELDS} values={values} errors={errors} readOnly={readOnly} onChange={onChange} />
 
-      <SectionCard
-        title="Items"
-        actions={
-          !readOnly ? (
-            <Button size="sm" variant="outline" onClick={addItemRow}>
-              + Add Row
-            </Button>
-          ) : undefined
-        }
-      >
+      <SectionCard title="Items" actions={!readOnly ? <Button size="sm" variant="outline" onClick={addItemRow}>+ Add Row</Button> : undefined}>
         <EditableChildTable
-          columns={PURCHASE_ORDER_ITEM_COLUMNS}
+          columns={SALES_INVOICE_ITEM_COLUMNS}
           rows={itemRows}
           onChange={handleItemChange}
           onLinkChange={handleLinkChange}
@@ -487,8 +405,8 @@ export function PurchaseOrderFormPage() {
       <ConfirmDialog
         open={confirmSubmit}
         onClose={() => setConfirmSubmit(false)}
-        title="Submit Purchase Order"
-        description="Submit this Purchase Order? After submit it can no longer be edited (only cancelled/amended)."
+        title="Submit Sales Invoice"
+        description="Submit this Sales Invoice? After submit it can no longer be edited (only cancelled/amended)."
         confirmLabel="Submit"
         loading={submitting}
         onConfirm={() => void submitDoc()}
@@ -498,7 +416,7 @@ export function PurchaseOrderFormPage() {
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
         title={`Delete ${doc?.name}?`}
-        description="This permanently removes the draft Purchase Order."
+        description="This permanently removes the draft Sales Invoice."
         confirmLabel="Delete"
         destructive
         loading={saving}

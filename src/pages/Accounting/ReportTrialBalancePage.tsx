@@ -136,6 +136,11 @@ export function ReportTrialBalancePage() {
   const [costCenter, setCostCenter] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [chartMode, setChartMode] = useState<"Bars" | "Trend">("Bars");
+  // The monthly trend is N extra full "Trial Balance" report calls (one per
+  // month) — on a large/heavy company that's N extra multi-second+ report
+  // runs on top of the one the page actually needs for its headline figures.
+  // Opt-in on click rather than firing automatically on every page load.
+  const [trendRequested, setTrendRequested] = useState(false);
   const [hiddenHeads, setHiddenHeads] = useState<Set<Head>>(new Set());
   const toggleHead = (h: Head) =>
     setHiddenHeads((prev) => {
@@ -211,13 +216,15 @@ export function ReportTrialBalancePage() {
   // fetching every raw General Ledger posting across the whole range and
   // bucketing client-side, which for a full fiscal year of a busy company
   // was heavy enough to push `General Ledger` into background "Prepared
-  // Report" mode (see useMonthlyTrialBalanceTrend).
+  // Report" mode (see useMonthlyTrialBalanceTrend). Even so, N of them is
+  // still N full report runs, so this only fires once the user asks for it
+  // (`trendRequested`), not on every page load.
   const { data: monthlyRoots, isLoading: chartLoading } = useMonthlyTrialBalanceTrend(
     company,
     fiscalYear,
     fromDate,
     toDate,
-    Boolean(company && fiscalYear && fromDate && toDate),
+    trendRequested && Boolean(company && fiscalYear && fromDate && toDate),
   );
 
   const monthlyData = useMemo(() => {
@@ -409,7 +416,17 @@ export function ReportTrialBalancePage() {
               </div>
             }
           >
-            {chartLoading ? (
+            {!trendRequested ? (
+              <div className="flex flex-col items-center gap-3 py-10 text-center">
+                <p className="text-sm text-muted-foreground">
+                  This chart runs one Trial Balance report per month in range — a heavier query than the
+                  headline figures above, so it's opt-in.
+                </p>
+                <Button variant="outline" size="sm" onClick={() => setTrendRequested(true)}>
+                  Load Monthly Activity
+                </Button>
+              </div>
+            ) : chartLoading ? (
               <Skeleton className="h-64 w-full" />
             ) : monthlyData.length === 0 ? (
               <p className="py-10 text-center text-sm text-muted-foreground">No monthly activity to chart.</p>

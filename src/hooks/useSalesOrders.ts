@@ -1,4 +1,11 @@
-import { useFrappeGetDocList, useFrappeGetDoc, useFrappeGetDocCount } from "frappe-react-sdk";
+import {
+  useFrappeGetDocList,
+  useFrappeGetDoc,
+  useFrappeGetDocCount,
+  useFrappeCreateDoc,
+  useFrappeUpdateDoc,
+  useFrappeDeleteDoc,
+} from "frappe-react-sdk";
 import type { SalesOrder, SalesOrderItem } from "@/types/frappe";
 
 const SALES_ORDER_FIELDS = [
@@ -69,6 +76,29 @@ export function useSalesOrderCount(filters: unknown[][], enabled = true) {
     false,
     enabled ? `apparel.so.count.${JSON.stringify(filters)}` : null,
   );
+}
+
+/** Create / Update / Delete mutations. */
+export function useSalesOrderMutations(onSuccess?: (doc: SalesOrder) => void) {
+  const create = useFrappeCreateDoc<SalesOrder>();
+  const update = useFrappeUpdateDoc<SalesOrder>();
+  const del = useFrappeDeleteDoc();
+
+  return {
+    createDoc: async (values: Partial<SalesOrder>) => {
+      const doc = await create.createDoc("Sales Order", values as SalesOrder);
+      onSuccess?.(doc);
+      return doc;
+    },
+    updateDoc: async (name: string, values: Partial<SalesOrder>) => {
+      const doc = await update.updateDoc("Sales Order", name, values);
+      onSuccess?.(doc);
+      return doc;
+    },
+    deleteDoc: (name: string) => del.deleteDoc("Sales Order", name),
+    loading: create.loading || update.loading || del.loading,
+    error: create.error || update.error || del.error,
+  };
 }
 
 export interface SOProgress {

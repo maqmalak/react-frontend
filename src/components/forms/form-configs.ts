@@ -463,6 +463,417 @@ export const JOURNAL_ENTRY_ACCOUNT_EXTRA_FIELDS: FormFieldMeta[] = [
   { fieldname: "user_remark", label: "Row Remark", fieldtype: "Text" },
 ];
 
+// ------------------------------------------------------------ Payment Entry (ERPNext standard)
+
+/**
+ * Payment Entry fields — covers the core money-movement flow (Receive/Pay/
+ * Internal Transfer, party + account resolution, amounts, reference/cheque
+ * info). Tax-withholding, Payment Order and Auto Repeat fields are left out,
+ * same "commercially useful subset" scope as the Purchase Invoice/Journal
+ * Entry forms — the vendored ERPNext controller still computes and validates
+ * the real base-currency/allocation totals server-side on save.
+ */
+export const PAYMENT_ENTRY_FIELDS: FormFieldMeta[] = [
+  { fieldname: "section_break_pe_basic", label: "Type of Payment", fieldtype: "Section Break" },
+  {
+    fieldname: "payment_type",
+    label: "Payment Type",
+    fieldtype: "Select",
+    options: "Receive\nPay\nInternal Transfer",
+    reqd: true,
+    default: "Receive",
+  },
+  { fieldname: "posting_date", label: "Posting Date", fieldtype: "Date", reqd: true, default: "Today" },
+  { fieldname: "column_break_pe_0", fieldtype: "Column Break" },
+  { fieldname: "company", label: "Company", fieldtype: "Link", options: "Company", reqd: true },
+  { fieldname: "mode_of_payment", label: "Mode of Payment", fieldtype: "Link", options: "Mode of Payment" },
+
+  { fieldname: "section_break_pe_party", label: "Payment From / To", fieldtype: "Section Break" },
+  { fieldname: "party_type", label: "Party Type", fieldtype: "Select", options: "Customer\nSupplier\nEmployee\nShareholder", reqd: true },
+  { fieldname: "party", label: "Party", fieldtype: "Dynamic Link", options: "party_type", reqd: true },
+  { fieldname: "column_break_pe_1", fieldtype: "Column Break" },
+  { fieldname: "party_name", label: "Party Name", fieldtype: "Data", read_only: true },
+
+  { fieldname: "section_break_pe_accounts", label: "Accounts", fieldtype: "Section Break" },
+  { fieldname: "paid_from", label: "Account Paid From", fieldtype: "Link", options: "Account", reqd: true },
+  { fieldname: "paid_from_account_currency", label: "Account Currency (From)", fieldtype: "Link", options: "Currency", read_only: true },
+  { fieldname: "column_break_pe_2", fieldtype: "Column Break" },
+  { fieldname: "paid_to", label: "Account Paid To", fieldtype: "Link", options: "Account", reqd: true },
+  { fieldname: "paid_to_account_currency", label: "Account Currency (To)", fieldtype: "Link", options: "Currency", read_only: true },
+
+  { fieldname: "section_break_pe_amounts", label: "Amount", fieldtype: "Section Break" },
+  { fieldname: "paid_amount", label: "Paid Amount", fieldtype: "Currency", reqd: true },
+  { fieldname: "source_exchange_rate", label: "Source Exchange Rate", fieldtype: "Float", precision: 6, default: 1 },
+  { fieldname: "column_break_pe_3", fieldtype: "Column Break" },
+  { fieldname: "received_amount", label: "Received Amount", fieldtype: "Currency", reqd: true },
+  { fieldname: "target_exchange_rate", label: "Target Exchange Rate", fieldtype: "Float", precision: 6, default: 1 },
+
+  { fieldname: "section_break_pe_ref", label: "Transaction ID", fieldtype: "Section Break" },
+  { fieldname: "reference_no", label: "Cheque/Reference No", fieldtype: "Data" },
+  { fieldname: "reference_date", label: "Cheque/Reference Date", fieldtype: "Date" },
+  { fieldname: "column_break_pe_4", fieldtype: "Column Break" },
+  { fieldname: "project", label: "Project", fieldtype: "Link", options: "Project" },
+  { fieldname: "cost_center", label: "Cost Center", fieldtype: "Link", options: "Cost Center" },
+
+  // Its own section (no Column Break) so the layout engine gives it the full
+  // row instead of squeezing it into one half of a 2-column grid.
+  { fieldname: "section_break_pe_remarks", label: "Remarks", fieldtype: "Section Break" },
+  { fieldname: "remarks", label: "Remarks", fieldtype: "Text" },
+];
+
+/** "References" table — outstanding invoices/orders this payment is allocated against. */
+export const PAYMENT_ENTRY_REFERENCE_COLUMNS: FormFieldMeta[] = [
+  {
+    fieldname: "reference_doctype",
+    label: "Type",
+    fieldtype: "Select",
+    options: "Sales Invoice\nPurchase Invoice\nSales Order\nPurchase Order\nJournal Entry",
+    reqd: true,
+  },
+  { fieldname: "reference_name", label: "Reference", fieldtype: "Dynamic Link", options: "reference_doctype", reqd: true },
+  { fieldname: "due_date", label: "Due Date", fieldtype: "Date", read_only: true },
+  { fieldname: "total_amount", label: "Grand Total", fieldtype: "Currency", read_only: true },
+  { fieldname: "outstanding_amount", label: "Outstanding", fieldtype: "Currency", read_only: true },
+  { fieldname: "allocated_amount", label: "Allocated", fieldtype: "Currency" },
+];
+
+/** "Deductions or Loss" table — TDS, bank charges, write-offs, exchange loss, etc. */
+export const PAYMENT_ENTRY_DEDUCTION_COLUMNS: FormFieldMeta[] = [
+  { fieldname: "account", label: "Account", fieldtype: "Link", options: "Account", reqd: true },
+  { fieldname: "cost_center", label: "Cost Center", fieldtype: "Link", options: "Cost Center" },
+  { fieldname: "amount", label: "Amount", fieldtype: "Currency", reqd: true },
+  { fieldname: "description", label: "Description", fieldtype: "Data" },
+];
+
+// ------------------------------------------------------------ Sales Order (ERPNext standard + apparel export fields)
+
+/**
+ * Sales Order fields — core commercial fields plus the apparel app's export
+ * custom fields (buyer PO, LC Proforma linkage, shipment/incoterm/destination)
+ * already declared on the `SalesOrder` TS type and used read-only today by
+ * the Export Orders list. Field types/options match the real custom field
+ * definitions in `apps/apparel/apparel/install.py` exactly (e.g. `incoterm`
+ * and `shipment_mode` are apparel-defined Selects here, not the core Link).
+ */
+export const SALES_ORDER_FIELDS: FormFieldMeta[] = [
+  { fieldname: "section_break_so_basic", label: "Basic Information", fieldtype: "Section Break" },
+  {
+    fieldname: "naming_series",
+    label: "Series",
+    fieldtype: "Select",
+    options: "SAL-ORD-.YYYY.-",
+    reqd: true,
+    default: "SAL-ORD-.YYYY.-",
+  },
+  { fieldname: "customer", label: "Customer", fieldtype: "Link", options: "Customer", reqd: true },
+  { fieldname: "customer_name", label: "Customer Name", fieldtype: "Data", read_only: true },
+  { fieldname: "transaction_date", label: "Date", fieldtype: "Date", reqd: true, default: "Today" },
+  { fieldname: "delivery_date", label: "Delivery Date", fieldtype: "Date", reqd: true },
+  { fieldname: "column_break_so_0", fieldtype: "Column Break" },
+  { fieldname: "company", label: "Company", fieldtype: "Link", options: "Company", reqd: true },
+  { fieldname: "currency", label: "Currency", fieldtype: "Link", options: "Currency", default: "USD", reqd: true },
+  { fieldname: "conversion_rate", label: "Exchange Rate", fieldtype: "Float", precision: 6, default: 1, reqd: true },
+  { fieldname: "po_no", label: "Customer's PO No", fieldtype: "Data" },
+
+  { fieldname: "section_break_so_buyer", label: "Buyer Reference", fieldtype: "Section Break" },
+  { fieldname: "buyer_po_no", label: "Buyer PO No.", fieldtype: "Data" },
+  { fieldname: "export_status", label: "Export Status", fieldtype: "Select", options: "\nPlanned\nIn Production\nReady to Ship\nShipped\nClosed" },
+  { fieldname: "column_break_so_1", fieldtype: "Column Break" },
+  { fieldname: "set_warehouse", label: "Set Source Warehouse", fieldtype: "Link", options: "Warehouse" },
+
+  { fieldname: "section_break_so_lc", label: "LC Details", fieldtype: "Section Break" },
+  { fieldname: "lc_proforma", label: "LC Proforma", fieldtype: "Link", options: "LC Proforma" },
+  { fieldname: "lc_no", label: "LC No.", fieldtype: "Data" },
+  { fieldname: "lc_date", label: "LC Date", fieldtype: "Date" },
+  { fieldname: "lc_amount", label: "LC Amount", fieldtype: "Currency" },
+  { fieldname: "column_break_so_2", fieldtype: "Column Break" },
+  { fieldname: "lc_currency", label: "LC Currency", fieldtype: "Link", options: "Currency" },
+  { fieldname: "lc_issuing_bank", label: "LC Issuing Bank", fieldtype: "Data" },
+  { fieldname: "lc_advising_bank", label: "LC Advising Bank", fieldtype: "Data" },
+  { fieldname: "lc_expiry_date", label: "LC Expiry Date", fieldtype: "Date" },
+
+  { fieldname: "section_break_so_shipment", label: "Shipment", fieldtype: "Section Break" },
+  { fieldname: "latest_shipment_date", label: "Latest Shipment Date", fieldtype: "Date" },
+  { fieldname: "port_of_loading", label: "Port of Loading", fieldtype: "Data" },
+  { fieldname: "port_of_discharge", label: "Port of Discharge", fieldtype: "Data" },
+  { fieldname: "final_destination", label: "Final Destination", fieldtype: "Data" },
+  { fieldname: "column_break_so_3", fieldtype: "Column Break" },
+  { fieldname: "incoterm", label: "Incoterm", fieldtype: "Select", options: "EXW\nFCA\nFAS\nFOB\nCFR\nCIF\nCPT\nCIP\nDAP\nDPU\nDDP" },
+  { fieldname: "shipment_mode", label: "Shipment Mode", fieldtype: "Select", options: "\nSea\nAir\nRoad\nRail\nMultimodal" },
+  { fieldname: "country_of_destination", label: "Country of Destination", fieldtype: "Link", options: "Country" },
+];
+
+export const SALES_ORDER_ITEM_COLUMNS: FormFieldMeta[] = [
+  { fieldname: "item_code", label: "Item", fieldtype: "Link", options: "Item", reqd: true },
+  { fieldname: "item_name", label: "Item Name", fieldtype: "Data", read_only: true },
+  { fieldname: "delivery_date", label: "Delivery Date", fieldtype: "Date" },
+  { fieldname: "qty", label: "Qty", fieldtype: "Float", reqd: true },
+  { fieldname: "uom", label: "UOM", fieldtype: "Link", options: "UOM" },
+  { fieldname: "rate", label: "Rate", fieldtype: "Currency", precision: 4 },
+  { fieldname: "amount", label: "Amount", fieldtype: "Currency", read_only: true },
+  { fieldname: "warehouse", label: "Warehouse", fieldtype: "Link", options: "Warehouse" },
+  { fieldname: "description", label: "Description", fieldtype: "Data" },
+];
+
+// ------------------------------------------------------------ Delivery Note (ERPNext standard)
+
+/** Delivery Note — the real stock-out event; decrements inventory and drives COGS on submit. */
+export const DELIVERY_NOTE_FIELDS: FormFieldMeta[] = [
+  { fieldname: "section_break_dn_basic", label: "Basic Information", fieldtype: "Section Break" },
+  {
+    fieldname: "naming_series",
+    label: "Series",
+    fieldtype: "Select",
+    options: "MAT-DN-.YYYY.-",
+    reqd: true,
+    default: "MAT-DN-.YYYY.-",
+  },
+  { fieldname: "customer", label: "Customer", fieldtype: "Link", options: "Customer", reqd: true },
+  { fieldname: "customer_name", label: "Customer Name", fieldtype: "Data", read_only: true },
+  { fieldname: "posting_date", label: "Date", fieldtype: "Date", reqd: true, default: "Today" },
+  { fieldname: "column_break_dn_0", fieldtype: "Column Break" },
+  { fieldname: "company", label: "Company", fieldtype: "Link", options: "Company", reqd: true },
+  { fieldname: "currency", label: "Currency", fieldtype: "Link", options: "Currency", default: "USD", reqd: true },
+  { fieldname: "conversion_rate", label: "Exchange Rate", fieldtype: "Float", precision: 6, default: 1, reqd: true },
+  { fieldname: "set_warehouse", label: "Source Warehouse", fieldtype: "Link", options: "Warehouse" },
+  {
+    fieldname: "cost_center",
+    label: "Cost Center",
+    fieldtype: "Link",
+    options: "Cost Center",
+    description: "Applied to every line item. Required whenever the company has no default cost center configured.",
+  },
+
+  { fieldname: "section_break_dn_terms", label: "Terms", fieldtype: "Section Break" },
+  { fieldname: "tc_name", label: "Terms Template", fieldtype: "Link", options: "Terms and Conditions" },
+  { fieldname: "column_break_dn_1", fieldtype: "Column Break" },
+  { fieldname: "instructions", label: "Instructions", fieldtype: "Text" },
+];
+
+export const DELIVERY_NOTE_ITEM_COLUMNS: FormFieldMeta[] = [
+  { fieldname: "item_code", label: "Item", fieldtype: "Link", options: "Item", reqd: true },
+  { fieldname: "item_name", label: "Item Name", fieldtype: "Data", read_only: true },
+  { fieldname: "against_sales_order", label: "Sales Order", fieldtype: "Link", options: "Sales Order", read_only: true },
+  { fieldname: "qty", label: "Qty", fieldtype: "Float", reqd: true },
+  { fieldname: "uom", label: "UOM", fieldtype: "Link", options: "UOM" },
+  { fieldname: "rate", label: "Rate", fieldtype: "Currency", precision: 4 },
+  { fieldname: "amount", label: "Amount", fieldtype: "Currency", read_only: true },
+  { fieldname: "warehouse", label: "Warehouse", fieldtype: "Link", options: "Warehouse", reqd: true },
+  { fieldname: "description", label: "Description", fieldtype: "Data" },
+];
+
+// ------------------------------------------------------------ Sales Invoice (ERPNext standard)
+
+export const SALES_INVOICE_FIELDS: FormFieldMeta[] = [
+  { fieldname: "section_break_si_basic", label: "Basic Information", fieldtype: "Section Break" },
+  {
+    fieldname: "naming_series",
+    label: "Series",
+    fieldtype: "Select",
+    options: "ACC-SINV-.YYYY.-",
+    reqd: true,
+    default: "ACC-SINV-.YYYY.-",
+  },
+  { fieldname: "customer", label: "Customer", fieldtype: "Link", options: "Customer", reqd: true },
+  { fieldname: "customer_name", label: "Customer Name", fieldtype: "Data", read_only: true },
+  { fieldname: "posting_date", label: "Posting Date", fieldtype: "Date", reqd: true, default: "Today" },
+  { fieldname: "due_date", label: "Due Date", fieldtype: "Date" },
+  { fieldname: "column_break_si_0", fieldtype: "Column Break" },
+  { fieldname: "company", label: "Company", fieldtype: "Link", options: "Company", reqd: true },
+  { fieldname: "currency", label: "Currency", fieldtype: "Link", options: "Currency", default: "USD" },
+  { fieldname: "conversion_rate", label: "Exchange Rate", fieldtype: "Float", precision: 6, default: 1 },
+  { fieldname: "selling_price_list", label: "Price List", fieldtype: "Link", options: "Price List" },
+  { fieldname: "update_stock", label: "Update Stock", fieldtype: "Check", default: 0, description: "Deliver stock directly through this invoice (no separate Delivery Note)." },
+  {
+    fieldname: "cost_center",
+    label: "Cost Center",
+    fieldtype: "Link",
+    options: "Cost Center",
+    description: "Applied to every line item. Required whenever the company has no default cost center configured.",
+  },
+
+  { fieldname: "section_break_si_terms", label: "Terms", fieldtype: "Section Break" },
+  { fieldname: "payment_terms_template", label: "Payment Terms", fieldtype: "Link", options: "Payment Terms Template" },
+  { fieldname: "tc_name", label: "Terms Template", fieldtype: "Link", options: "Terms and Conditions" },
+  { fieldname: "column_break_si_1", fieldtype: "Column Break" },
+  { fieldname: "terms", label: "Terms and Conditions", fieldtype: "Text Editor" },
+];
+
+export const SALES_INVOICE_ITEM_COLUMNS: FormFieldMeta[] = [
+  { fieldname: "item_code", label: "Item", fieldtype: "Link", options: "Item", reqd: true },
+  { fieldname: "item_name", label: "Item Name", fieldtype: "Data", read_only: true },
+  { fieldname: "sales_order", label: "Sales Order", fieldtype: "Link", options: "Sales Order" },
+  { fieldname: "delivery_note", label: "Delivery Note", fieldtype: "Link", options: "Delivery Note", read_only: true },
+  { fieldname: "qty", label: "Qty", fieldtype: "Float", reqd: true },
+  { fieldname: "uom", label: "UOM", fieldtype: "Link", options: "UOM" },
+  { fieldname: "rate", label: "Rate", fieldtype: "Currency", precision: 4 },
+  { fieldname: "amount", label: "Amount", fieldtype: "Currency", read_only: true },
+  { fieldname: "warehouse", label: "Warehouse", fieldtype: "Link", options: "Warehouse" },
+];
+
+// ------------------------------------------------------------ Stock Entry (ERPNext standard)
+
+/**
+ * Stock Entry — scoped to core movement purposes only (Material Receipt /
+ * Issue / Transfer); Manufacture/Repack are BOM-driven and belong to the
+ * separate Production module, out of scope here.
+ */
+export const STOCK_ENTRY_FIELDS: FormFieldMeta[] = [
+  { fieldname: "section_break_se_basic", label: "Basic Information", fieldtype: "Section Break" },
+  {
+    fieldname: "naming_series",
+    label: "Series",
+    fieldtype: "Select",
+    options: "MAT-STE-.YYYY.-",
+    reqd: true,
+    default: "MAT-STE-.YYYY.-",
+  },
+  {
+    fieldname: "purpose",
+    label: "Purpose",
+    fieldtype: "Select",
+    options: "Material Receipt\nMaterial Issue\nMaterial Transfer",
+    reqd: true,
+    default: "Material Transfer",
+  },
+  { fieldname: "posting_date", label: "Posting Date", fieldtype: "Date", reqd: true, default: "Today" },
+  { fieldname: "column_break_se_0", fieldtype: "Column Break" },
+  { fieldname: "company", label: "Company", fieldtype: "Link", options: "Company", reqd: true },
+
+  { fieldname: "section_break_se_warehouse", label: "Warehouses", fieldtype: "Section Break" },
+  { fieldname: "from_warehouse", label: "Source Warehouse", fieldtype: "Link", options: "Warehouse" },
+  { fieldname: "column_break_se_1", fieldtype: "Column Break" },
+  { fieldname: "to_warehouse", label: "Target Warehouse", fieldtype: "Link", options: "Warehouse" },
+
+  { fieldname: "section_break_se_more", label: "More Information", fieldtype: "Section Break" },
+  {
+    fieldname: "cost_center",
+    label: "Cost Center",
+    fieldtype: "Link",
+    options: "Cost Center",
+    description: "Applied to every line item. Required whenever the company has no default cost center configured.",
+  },
+  { fieldname: "column_break_se_2", fieldtype: "Column Break" },
+  { fieldname: "remarks", label: "Remarks", fieldtype: "Text" },
+];
+
+export const STOCK_ENTRY_ITEM_COLUMNS: FormFieldMeta[] = [
+  { fieldname: "item_code", label: "Item", fieldtype: "Link", options: "Item", reqd: true },
+  { fieldname: "item_name", label: "Item Name", fieldtype: "Data", read_only: true },
+  { fieldname: "s_warehouse", label: "Source Warehouse", fieldtype: "Link", options: "Warehouse" },
+  { fieldname: "t_warehouse", label: "Target Warehouse", fieldtype: "Link", options: "Warehouse" },
+  { fieldname: "qty", label: "Qty", fieldtype: "Float", reqd: true },
+  { fieldname: "uom", label: "UOM", fieldtype: "Link", options: "UOM" },
+  { fieldname: "basic_rate", label: "Basic Rate", fieldtype: "Currency", precision: 4 },
+  { fieldname: "basic_amount", label: "Basic Amount", fieldtype: "Currency", read_only: true },
+];
+
+// ------------------------------------------------------------ Material Request (ERPNext standard)
+
+/**
+ * Material Request — scoped to Purchase / Material Transfer / Material Issue
+ * (matches Stock Entry's purpose scoping); Manufacture/Subcontracting/
+ * Customer Provided are out of scope here.
+ */
+export const MATERIAL_REQUEST_FIELDS: FormFieldMeta[] = [
+  { fieldname: "section_break_mr_basic", label: "Basic Information", fieldtype: "Section Break" },
+  {
+    fieldname: "naming_series",
+    label: "Series",
+    fieldtype: "Select",
+    options: "MAT-MR-.YYYY.-",
+    reqd: true,
+    default: "MAT-MR-.YYYY.-",
+  },
+  { fieldname: "title", label: "Title", fieldtype: "Data" },
+  {
+    fieldname: "material_request_type",
+    label: "Type",
+    fieldtype: "Select",
+    options: "Purchase\nMaterial Transfer\nMaterial Issue",
+    reqd: true,
+    default: "Purchase",
+  },
+  { fieldname: "transaction_date", label: "Date", fieldtype: "Date", reqd: true, default: "Today" },
+  { fieldname: "column_break_mr_0", fieldtype: "Column Break" },
+  { fieldname: "company", label: "Company", fieldtype: "Link", options: "Company", reqd: true },
+  { fieldname: "schedule_date", label: "Required By", fieldtype: "Date" },
+
+  { fieldname: "section_break_mr_warehouse", label: "Warehouses", fieldtype: "Section Break" },
+  {
+    fieldname: "set_warehouse",
+    label: "Target Warehouse",
+    fieldtype: "Link",
+    options: "Warehouse",
+    description: "Applied to every line item — where stock should arrive (Purchase) or move to (Material Transfer).",
+  },
+  { fieldname: "column_break_mr_1", fieldtype: "Column Break" },
+  {
+    fieldname: "set_from_warehouse",
+    label: "Source Warehouse",
+    fieldtype: "Link",
+    options: "Warehouse",
+    description: "Applied to every line item — where stock should be taken from (Material Issue / Material Transfer).",
+  },
+];
+
+export const MATERIAL_REQUEST_ITEM_COLUMNS: FormFieldMeta[] = [
+  { fieldname: "item_code", label: "Item", fieldtype: "Link", options: "Item", reqd: true },
+  { fieldname: "item_name", label: "Item Name", fieldtype: "Data", read_only: true },
+  { fieldname: "qty", label: "Qty", fieldtype: "Float", reqd: true },
+  { fieldname: "uom", label: "UOM", fieldtype: "Link", options: "UOM" },
+  { fieldname: "schedule_date", label: "Required By", fieldtype: "Date" },
+  { fieldname: "warehouse", label: "Warehouse", fieldtype: "Link", options: "Warehouse" },
+  { fieldname: "from_warehouse", label: "From Warehouse", fieldtype: "Link", options: "Warehouse" },
+];
+
+// -------------------------------------------------------- Request for Quotation (ERPNext standard)
+
+export const RFQ_FIELDS: FormFieldMeta[] = [
+  { fieldname: "section_break_rfq_basic", label: "Basic Information", fieldtype: "Section Break" },
+  {
+    fieldname: "naming_series",
+    label: "Series",
+    fieldtype: "Select",
+    options: "PUR-RFQ-.YYYY.-",
+    reqd: true,
+    default: "PUR-RFQ-.YYYY.-",
+  },
+  { fieldname: "title", label: "Title", fieldtype: "Data" },
+  { fieldname: "subject", label: "Subject", fieldtype: "Data", reqd: true },
+  { fieldname: "transaction_date", label: "Date", fieldtype: "Date", reqd: true, default: "Today" },
+  { fieldname: "column_break_rfq_0", fieldtype: "Column Break" },
+  { fieldname: "company", label: "Company", fieldtype: "Link", options: "Company", reqd: true },
+  { fieldname: "schedule_date", label: "Required By", fieldtype: "Date" },
+
+  { fieldname: "section_break_rfq_message", label: "Message for Supplier", fieldtype: "Section Break" },
+  { fieldname: "message_for_supplier", label: "Message", fieldtype: "Text Editor" },
+];
+
+export const RFQ_ITEM_COLUMNS: FormFieldMeta[] = [
+  { fieldname: "item_code", label: "Item", fieldtype: "Link", options: "Item", reqd: true },
+  { fieldname: "item_name", label: "Item Name", fieldtype: "Data", read_only: true },
+  { fieldname: "qty", label: "Qty", fieldtype: "Float", reqd: true },
+  { fieldname: "uom", label: "UOM", fieldtype: "Link", options: "UOM" },
+  { fieldname: "schedule_date", label: "Required By", fieldtype: "Date" },
+  { fieldname: "warehouse", label: "Warehouse", fieldtype: "Link", options: "Warehouse" },
+];
+
+/**
+ * RFQ Supplier rows never default `send_email` on — submitting the RFQ only
+ * emails suppliers whose row has it checked (see
+ * request_for_quotation.py::send_to_supplier), so leaving it off keeps
+ * submission safe even with no Contact/email on file.
+ */
+export const RFQ_SUPPLIER_COLUMNS: FormFieldMeta[] = [
+  { fieldname: "supplier", label: "Supplier", fieldtype: "Link", options: "Supplier", reqd: true },
+  { fieldname: "supplier_name", label: "Supplier Name", fieldtype: "Data", read_only: true },
+  { fieldname: "contact", label: "Contact", fieldtype: "Link", options: "Contact" },
+  { fieldname: "email_id", label: "Email", fieldtype: "Data" },
+  { fieldname: "send_email", label: "Send Email", fieldtype: "Check", default: 0 },
+  { fieldname: "quote_status", label: "Quote Status", fieldtype: "Select", options: "Pending\nReceived", read_only: true },
+];
+
 /**
  * CRM Lead fields — mirrors the field set on the installed Frappe CRM app's
  * `CRM Lead` doctype (see apps/crm/crm/fcrm/doctype/crm_lead/crm_lead.json in

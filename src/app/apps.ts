@@ -123,9 +123,9 @@ export const APPS: AppTile[] = [
   {
     id: "selling",
     label: "Selling",
-    description: "Quotations, sales orders and customers",
+    description: "Sales orders, delivery notes and sales invoices",
     icon: ShoppingBag,
-    to: "/selling",
+    to: "/selling/sales-orders",
     colorClass: "bg-green-500/10 text-green-600 dark:text-green-400",
     module: ["Selling"],
   },

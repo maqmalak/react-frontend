@@ -251,6 +251,9 @@ export function PurchaseInvoiceFormPage() {
       bill_date: values.bill_date || undefined,
       company: values.company,
       posting_date: values.posting_date || todayISO(),
+      // See erpnext.utilities.transaction_base.TransactionBase.validate_posting_time —
+      // without this, ERPNext silently forces posting_date/time to right now.
+      set_posting_time: 1,
       due_date: values.due_date || undefined,
       currency: values.currency || "USD",
       conversion_rate: conversionRate,

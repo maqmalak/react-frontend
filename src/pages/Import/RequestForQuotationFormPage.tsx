@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
-import { ShoppingCart, Save, Send, Trash2 } from "lucide-react";
+import { Quote, Save, Send, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,28 +11,24 @@ import { EditableChildTable, type ChildRow } from "@/components/tables/child-tab
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SectionCard } from "@/components/common/section-card";
 import {
-  PURCHASE_ORDER_FIELDS,
-  PURCHASE_ORDER_ITEM_COLUMNS,
+  RFQ_FIELDS,
+  RFQ_ITEM_COLUMNS,
+  RFQ_SUPPLIER_COLUMNS,
 } from "@/components/forms/form-configs";
 import {
-  usePurchaseOrder,
-  usePurchaseOrderMutations,
-} from "@/hooks/usePurchaseOrders";
+  useRequestForQuotation,
+  useRequestForQuotationMutations,
+} from "@/hooks/useRequestForQuotations";
 import { useItems } from "@/hooks/useItems";
 import { useSuppliers } from "@/hooks/useSuppliers";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { useAuth } from "@/hooks/useAuth";
-import { formatMoney } from "@/utils/currency";
 import { notifyDataChanged } from "@/hooks/useRealtime";
 import { humanizeError, postCall } from "@/services/frappe";
 import { todayISO } from "@/utils/dates";
-import type { PurchaseOrder, PurchaseOrderItem } from "@/types/frappe";
+import type { RequestForQuotation } from "@/types/frappe";
 
-function lineAmount(row: Pick<PurchaseOrderItem, "qty" | "rate">): number {
-  return Number(row.qty || 0) * Number(row.rate || 0);
-}
-
-export function PurchaseOrderFormPage() {
+export function RequestForQuotationFormPage() {
   const { name } = useParams<{ name?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -41,27 +37,20 @@ export function PurchaseOrderFormPage() {
   const canWrite = hasRole();
   const { company } = useCompanyContext();
 
-  // A "Create Purchase Order" action on a Material Request or RFQ routes
-  // here with an unsaved (Material Request) or client-built (RFQ, which has
-  // no server mapped-doc method) document in router state.
-  const prefill = (location.state as { prefill?: Partial<PurchaseOrder> } | null)?.prefill;
+  // A "Create RFQ" action on a Material Request routes here with an unsaved,
+  // server-mapped document in router state.
+  const prefill = (location.state as { prefill?: Partial<RequestForQuotation> } | null)?.prefill;
 
-  const { data: doc, error: docError, isLoading: docLoading, mutate } = usePurchaseOrder(
+  const { data: doc, error: docError, isLoading: docLoading, mutate } = useRequestForQuotation(
     isNew ? undefined : name,
   );
-  const { createDoc, updateDoc, deleteDoc, loading: saving } = usePurchaseOrderMutations();
+  const { createDoc, updateDoc, deleteDoc, loading: saving } = useRequestForQuotationMutations();
   const { data: items } = useItems({ enabled: true });
   const { data: suppliers } = useSuppliers({ enabled: true });
 
   const itemLookup = useMemo(() => {
-    const m = new Map<string, { item_name: string; stock_uom?: string; standard_rate?: number }>();
-    (items ?? []).forEach((it) =>
-      m.set(it.name, {
-        item_name: it.item_name ?? it.name,
-        stock_uom: it.stock_uom,
-        standard_rate: it.standard_rate,
-      }),
-    );
+    const m = new Map<string, { item_name: string; stock_uom?: string }>();
+    (items ?? []).forEach((it) => m.set(it.name, { item_name: it.item_name ?? it.name, stock_uom: it.stock_uom }));
     return m;
   }, [items]);
 
@@ -71,41 +60,33 @@ export function PurchaseOrderFormPage() {
     return m;
   }, [suppliers]);
 
-  const [values, setValues] = useState<Partial<PurchaseOrder>>({});
+  const [values, setValues] = useState<Partial<RequestForQuotation>>({});
   const [itemRows, setItemRows] = useState<ChildRow[]>([]);
+  const [supplierRows, setSupplierRows] = useState<ChildRow[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [confirmSubmit, setConfirmSubmit] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    document.title = name && !isNew ? `Purchase Order — ${name}` : "Purchase Order";
+    document.title = name && !isNew ? `Request for Quotation — ${name}` : "Request for Quotation";
   }, [name, isNew]);
 
   useEffect(() => {
     if (doc) {
       setValues(doc);
       setItemRows((doc.items ?? []).map((r) => ({ ...r, __uuid: crypto.randomUUID() })));
+      setSupplierRows((doc.suppliers ?? []).map((r) => ({ ...r, __uuid: crypto.randomUUID() })));
     } else if (!docLoading && isNew) {
       if (prefill) {
-        setValues({
-          naming_series: "PUR-ORD-.YYYY.-",
-          transaction_date: todayISO(),
-          schedule_date: todayISO(),
-          currency: "USD",
-          conversion_rate: 1,
-          status: "Draft",
-          company: company || undefined,
-          ...prefill,
-        });
+        setValues(prefill);
         setItemRows((prefill.items ?? []).map((r) => ({ ...r, __uuid: crypto.randomUUID() })));
+        setSupplierRows((prefill.suppliers ?? []).map((r) => ({ ...r, __uuid: crypto.randomUUID() })));
       } else {
         setValues({
-          naming_series: "PUR-ORD-.YYYY.-",
+          naming_series: "PUR-RFQ-.YYYY.-",
           transaction_date: todayISO(),
           schedule_date: todayISO(),
-          currency: "USD",
-          conversion_rate: 1,
           status: "Draft",
           company: company || undefined,
         });
@@ -115,13 +96,7 @@ export function PurchaseOrderFormPage() {
   }, [doc, docLoading, isNew, company]);
 
   const onChange = (fieldname: string, value: any) => {
-    setValues((v) => {
-      const next = { ...v, [fieldname]: value };
-      if (fieldname === "supplier") {
-        next.supplier_name = supplierLookup.get(value) ?? value;
-      }
-      return next;
-    });
+    setValues((v) => ({ ...v, [fieldname]: value }));
     setErrors((e) => {
       const next = { ...e };
       delete next[fieldname];
@@ -130,37 +105,17 @@ export function PurchaseOrderFormPage() {
   };
 
   const handleItemChange = (index: number, fieldname: string, value: any) => {
-    setItemRows((prev) =>
-      prev.map((r, i) => {
-        if (i !== index) return r;
-        const next = { ...r, [fieldname]: value };
-        if (fieldname === "qty" || fieldname === "rate") {
-          next.amount = lineAmount(next as Pick<PurchaseOrderItem, "qty" | "rate">);
-        }
-        return next;
-      }),
-    );
+    setItemRows((prev) => prev.map((r, i) => (i === index ? { ...r, [fieldname]: value } : r)));
   };
 
-  const handleLinkChange = (index: number, fieldname: string, value: string) => {
+  const handleItemLinkChange = (index: number, fieldname: string, value: string) => {
     if (fieldname === "item_code") {
       const meta = itemLookup.get(value);
       setItemRows((prev) =>
         prev.map((r, i) => {
           if (i !== index) return r;
           const uom = meta?.stock_uom || r.uom || "Nos";
-          const next: ChildRow = {
-            ...r,
-            item_code: value,
-            item_name: meta?.item_name ?? value,
-            stock_uom: uom,
-            uom,
-            conversion_factor: 1,
-            rate: r.rate || meta?.standard_rate || 0,
-            qty: r.qty || 1,
-          };
-          next.amount = lineAmount({ qty: Number(next.qty || 0), rate: Number(next.rate || 0) });
-          return next;
+          return { ...r, item_code: value, item_name: meta?.item_name ?? value, stock_uom: uom, uom, conversion_factor: 1, qty: r.qty || 1 };
         }),
       );
     }
@@ -173,30 +128,37 @@ export function PurchaseOrderFormPage() {
         item_code: "",
         item_name: "",
         qty: 1,
-        rate: 0,
-        amount: 0,
-        schedule_date: values.schedule_date || todayISO(),
         uom: "Nos",
         stock_uom: "Nos",
         conversion_factor: 1,
+        schedule_date: values.schedule_date || todayISO(),
         __uuid: crypto.randomUUID(),
       },
     ]);
-
   const removeItemRow = (index: number) => setItemRows((prev) => prev.filter((_, i) => i !== index));
   const duplicateItemRow = (index: number) =>
-    setItemRows((prev) => [
-      ...prev.slice(0, index + 1),
-      { ...prev[index], __uuid: crypto.randomUUID(), name: undefined },
-      ...prev.slice(index + 1),
-    ]);
+    setItemRows((prev) => [...prev.slice(0, index + 1), { ...prev[index], __uuid: crypto.randomUUID(), name: undefined }, ...prev.slice(index + 1)]);
+
+  const handleSupplierChange = (index: number, fieldname: string, value: any) => {
+    setSupplierRows((prev) => prev.map((r, i) => (i === index ? { ...r, [fieldname]: value } : r)));
+  };
+
+  const handleSupplierLinkChange = (index: number, fieldname: string, value: string) => {
+    if (fieldname === "supplier") {
+      const supplierName = supplierLookup.get(value) ?? value;
+      setSupplierRows((prev) => prev.map((r, i) => (i === index ? { ...r, supplier: value, supplier_name: supplierName } : r)));
+    }
+  };
+
+  const addSupplierRow = () =>
+    setSupplierRows((prev) => [...prev, { supplier: "", supplier_name: "", send_email: 0, __uuid: crypto.randomUUID() }]);
+  const removeSupplierRow = (index: number) => setSupplierRows((prev) => prev.filter((_, i) => i !== index));
 
   const validate = useCallback((): boolean => {
     const required: [string, string][] = [
-      ["supplier", "Supplier"],
+      ["subject", "Subject"],
       ["transaction_date", "Date"],
       ["company", "Company"],
-      ["currency", "Currency"],
     ];
     const next: Record<string, string> = {};
     required.forEach(([f, label]) => {
@@ -207,71 +169,65 @@ export function PurchaseOrderFormPage() {
       if (!row.item_code) next[`item_${i}`] = `Row ${i + 1}: Item is required`;
       if (!row.qty || Number(row.qty) <= 0) next[`qty_${i}`] = `Row ${i + 1}: Qty must be > 0`;
     });
+    if (supplierRows.length === 0) next["suppliers"] = "Add at least one supplier";
+    const seen = new Set<string>();
+    supplierRows.forEach((row, i) => {
+      if (!row.supplier) next[`supplier_${i}`] = `Row ${i + 1}: Supplier is required`;
+      else if (seen.has(row.supplier)) next[`supplier_${i}`] = `Row ${i + 1}: Duplicate supplier`;
+      seen.add(row.supplier);
+    });
     setErrors(next);
     return Object.keys(next).length === 0;
-  }, [values, itemRows]);
-
-  const totals = useMemo(() => {
-    const quantity = itemRows.reduce((s, r) => s + Number(r.qty || 0), 0);
-    const amount = itemRows.reduce((s, r) => s + Number(r.amount ?? lineAmount(r as any)), 0);
-    return { quantity, amount };
-  }, [itemRows]);
+  }, [values, itemRows, supplierRows]);
 
   const buildPayload = useCallback((): Record<string, unknown> => {
     const schedule = values.schedule_date || values.transaction_date || todayISO();
-    const conversionRate = Number(values.conversion_rate || 1) || 1;
 
     const items = itemRows.map(({ __uuid, name: _rowName, owner, creation, modified, modified_by, parent, parentfield, parenttype, docstatus, idx, ...rest }, i) => {
-      const qty = Number(rest.qty || 0);
-      const rate = Number(rest.rate || 0);
-      const amount = qty * rate;
       const uom = rest.uom || rest.stock_uom || "Nos";
       const stockUom = rest.stock_uom || uom;
       const itemName = rest.item_name || rest.item_code || "";
       return {
-        doctype: "Purchase Order Item",
+        doctype: "Request for Quotation Item",
         item_code: rest.item_code,
         item_name: itemName,
         description: rest.description || itemName,
-        schedule_date: rest.schedule_date || schedule,
-        qty,
+        qty: Number(rest.qty || 0),
         uom,
         stock_uom: stockUom,
         conversion_factor: Number(rest.conversion_factor || 1) || 1,
-        rate,
-        amount,
-        base_rate: rate * conversionRate,
-        base_amount: amount * conversionRate,
-        warehouse: rest.warehouse || values.set_warehouse || undefined,
+        schedule_date: rest.schedule_date || schedule,
+        warehouse: rest.warehouse || undefined,
+        material_request: rest.material_request || undefined,
+        material_request_item: rest.material_request_item || undefined,
         idx: i + 1,
       };
     });
 
+    const rfqSuppliers = supplierRows.map(({ __uuid, name: _rowName, owner, creation, modified, modified_by, parent, parentfield, parenttype, docstatus, idx, ...rest }, i) => ({
+      doctype: "Request for Quotation Supplier",
+      supplier: rest.supplier,
+      supplier_name: rest.supplier_name || rest.supplier,
+      contact: rest.contact || undefined,
+      email_id: rest.email_id || undefined,
+      send_email: rest.send_email ? 1 : 0,
+      idx: i + 1,
+    }));
+
     return {
-      doctype: "Purchase Order",
-      naming_series: values.naming_series || "PUR-ORD-.YYYY.-",
-      supplier: values.supplier,
-      supplier_name: values.supplier_name || values.supplier,
-      company: values.company,
+      doctype: "Request for Quotation",
+      naming_series: values.naming_series || "PUR-RFQ-.YYYY.-",
+      title: values.title || undefined,
+      subject: values.subject,
       transaction_date: values.transaction_date || todayISO(),
       schedule_date: schedule,
-      currency: values.currency || "USD",
-      conversion_rate: conversionRate,
-      buying_price_list: values.buying_price_list || undefined,
-      set_warehouse: values.set_warehouse || undefined,
-      supplier_address: (values as any).supplier_address || undefined,
-      contact_person: (values as any).contact_person || undefined,
-      shipping_address: values.shipping_address || undefined,
-      billing_address: values.billing_address || undefined,
-      payment_terms_template: values.payment_terms_template || undefined,
-      tc_name: values.tc_name || undefined,
-      terms: values.terms || undefined,
-      incoterm: values.incoterm || undefined,
-      named_place: values.named_place || undefined,
+      company: values.company,
+      message_for_supplier: values.message_for_supplier || undefined,
       status: values.status || "Draft",
       items,
+      suppliers: rfqSuppliers,
     };
-  }, [values, itemRows]);
+  }, [values, itemRows, supplierRows]);
 
   const persist = useCallback(async () => {
     if (!validate()) {
@@ -279,31 +235,32 @@ export function PurchaseOrderFormPage() {
       return;
     }
     if (!canWrite) {
-      toast.error("You do not have permission to save Purchase Orders");
+      toast.error("You do not have permission to save Requests for Quotation");
       return;
     }
 
     const payload = buildPayload();
     try {
       if (isNew) {
-        const created = await createDoc(payload as Partial<PurchaseOrder>);
-        toast.success(`Purchase Order ${created.name ?? ""} created`);
+        const created = await createDoc(payload as Partial<RequestForQuotation>);
+        toast.success(`Request for Quotation ${created.name ?? ""} created`);
         notifyDataChanged();
         if (created?.name) {
-          navigate(`/import/purchase-orders/${encodeURIComponent(created.name)}`);
+          navigate(`/import/rfqs/${encodeURIComponent(created.name)}`);
         } else {
-          navigate("/import/purchase-orders");
+          navigate("/import/rfqs");
         }
       } else {
-        const updated = await updateDoc(name!, payload as Partial<PurchaseOrder>);
+        const updated = await updateDoc(name!, payload as Partial<RequestForQuotation>);
         setValues(updated);
         setItemRows((updated.items ?? []).map((r) => ({ ...r, __uuid: crypto.randomUUID() })));
-        toast.success("Purchase Order updated");
+        setSupplierRows((updated.suppliers ?? []).map((r) => ({ ...r, __uuid: crypto.randomUUID() })));
+        toast.success("Request for Quotation updated");
         notifyDataChanged();
         void mutate();
       }
     } catch (err) {
-      console.error("Purchase Order save failed", err);
+      console.error("Request for Quotation save failed", err);
       toast.error(humanizeError(err));
     }
   }, [canWrite, validate, buildPayload, isNew, createDoc, updateDoc, name, mutate, navigate]);
@@ -315,12 +272,12 @@ export function PurchaseOrderFormPage() {
       if (canWrite) {
         await updateDoc(doc.name, buildPayload());
       }
-      const full = await postCall<PurchaseOrder>("frappe.client.get", {
-        doctype: "Purchase Order",
+      const full = await postCall<RequestForQuotation>("frappe.client.get", {
+        doctype: "Request for Quotation",
         name: doc.name,
       });
       await postCall("frappe.client.submit", { doc: full });
-      toast.success("Purchase Order submitted");
+      toast.success("Request for Quotation submitted");
       notifyDataChanged();
       void mutate();
       setConfirmSubmit(false);
@@ -337,7 +294,7 @@ export function PurchaseOrderFormPage() {
       await deleteDoc(doc.name);
       toast.success("Deleted");
       notifyDataChanged();
-      navigate("/import/purchase-orders");
+      navigate("/import/rfqs");
     } catch (err) {
       toast.error(humanizeError(err));
     } finally {
@@ -370,24 +327,16 @@ export function PurchaseOrderFormPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Purchase Order"
-        subtitle={isNew ? "New Purchase Order" : name}
-        icon={<ShoppingCart className="h-5 w-5" />}
+        title="Request for Quotation"
+        subtitle={isNew ? "New Request for Quotation" : name}
+        icon={<Quote className="h-5 w-5" />}
         actions={
           <>
-            <Button
-              variant="outline"
-              onClick={() => (isNew ? navigate("/import/purchase-orders") : navigate(-1))}
-              disabled={saving || submitting}
-            >
+            <Button variant="outline" onClick={() => (isNew ? navigate("/import/rfqs") : navigate(-1))} disabled={saving || submitting}>
               Cancel
             </Button>
             {!isNew && doc?.docstatus === 0 && (
-              <Button
-                variant="outline"
-                onClick={() => setConfirmDelete(true)}
-                disabled={saving || !canWrite}
-              >
+              <Button variant="outline" onClick={() => setConfirmDelete(true)} disabled={saving || !canWrite}>
                 <Trash2 className="h-4 w-4" />
                 Delete
               </Button>
@@ -397,11 +346,7 @@ export function PurchaseOrderFormPage() {
               {isNew ? "Save" : "Update"}
             </Button>
             {!isNew && doc?.docstatus === 0 && (
-              <Button
-                variant="default"
-                onClick={() => setConfirmSubmit(true)}
-                disabled={saving || !canWrite || submitting}
-              >
+              <Button variant="default" onClick={() => setConfirmSubmit(true)} disabled={saving || !canWrite || submitting}>
                 <Send className="h-4 w-4" />
                 Submit
               </Button>
@@ -410,43 +355,46 @@ export function PurchaseOrderFormPage() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Status</p>
-          <StatusBadge
-            status={
-              values.status ||
-              (doc?.docstatus === 1 ? "Submitted" : doc?.docstatus === 2 ? "Cancelled" : "Draft")
-            }
-          />
+          <StatusBadge status={values.status || (doc?.docstatus === 1 ? "Submitted" : doc?.docstatus === 2 ? "Cancelled" : "Draft")} />
         </Card>
         <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Supplier</p>
-          <p className="font-medium">
-            {values.supplier_name || values.supplier || (
-              <span className="text-muted-foreground"> — </span>
-            )}
-          </p>
+          <p className="text-sm text-muted-foreground">Suppliers</p>
+          <p className="font-bold">{supplierRows.length}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Currency</p>
-          <p className="font-medium">{values.currency || "—"}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Total</p>
-          <p className="font-bold">{formatMoney(totals.amount, values.currency)}</p>
+          <p className="text-sm text-muted-foreground">Items</p>
+          <p className="font-bold">{itemRows.length}</p>
         </Card>
       </div>
 
       {errors.items && <p className="text-sm text-destructive">{errors.items}</p>}
+      {errors.suppliers && <p className="text-sm text-destructive">{errors.suppliers}</p>}
 
-      <FrappeForm
-        fields={PURCHASE_ORDER_FIELDS}
-        values={values}
-        errors={errors}
-        readOnly={readOnly}
-        onChange={onChange}
-      />
+      <FrappeForm fields={RFQ_FIELDS} values={values} errors={errors} readOnly={readOnly} onChange={onChange} />
+
+      <SectionCard
+        title="Suppliers"
+        description="Suppliers being asked to quote"
+        actions={
+          !readOnly ? (
+            <Button size="sm" variant="outline" onClick={addSupplierRow}>
+              + Add Supplier
+            </Button>
+          ) : undefined
+        }
+      >
+        <EditableChildTable
+          columns={RFQ_SUPPLIER_COLUMNS}
+          rows={supplierRows}
+          onChange={handleSupplierChange}
+          onLinkChange={handleSupplierLinkChange}
+          onRemoveRow={readOnly ? undefined : removeSupplierRow}
+          readOnly={readOnly}
+        />
+      </SectionCard>
 
       <SectionCard
         title="Items"
@@ -459,36 +407,21 @@ export function PurchaseOrderFormPage() {
         }
       >
         <EditableChildTable
-          columns={PURCHASE_ORDER_ITEM_COLUMNS}
+          columns={RFQ_ITEM_COLUMNS}
           rows={itemRows}
           onChange={handleItemChange}
-          onLinkChange={handleLinkChange}
+          onLinkChange={handleItemLinkChange}
           onRemoveRow={readOnly ? undefined : removeItemRow}
           onDuplicateRow={readOnly ? undefined : duplicateItemRow}
           readOnly={readOnly}
         />
       </SectionCard>
 
-      <Card className="p-4">
-        <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-3">
-          <div>
-            <span className="text-muted-foreground">Total Quantity</span>
-            <span className="float-right font-medium">{totals.quantity}</span>
-          </div>
-          <div className="col-span-2">
-            <div className="flex justify-between border-t pt-2 md:border-0 md:pt-0">
-              <span className="text-muted-foreground">Net Total</span>
-              <span className="text-xl font-bold">{formatMoney(totals.amount, values.currency)}</span>
-            </div>
-          </div>
-        </div>
-      </Card>
-
       <ConfirmDialog
         open={confirmSubmit}
         onClose={() => setConfirmSubmit(false)}
-        title="Submit Purchase Order"
-        description="Submit this Purchase Order? After submit it can no longer be edited (only cancelled/amended)."
+        title="Submit Request for Quotation"
+        description='Submit this RFQ? Only suppliers with "Send Email" checked will be emailed; unchecked rows are just recorded for tracking.'
         confirmLabel="Submit"
         loading={submitting}
         onConfirm={() => void submitDoc()}
@@ -498,7 +431,7 @@ export function PurchaseOrderFormPage() {
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
         title={`Delete ${doc?.name}?`}
-        description="This permanently removes the draft Purchase Order."
+        description="This permanently removes the draft Request for Quotation."
         confirmLabel="Delete"
         destructive
         loading={saving}

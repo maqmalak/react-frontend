@@ -154,6 +154,15 @@ export interface FrappeFormProps {
   readOnly?: boolean;
   /** Per-row link data used to resolve fetch_from defaults. */
   links?: Record<string, unknown>;
+  /**
+   * Escape hatch for a field that needs logic FieldRenderer's fieldtype
+   * switch can't express — e.g. a top-level "Dynamic Link" whose target
+   * doctype comes from another field's current value (FieldRenderer's
+   * default case renders it as a plain text input). Return `undefined` to
+   * fall back to the normal renderer. Mirrors EditableChildTable's
+   * `renderCell` escape hatch.
+   */
+  renderField?: (meta: FormFieldMeta) => React.ReactNode | undefined;
   children?: React.ReactNode;
 }
 
@@ -168,6 +177,7 @@ export function FrappeForm({
   errors,
   readOnly,
   links,
+  renderField,
   children,
 }: FrappeFormProps) {
   const groups = transformLayout(fields);
@@ -191,6 +201,15 @@ export function FrappeForm({
             >
               {col.flatMap((meta) => {
                 if (meta.hidden || meta.depends_on) return [];
+                const custom = renderField?.(meta);
+                if (custom !== undefined) {
+                  return [
+                    <div key={meta.fieldname} className="space-y-1">
+                      <Label required={meta.reqd}>{meta.label ?? meta.fieldname.replace(/_/g, " ")}</Label>
+                      {custom}
+                    </div>,
+                  ];
+                }
                 if (meta.read_only && !meta.fetch_if_empty) {
                   // Text/Text Editor values can run to hundreds of characters
                   // (e.g. a scraper's raw extract) — a fixed single-line h-9

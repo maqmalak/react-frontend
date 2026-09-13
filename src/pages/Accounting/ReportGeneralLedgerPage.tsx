@@ -13,11 +13,11 @@ import { LoadingOverlay } from "@/components/common/loading-overlay";
 import { KpiCard } from "@/pages/Dashboard/KpiCard";
 import { FrappeDataTable, type ColumnDef } from "@/components/tables/data-table";
 import { FrappeLinkField } from "@/components/forms/field-primitives";
-import { useQueryReport, useFiscalYears } from "@/hooks/useAccounting";
+import { useQueryReport } from "@/hooks/useAccounting";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { formatNumber } from "@/utils/currency";
 import { asNumber, cn } from "@/utils/cn";
-import { todayISO } from "@/utils/dates";
+import { todayISO, toISODate } from "@/utils/dates";
 import { humanizeError } from "@/services/frappe";
 import type { QueryReportColumn } from "@/types/frappe";
 
@@ -48,6 +48,7 @@ const NUMERIC_TYPES = new Set(["Currency", "Float", "Int"]);
 // go live for types we actually have a page for; everything else stays plain text.
 const VOUCHER_TYPE_ROUTES: Record<string, string> = {
   "Journal Entry": "/accounting/journal-entries",
+  "Payment Entry": "/accounting/payment-entries",
   "Purchase Invoice": "/purchase/invoices",
   "Purchase Receipt": "/purchase/receipts",
   "Purchase Order": "/import/purchase-orders",
@@ -75,8 +76,6 @@ function balanceWithDrCr(n: number): string {
 export function ReportGeneralLedgerPage() {
   const navigate = useNavigate();
   const { company, setCompany } = useCompanyContext();
-  const { data: fiscalYears } = useFiscalYears();
-  const latestFY = fiscalYears?.[0];
 
   const [searchParams] = useSearchParams();
   const voucherNoParam = searchParams.get("voucher_no") ?? "";
@@ -100,9 +99,21 @@ export function ReportGeneralLedgerPage() {
     Object.fromEntries(GL_OPTIONS.map((o) => [o.key, o.def])),
   );
 
+  // Default to the current month, not the full fiscal year — General Ledger
+  // has no account/voucher scoping by default, and a whole fiscal year of
+  // every posting for every account is exactly the kind of unfiltered,
+  // hundreds-of-thousands-of-rows query that can cross Frappe's own 15s
+  // "auto-promote to background Prepared Report" threshold. That flag is
+  // shared by every call to this report (not just this one), so tripping it
+  // here would also slow down a since-scoped "View Ledger" lookup elsewhere.
+  // The user can still widen the range themselves if they want a bigger pull.
   useEffect(() => {
-    if (latestFY && !fromDate) setFromDate(latestFY.year_start_date ?? "");
-  }, [latestFY, fromDate]);
+    if (!voucherNoParam && !fromDate) {
+      const now = new Date();
+      setFromDate(toISODate(new Date(now.getFullYear(), now.getMonth(), 1)));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromDate]);
 
   // Sync the global company selector once, if a different company arrived via URL.
   useEffect(() => {

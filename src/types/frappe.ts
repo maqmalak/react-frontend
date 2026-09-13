@@ -306,13 +306,17 @@ export interface SalesOrderItem {
   item_code?: string;
   item_name?: string;
   description?: string;
+  warehouse?: string;
+  delivery_date?: string;
+  uom?: string;
+  stock_uom?: string;
+  conversion_factor?: number;
   qty: number;
   delivered_qty?: number;
   produced_qty?: number;
   packed_qty?: number;
   rate?: number;
   amount?: number;
-  uom?: string;
   style_no?: string;
   buyer_style_no?: string;
   buyer_color?: string;
@@ -333,6 +337,7 @@ export interface SalesOrderItem {
  */
 export interface SalesOrder {
   name: string;
+  naming_series?: string;
   customer: string;
   customer_name?: string;
   transaction_date: string;
@@ -342,10 +347,14 @@ export interface SalesOrder {
   company: string;
   currency: string;
   conversion_rate?: number;
+  set_warehouse?: string;
+  net_total?: number;
   grand_total?: number;
   total_qty?: number;
   status?: string;
   docstatus: 0 | 1 | 2;
+  per_delivered?: number;
+  per_billed?: number;
   // Apparel custom fields
   export_status?: string;
   lc_proforma?: string;
@@ -364,6 +373,255 @@ export interface SalesOrder {
   shipment_mode?: string;
   country_of_destination?: string;
   items?: SalesOrderItem[];
+}
+
+// ------------------------------------------------------------- Delivery Note
+
+export interface DeliveryNoteItem {
+  item_code?: string;
+  item_name?: string;
+  description?: string;
+  cost_center?: string;
+  qty: number;
+  uom?: string;
+  stock_uom?: string;
+  conversion_factor?: number;
+  rate?: number;
+  amount?: number;
+  warehouse?: string;
+  against_sales_order?: string;
+  so_detail?: string;
+  idx?: number;
+}
+
+/** Standard ERPNext Delivery Note — the real stock-out event (decrements inventory, feeds COGS). */
+export interface DeliveryNote {
+  name?: string;
+  naming_series?: string;
+  customer: string;
+  customer_name?: string;
+  posting_date: string;
+  company: string;
+  currency: string;
+  conversion_rate?: number;
+  set_warehouse?: string;
+  cost_center?: string;
+  tc_name?: string;
+  instructions?: string;
+  net_total?: number;
+  grand_total?: number;
+  total_qty?: number;
+  per_billed?: number;
+  status?: string;
+  docstatus?: 0 | 1 | 2;
+  items?: DeliveryNoteItem[];
+  amended_from?: string | null;
+}
+
+// ------------------------------------------------------------- Sales Invoice
+
+export interface SalesInvoiceItem {
+  item_code?: string;
+  item_name?: string;
+  description?: string;
+  cost_center?: string;
+  qty: number;
+  uom?: string;
+  stock_uom?: string;
+  conversion_factor?: number;
+  rate?: number;
+  amount?: number;
+  warehouse?: string;
+  sales_order?: string;
+  so_detail?: string;
+  delivery_note?: string;
+  dn_detail?: string;
+  idx?: number;
+}
+
+/** Standard ERPNext Sales Invoice. */
+export interface SalesInvoice {
+  name?: string;
+  naming_series?: string;
+  customer: string;
+  customer_name?: string;
+  posting_date: string;
+  due_date?: string;
+  update_stock?: 0 | 1 | boolean;
+  company: string;
+  currency: string;
+  conversion_rate?: number;
+  selling_price_list?: string;
+  cost_center?: string;
+  net_total?: number;
+  grand_total?: number;
+  outstanding_amount?: number;
+  payment_terms_template?: string;
+  tc_name?: string;
+  terms?: string;
+  status?: string;
+  docstatus?: 0 | 1 | 2;
+  items?: SalesInvoiceItem[];
+  amended_from?: string | null;
+}
+
+// ------------------------------------------------------------- Stock Entry
+
+export interface StockEntryItem {
+  item_code?: string;
+  item_name?: string;
+  description?: string;
+  cost_center?: string;
+  qty: number;
+  uom?: string;
+  stock_uom?: string;
+  conversion_factor?: number;
+  s_warehouse?: string;
+  t_warehouse?: string;
+  basic_rate?: number;
+  basic_amount?: number;
+  amount?: number;
+  idx?: number;
+}
+
+/**
+ * Standard ERPNext Stock Entry — scoped to core movement purposes (Material
+ * Receipt / Issue / Transfer) for this app; Manufacture/Repack (BOM-driven)
+ * are out of scope here and belong to the separate Production module.
+ */
+export interface StockEntry {
+  name?: string;
+  naming_series?: string;
+  company: string;
+  posting_date: string;
+  stock_entry_type?: string;
+  purpose?: "Material Receipt" | "Material Issue" | "Material Transfer" | string;
+  from_warehouse?: string;
+  to_warehouse?: string;
+  cost_center?: string;
+  total_amount?: number;
+  remarks?: string;
+  docstatus?: 0 | 1 | 2;
+  items?: StockEntryItem[];
+  amended_from?: string | null;
+}
+
+// ------------------------------------------------------------- Material Request
+
+export interface MaterialRequestItem {
+  item_code?: string;
+  item_name?: string;
+  description?: string;
+  cost_center?: string;
+  qty: number;
+  uom?: string;
+  stock_uom?: string;
+  conversion_factor?: number;
+  warehouse?: string;
+  from_warehouse?: string;
+  schedule_date?: string;
+  rate?: number;
+  amount?: number;
+  ordered_qty?: number;
+  idx?: number;
+}
+
+/**
+ * Standard ERPNext Material Request — scoped to Purchase / Material Transfer
+ * / Material Issue for this app (matches Stock Entry's purpose scoping);
+ * Manufacture/Subcontracting/Customer Provided are out of scope here. A
+ * submitted "Purchase" type request can chain into a Purchase Order or a
+ * Request for Quotation via mapped-doc "Create" actions.
+ */
+export interface MaterialRequest {
+  name?: string;
+  naming_series?: string;
+  title?: string;
+  material_request_type?: "Purchase" | "Material Transfer" | "Material Issue" | string;
+  transaction_date: string;
+  schedule_date?: string;
+  company: string;
+  set_warehouse?: string;
+  set_from_warehouse?: string;
+  status?: string;
+  per_ordered?: number;
+  per_received?: number;
+  docstatus?: 0 | 1 | 2;
+  items?: MaterialRequestItem[];
+  amended_from?: string | null;
+}
+
+// ------------------------------------------------------- Request for Quotation
+
+export interface RequestForQuotationItem {
+  item_code?: string;
+  item_name?: string;
+  description?: string;
+  qty: number;
+  uom?: string;
+  stock_uom?: string;
+  conversion_factor?: number;
+  warehouse?: string;
+  schedule_date?: string;
+  material_request?: string;
+  material_request_item?: string;
+  idx?: number;
+}
+
+export interface RequestForQuotationSupplier {
+  supplier: string;
+  supplier_name?: string;
+  contact?: string;
+  email_id?: string;
+  send_email?: 0 | 1 | boolean;
+  email_sent?: 0 | 1 | boolean;
+  quote_status?: string;
+  idx?: number;
+}
+
+/**
+ * Standard ERPNext Request for Quotation. This app has no Supplier Quotation
+ * module, so the usual RFQ -> Supplier Quotation -> Purchase Order chain is
+ * simplified to a direct "Create Purchase Order" action on the RFQ Detail
+ * page — a client-side prefill only (Purchase Order Item has no RFQ link
+ * field, so unlike Material Request there's no server-traceable connection).
+ */
+export interface RequestForQuotation {
+  name?: string;
+  naming_series?: string;
+  title?: string;
+  company: string;
+  transaction_date: string;
+  schedule_date?: string;
+  subject: string;
+  message_for_supplier?: string;
+  status?: "Draft" | "Submitted" | "Cancelled" | string;
+  docstatus?: 0 | 1 | 2;
+  suppliers?: RequestForQuotationSupplier[];
+  items?: RequestForQuotationItem[];
+  amended_from?: string | null;
+}
+
+// ------------------------------------------------------------- Stock Ledger Entry
+
+/** A single Stock Ledger Entry row — read-only, surfaced via the Stock Ledger report. */
+export interface StockLedgerEntry {
+  name?: string;
+  item_code?: string;
+  item_name?: string;
+  warehouse?: string;
+  posting_date?: string;
+  posting_time?: string;
+  voucher_type?: string;
+  voucher_no?: string;
+  actual_qty?: number;
+  qty_after_transaction?: number;
+  incoming_rate?: number;
+  valuation_rate?: number;
+  stock_value?: number;
+  stock_value_difference?: number;
+  company?: string;
+  batch_no?: string;
 }
 
 // ------------------------------------------------------------- Masters
@@ -592,22 +850,74 @@ export interface GLEntry {
 
 // ------------------------------------------------------------- Payment Entry
 
-/** Standard ERPNext Payment Entry (subset used for connection panels). */
+/** Standard ERPNext Payment Entry Reference (the "references" allocation table). */
+export interface PaymentEntryReference {
+  name?: string;
+  reference_doctype: string;
+  reference_name: string;
+  due_date?: string;
+  bill_no?: string;
+  total_amount?: number;
+  outstanding_amount?: number;
+  allocated_amount?: number;
+  exchange_rate?: number;
+  payment_term?: string;
+  idx?: number;
+}
+
+/** Standard ERPNext Payment Entry Deduction (the "deductions" table — TDS, bank charges, write-offs, ...). */
+export interface PaymentEntryDeduction {
+  name?: string;
+  account: string;
+  cost_center?: string;
+  amount: number;
+  description?: string;
+  idx?: number;
+}
+
+/**
+ * Standard ERPNext Payment Entry — full core field set for a compact
+ * create/edit form (advance-tax-withholding, payment-order and auto-repeat
+ * fields are intentionally left out, same "commercially useful subset, not
+ * a literal 1:1 DocType mirror" scope as the Purchase Invoice/Journal Entry
+ * forms).
+ */
 export interface PaymentEntry {
   name: string;
-  payment_type?: string;
+  naming_series?: string;
+  payment_type?: "Receive" | "Pay" | "Internal Transfer" | string;
   posting_date?: string;
   company?: string;
+  mode_of_payment?: string;
   party_type?: string;
   party?: string;
   party_name?: string;
+  paid_from?: string;
+  paid_from_account_currency?: string;
+  paid_from_account_type?: string;
+  paid_to?: string;
+  paid_to_account_currency?: string;
+  paid_to_account_type?: string;
   paid_amount?: number;
+  base_paid_amount?: number;
+  source_exchange_rate?: number;
   received_amount?: number;
+  base_received_amount?: number;
+  target_exchange_rate?: number;
+  total_allocated_amount?: number;
+  base_total_allocated_amount?: number;
+  unallocated_amount?: number;
+  difference_amount?: number;
   reference_no?: string;
   reference_date?: string;
-  mode_of_payment?: string;
-  status?: string;
+  clearance_date?: string;
+  project?: string;
+  cost_center?: string;
+  remarks?: string;
+  status?: "Draft" | "Submitted" | "Cancelled" | string;
   docstatus?: 0 | 1 | 2;
+  references?: PaymentEntryReference[];
+  deductions?: PaymentEntryDeduction[];
 }
 
 // ---------------------------------------------------------- Landed Cost Voucher
@@ -1123,6 +1433,9 @@ export type DocTypeName =
   | "BOM"
   | "Work Order"
   | "Stock Entry"
+  | "Material Request"
+  | "Request for Quotation"
+  | "Stock Ledger Entry"
   | "Purchase Receipt"
   | "Delivery Note"
   | "Sales Invoice"

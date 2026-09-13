@@ -1,16 +1,23 @@
+import { useNavigate } from "react-router-dom";
 import { SimpleListPage } from "@/pages/common/SimpleListPage";
 import { PercentBar } from "@/components/common/percent-bar";
 import { formatMoney } from "@/utils/currency";
 import { formatDate } from "@/utils/dates";
 import { StatusBadge } from "@/components/common/status-badge";
 
-/** Export Orders — modern React view on standard ERPNext Sales Order. */
+/**
+ * Export Orders — modern React view on standard ERPNext Sales Order.
+ * Rows open the real Sales Order detail/edit page under Selling (see
+ * `SalesOrderDetailPage`) — the same document, viewed through an export lens.
+ */
 export function ExportOrdersPage() {
+  const navigate = useNavigate();
   return (
     <SimpleListPage<Record<string, any>>
       doctype="Sales Order"
       title="Export Orders"
       subtitle="Buyer sales orders (ERPNext Sales Order)"
+      onRowClick={(r) => navigate(`/selling/sales-orders/${encodeURIComponent(String(r.name))}`)}
       fields={[
         "name",
         "customer",
