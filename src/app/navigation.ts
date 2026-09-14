@@ -54,6 +54,16 @@ import {
   MapPin,
   Quote,
   LayoutGrid,
+  IdCard,
+  GitBranch,
+  CalendarCheck,
+  LogIn,
+  CalendarOff,
+  CalendarPlus2,
+  Award,
+  Clock3,
+  FileSpreadsheet,
+  PlayCircle,
   type LucideIcon,
 } from "lucide-react";
 
@@ -71,6 +81,55 @@ export interface NavGroup {
   items: NavItem[];
 }
 
+// "Buying" merges the old standalone Import app (procurement planning) and
+// Purchase app (receiving/billing) into one sidebar — the two titled groups
+// below render as visually separated sections (see Sidebar's NavLinks),
+// which is the divider between them. Both the `purchase` and `import` route
+// segments point at this same array so the sidebar looks identical no
+// matter which of the two (still-separate) URL prefixes you're on.
+const BUYING_NAV: NavGroup[] = [
+  {
+    title: "Procurement",
+    items: [
+      { label: "Material Requests", to: "/import/material-requests", icon: ClipboardList },
+      { label: "Requests for Quotation", to: "/import/rfqs", icon: Quote },
+      { label: "Purchase Orders", to: "/import/purchase-orders", icon: ShoppingCart },
+      { label: "Import Shipments", to: "/import/shipments", icon: Container },
+      { label: "Import Cost Sheets", to: "/import/cost-sheets", icon: Calculator },
+    ],
+  },
+  {
+    title: "Purchase",
+    items: [
+      { label: "Purchase Receipts", to: "/purchase/receipts", icon: Package },
+      { label: "Purchase Invoices", to: "/purchase/invoices", icon: Receipt },
+      { label: "Landed Cost Vouchers", to: "/purchase/landed-costs", icon: Coins },
+    ],
+  },
+];
+
+// Same idea for "Selling" — merges the old standalone Export app in as a
+// second titled section. Both `selling` and `export` segments share this array.
+const SELLING_NAV: NavGroup[] = [
+  {
+    title: "Selling",
+    items: [
+      { label: "Sales Orders", to: "/selling/sales-orders", icon: Handshake },
+      { label: "Delivery Notes", to: "/selling/delivery-notes", icon: Package },
+      { label: "Sales Invoices", to: "/selling/sales-invoices", icon: Receipt },
+    ],
+  },
+  {
+    title: "Export",
+    items: [
+      { label: "LC Proforma", to: "/export/lc-proforma", icon: FileText },
+      { label: "Export Orders", to: "/export/orders", icon: Package },
+      { label: "Export Packing", to: "/export/packing", icon: Boxes },
+      { label: "Export Shipments", to: "/export/shipments", icon: Ship },
+    ],
+  },
+];
+
 /**
  * Per-app sidebar navigation, keyed by the route's first path segment (which
  * lines up 1:1 with each tile's `to` in `app/apps.ts`, except `stock` which
@@ -81,39 +140,9 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
   dashboard: [
     { items: [{ label: "Overview", to: "/dashboard", icon: LayoutDashboard }] },
   ],
-  import: [
-    {
-      title: "Import",
-      items: [
-        { label: "Material Requests", to: "/import/material-requests", icon: ClipboardList },
-        { label: "Requests for Quotation", to: "/import/rfqs", icon: Quote },
-        { label: "Purchase Orders", to: "/import/purchase-orders", icon: ShoppingCart },
-        { label: "Import Shipments", to: "/import/shipments", icon: Container },
-        { label: "Import Cost Sheets", to: "/import/cost-sheets", icon: Calculator },
-      ],
-    },
-  ],
-  purchase: [
-    {
-      title: "Purchase",
-      items: [
-        { label: "Purchase Receipts", to: "/purchase/receipts", icon: Package },
-        { label: "Purchase Invoices", to: "/purchase/invoices", icon: Receipt },
-        { label: "Landed Cost Vouchers", to: "/purchase/landed-costs", icon: Coins },
-      ],
-    },
-  ],
-  export: [
-    {
-      title: "Export",
-      items: [
-        { label: "LC Proforma", to: "/export/lc-proforma", icon: FileText },
-        { label: "Export Orders", to: "/export/orders", icon: Package },
-        { label: "Export Packing", to: "/export/packing", icon: Boxes },
-        { label: "Export Shipments", to: "/export/shipments", icon: Ship },
-      ],
-    },
-  ],
+  import: BUYING_NAV,
+  purchase: BUYING_NAV,
+  export: SELLING_NAV,
   production: [
     {
       title: "Production",
@@ -125,7 +154,7 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
   ],
   inventory: [
     {
-      title: "Inventory",
+      title: "Stock",
       items: [
         { label: "Stock", to: "/inventory/stock", icon: Warehouse },
         { label: "Material Movement", to: "/inventory/stock-entries", icon: ArrowLeftRight },
@@ -208,16 +237,7 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
       ],
     },
   ],
-  selling: [
-    {
-      title: "Selling",
-      items: [
-        { label: "Sales Orders", to: "/selling/sales-orders", icon: Handshake },
-        { label: "Delivery Notes", to: "/selling/delivery-notes", icon: Package },
-        { label: "Sales Invoices", to: "/selling/sales-invoices", icon: Receipt },
-      ],
-    },
-  ],
+  selling: SELLING_NAV,
   crm: [
     {
       title: "Overview",
@@ -268,8 +288,48 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
   subcontracting: [{ items: [{ label: "Subcontracting", to: "/subcontracting", icon: Cog }] }],
   assets: [{ items: [{ label: "Assets", to: "/assets", icon: Building2 }] }],
   support: [{ items: [{ label: "Support", to: "/support", icon: LifeBuoy }] }],
-  hr: [{ items: [{ label: "HR", to: "/hr", icon: Users2 }] }],
-  payroll: [{ items: [{ label: "Payroll", to: "/payroll", icon: Banknote }] }],
+  hr: [
+    {
+      title: "Employees",
+      items: [
+        { label: "Employees", to: "/hr/employees", icon: Users2 },
+        { label: "Departments", to: "/hr/departments", icon: Building2 },
+        { label: "Designations", to: "/hr/designations", icon: IdCard },
+        { label: "Branches", to: "/hr/branches", icon: GitBranch },
+      ],
+    },
+    {
+      title: "Attendance & Leave",
+      items: [
+        { label: "Attendance", to: "/hr/attendance", icon: CalendarCheck },
+        { label: "Checkins", to: "/hr/checkins", icon: LogIn },
+        { label: "Leave Applications", to: "/hr/leave-applications", icon: CalendarOff },
+        { label: "Leave Allocations", to: "/hr/leave-allocations", icon: CalendarPlus2 },
+        { label: "Holiday Lists", to: "/hr/holiday-lists", icon: CalendarDays },
+      ],
+    },
+    {
+      title: "Claims & Extras",
+      items: [
+        { label: "Expense Claims", to: "/hr/expense-claims", icon: Receipt },
+        { label: "Employee Advances", to: "/hr/advances", icon: Wallet },
+        { label: "Gratuity", to: "/hr/gratuity", icon: Award },
+        { label: "Shift Assignments", to: "/hr/shift-assignments", icon: Clock3 },
+      ],
+    },
+  ],
+  payroll: [
+    {
+      title: "Payroll",
+      items: [
+        { label: "Salary Components", to: "/payroll/salary-components", icon: Coins },
+        { label: "Salary Structures", to: "/payroll/salary-structures", icon: FileSpreadsheet },
+        { label: "Structure Assignments", to: "/payroll/salary-structure-assignments", icon: FileSignature },
+        { label: "Salary Slips", to: "/payroll/salary-slips", icon: Banknote },
+        { label: "Payroll Entries", to: "/payroll/entries", icon: PlayCircle },
+      ],
+    },
+  ],
   settings: [
     {
       title: "Settings",
@@ -294,11 +354,11 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
 /** Route segment -> human label for the sidebar's app header. */
 export const APP_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
-  import: "Import",
-  purchase: "Purchase",
-  export: "Export",
+  import: "Buying",
+  purchase: "Buying",
+  export: "Selling",
   production: "Production",
-  inventory: "Inventory",
+  inventory: "Stock",
   reports: "Reports",
   masters: "Masters",
   accounting: "Accounting",
@@ -329,10 +389,10 @@ export const ROUTE_TITLES: Record<string, string> = {
   admin: "Administration",
   users: "Users",
   roles: "Roles",
-  import: "Import",
-  export: "Export",
+  import: "Buying",
+  export: "Selling",
   production: "Production",
-  inventory: "Inventory",
+  inventory: "Stock",
   reports: "Reports",
   masters: "Masters",
   settings: "Settings",
@@ -366,7 +426,7 @@ export const ROUTE_TITLES: Record<string, string> = {
   security: "Security",
   company: "Company",
   notifications: "Notifications",
-  purchase: "Purchase",
+  purchase: "Buying",
   "purchase-orders": "Purchase Orders",
   "material-requests": "Material Requests",
   rfqs: "Requests for Quotation",

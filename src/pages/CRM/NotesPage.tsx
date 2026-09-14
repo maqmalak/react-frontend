@@ -6,7 +6,7 @@ import { textPreview } from "@/components/crm/doc-panels";
 import type { ColumnDef } from "@/components/tables/data-table";
 import { Avatar } from "@/components/ui/avatar";
 import { avatarTone } from "@/components/common/avatar-tone";
-import { relativeDays, formatDateTime } from "@/utils/dates";
+import { relativeDays, formatDateTime, parseDate } from "@/utils/dates";
 import { useCrmReferenceLabels } from "@/hooks/useCrmReferenceLabels";
 import type { CrmNote } from "@/types/frappe";
 
@@ -70,7 +70,7 @@ export default function NotesPage() {
       columns,
       stats: (rows) => [
         { label: "Total Notes", value: rows.length, icon: <StickyNote className="h-4 w-4" />, tone: "amber" },
-        { label: "This Week", value: rows.filter((r) => r.modified && Date.now() - new Date(r.modified).getTime() < 7 * 864e5).length, icon: <FileText className="h-4 w-4" />, tone: "sky" },
+        { label: "This Week", value: rows.filter((r) => r.modified && Date.now() - (parseDate(r.modified)?.getTime() ?? 0) < 7 * 864e5).length, icon: <FileText className="h-4 w-4" />, tone: "sky" },
         { label: "Authors", value: new Set(rows.map((r) => r.owner).filter(Boolean)).size, icon: <Users className="h-4 w-4" />, tone: "indigo" },
       ],
       rowName: (r) => r.title || "Untitled note",

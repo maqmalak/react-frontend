@@ -10,6 +10,7 @@ import {
 } from "frappe-react-sdk";
 import { postCall, getCall, http } from "@/services/frappe";
 import { asNumber } from "@/utils/cn";
+import { APP_TIME_ZONE } from "@/utils/dates";
 import type {
   Account,
   CostCenter,
@@ -421,19 +422,24 @@ export interface MonthlyRootActivity {
 }
 
 function buildMonthRanges(fromDate: string, toDate: string) {
+  // `fromDate`/`toDate` are plain ERPNext dates (`YYYY-MM-DD`), parsed by JS
+  // as UTC midnight — so every subsequent calculation stays in UTC too,
+  // rather than mixing in the viewer's own local calendar via `getMonth()`/
+  // `new Date(y, m, d)`, which would shift the range by a day for anyone
+  // west of UTC.
   const start0 = new Date(fromDate);
   const rangeEnd = new Date(toDate);
   const months: { from: string; to: string; label: string }[] = [];
   for (let i = 0; i < 12; i++) {
-    const monthStart = new Date(start0.getFullYear(), start0.getMonth() + i, 1);
+    const monthStart = new Date(Date.UTC(start0.getUTCFullYear(), start0.getUTCMonth() + i, 1));
     if (monthStart > rangeEnd) break;
-    const monthEnd = new Date(start0.getFullYear(), start0.getMonth() + i + 1, 0);
+    const monthEnd = new Date(Date.UTC(start0.getUTCFullYear(), start0.getUTCMonth() + i + 1, 0));
     const clampedStart = monthStart < start0 ? start0 : monthStart;
     const clampedEnd = monthEnd > rangeEnd ? rangeEnd : monthEnd;
     months.push({
       from: clampedStart.toISOString().slice(0, 10),
       to: clampedEnd.toISOString().slice(0, 10),
-      label: monthStart.toLocaleDateString("en-US", { month: "short", year: "numeric" }),
+      label: monthStart.toLocaleDateString("en-US", { timeZone: APP_TIME_ZONE, month: "short", year: "numeric" }),
     });
   }
   return months;

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { PageHeader } from "@/components/common/page-header";
 import { cn } from "@/utils/cn";
+import { todayISO } from "@/utils/dates";
 import type { FrappeEvent } from "@/types/frappe";
 
 const CATEGORIES = ["Meeting", "Call", "Event", "Other"] as const;
@@ -60,8 +61,8 @@ function addHour(dateStr: string, timeStr: string): string {
 }
 
 export default function CalendarPage() {
-  const today = ymd(new Date());
-  const [viewDate, setViewDate] = useState(() => new Date());
+  const today = todayISO();
+  const [viewDate, setViewDate] = useState(() => new Date(`${today}T00:00:00`));
   const [selected, setSelected] = useState(today);
   const [type, setType] = useState<Category>("Meeting");
   const [date, setDate] = useState(today);
@@ -191,7 +192,7 @@ export default function CalendarPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setViewDate(new Date());
+                  setViewDate(new Date(`${today}T00:00:00`));
                   setSelected(today);
                 }}
               >

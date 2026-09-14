@@ -45,7 +45,15 @@ export function LCProformaFormPage() {
     const { hasRole } = useAuth();
   const canWrite = hasRole();
 
-  const { data: doc, error: docError, isLoading: docLoading, mutate } = useLCProforma(isNew ? undefined : name);
+  // The app's global SWR config keeps previous data across a key change to
+  // `null` (see providers.tsx), and `/export/lc-proforma/:name` and
+  // `/export/lc-proforma/new` render this exact same component instance —
+  // so without this guard, navigating from an existing (e.g. submitted)
+  // proforma to "New" would leave `doc` holding the old document's data,
+  // and every `doc?.xxx` read below (the status badge, form values) would
+  // reflect that stale document instead of a blank new form.
+  const { data: rawDoc, error: docError, isLoading: docLoading, mutate } = useLCProforma(isNew ? undefined : name);
+  const doc = isNew ? undefined : rawDoc;
   const { createDoc, updateDoc, loading: saving } = useLCProformaMutations();
   const { data: items } = useItems({ enabled: true });
 

@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { ArrowLeft, ClipboardList, Pencil, Trash2, ShoppingCart, Quote, RefreshCw, FilePlus } from "lucide-react";
+import { ArrowLeft, ClipboardList, Pencil, Trash2, ShoppingCart, Quote, RefreshCw, FilePlus, ArrowLeftRight } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { SectionCard } from "@/components/common/section-card";
 import { Card } from "@/components/ui/card";
@@ -15,11 +15,12 @@ import {
   useMaterialRequestMutations,
   usePurchaseOrdersForMR,
   useRFQsForMR,
+  useStockEntriesForMR,
 } from "@/hooks/useMaterialRequests";
 import { useAuth } from "@/hooks/useAuth";
 import { notifyDataChanged, DATA_CHANGED_EVENT } from "@/hooks/useRealtime";
 import { humanizeError } from "@/services/frappe";
-import { makePurchaseOrderFromMR, makeRequestForQuotationFromMR } from "@/services/api";
+import { makePurchaseOrderFromMR, makeRequestForQuotationFromMR, makeStockEntryFromMR } from "@/services/api";
 import { formatDate } from "@/utils/dates";
 import type { MaterialRequest } from "@/types/frappe";
 
@@ -35,8 +36,10 @@ function Row({ label, value }: { label: string; value?: string | number | null }
 /**
  * Material Request view page. A submitted "Purchase" type request can chain
  * into a Purchase Order or a Request for Quotation via mapped-doc "Create"
- * actions — both linked back here through Material Request's real link
- * fields, so the Connections panel is server-traceable (unlike RFQ -> PO).
+ * actions; a submitted "Material Issue" / "Material Transfer" type request
+ * can instead chain into a Stock Entry. All three are linked back here
+ * through Material Request's real link fields, so the Connections panel is
+ * server-traceable (unlike RFQ -> PO).
  */
 export function MaterialRequestDetailPage() {
   const { name } = useParams<{ name: string }>();
@@ -49,6 +52,7 @@ export function MaterialRequestDetailPage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [creatingPO, setCreatingPO] = useState(false);
   const [creatingRFQ, setCreatingRFQ] = useState(false);
+  const [creatingSE, setCreatingSE] = useState(false);
 
   const {
     data: purchaseOrders,
@@ -62,11 +66,18 @@ export function MaterialRequestDetailPage() {
     error: rfqError,
     mutate: refreshRFQs,
   } = useRFQsForMR(name);
+  const {
+    data: stockEntries,
+    isLoading: seLoading,
+    error: seError,
+    mutate: refreshSEs,
+  } = useStockEntriesForMR(name);
 
   const refreshConnections = useCallback(() => {
     void refreshPOs();
     void refreshRFQs();
-  }, [refreshPOs, refreshRFQs]);
+    void refreshSEs();
+  }, [refreshPOs, refreshRFQs, refreshSEs]);
 
   useEffect(() => {
     refreshConnections();
@@ -119,6 +130,19 @@ export function MaterialRequestDetailPage() {
     }
   };
 
+  const handleCreateSE = async () => {
+    if (!name) return;
+    setCreatingSE(true);
+    try {
+      const mapped = await makeStockEntryFromMR(name);
+      navigate("/inventory/stock-entries/new", { state: { prefill: mapped } });
+    } catch (err) {
+      toast.error(humanizeError(err));
+    } finally {
+      setCreatingSE(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -147,6 +171,8 @@ export function MaterialRequestDetailPage() {
   const totalQty = items.reduce((s, it) => s + Number(it.qty || 0), 0);
   const editable = canWrite && (mr.docstatus ?? 0) === 0;
   const isPurchaseType = mr.material_request_type === "Purchase";
+  const isStockMovementType =
+    mr.material_request_type === "Material Issue" || mr.material_request_type === "Material Transfer";
 
   const statusLabel = mr.status || (mr.docstatus === 1 ? "Submitted" : mr.docstatus === 2 ? "Cancelled" : "Draft");
 
@@ -172,6 +198,11 @@ export function MaterialRequestDetailPage() {
             {mr.docstatus === 1 && isPurchaseType && (
               <Button size="sm" variant="outline" onClick={() => void handleCreateRFQ()} disabled={creatingRFQ}>
                 <FilePlus className="h-4 w-4" /> Create RFQ
+              </Button>
+            )}
+            {mr.docstatus === 1 && isStockMovementType && (mr.per_ordered ?? 0) < 100 && (
+              <Button size="sm" variant="outline" onClick={() => void handleCreateSE()} disabled={creatingSE}>
+                <ArrowLeftRight className="h-4 w-4" /> Create Stock Entry
               </Button>
             )}
             {editable && (
@@ -263,11 +294,39 @@ export function MaterialRequestDetailPage() {
             title="Connections"
             description="Documents linked to this Material Request"
             actions={
-              <Button size="sm" variant="outline" onClick={refreshConnections} disabled={poLoading || rfqLoading}>
+              <Button size="sm" variant="outline" onClick={refreshConnections} disabled={poLoading || rfqLoading || seLoading}>
                 <RefreshCw className="h-3.5 w-3.5" /> Refresh
               </Button>
             }
           >
+            <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <ArrowLeftRight className="h-3.5 w-3.5" /> Stock Entries
+              {(stockEntries ?? []).length > 0 && (
+                <Badge variant="secondary" className="ml-auto text-xs">
+                  {stockEntries!.length}
+                </Badge>
+              )}
+            </p>
+            {seError ? (
+              <p className="mb-4 text-sm text-destructive">Failed to load stock entries: {humanizeError(seError)}</p>
+            ) : (stockEntries ?? []).length === 0 ? (
+              <p className="mb-4 text-sm text-muted-foreground">{seLoading ? "Loading…" : "No linked stock entries."}</p>
+            ) : (
+              <ul className="mb-4 space-y-1">
+                {(stockEntries ?? []).map((se) => (
+                  <li key={se.name}>
+                    <Link
+                      to={`/inventory/stock-entries/${encodeURIComponent(se.name ?? "")}`}
+                      className="flex items-center gap-1.5 text-sm text-primary hover:underline"
+                    >
+                      <ArrowLeftRight className="h-3.5 w-3.5 opacity-60" /> {se.name}
+                      {se.purpose ? <span className="text-xs text-muted-foreground"> · {se.purpose}</span> : null}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+
             <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
               <ShoppingCart className="h-3.5 w-3.5" /> Purchase Orders
               {(purchaseOrders ?? []).length > 0 && (

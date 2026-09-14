@@ -9,6 +9,7 @@ import { KpiCard } from "@/pages/Dashboard/KpiCard";
 import { useCompanyContext, companyFilter } from "@/hooks/useCompanyContext";
 import { formatMoney } from "@/utils/currency";
 import { asNumber } from "@/utils/cn";
+import { monthKeyAndLabel } from "@/utils/dates";
 
 interface GLRow {
   posting_date: string;
@@ -20,10 +21,9 @@ interface GLRow {
 function monthlyDebitCredit(rows: GLRow[] | undefined) {
   const map = new Map<string, { month: string; debit: number; credit: number }>();
   (rows ?? []).forEach((r) => {
-    const d = new Date(r.posting_date);
-    if (Number.isNaN(d.getTime())) return;
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    const label = d.toLocaleDateString("en-US", { month: "short" });
+    const bucket = monthKeyAndLabel(r.posting_date);
+    if (!bucket) return;
+    const { key, label } = bucket;
     const entry = map.get(key) ?? { month: label, debit: 0, credit: 0 };
     entry.debit += asNumber(r.debit);
     entry.credit += asNumber(r.credit);
@@ -97,9 +97,9 @@ export function AccountingDashboardPage() {
       <PageHeader title="Accounting Dashboard" subtitle={company ? `Company: ${company}` : "All companies"} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label="Payments Received" value={formatMoney(kpis.received, "USD", { compact: true })} icon={ArrowDownCircle} tone="success" loading={loading} onClick={() => navigate("/purchase/invoices")} />
-        <KpiCard label="Payments Made" value={formatMoney(kpis.paid, "USD", { compact: true })} icon={ArrowUpCircle} tone="warning" loading={loading} onClick={() => navigate("/purchase/invoices")} />
-        <KpiCard label="Outstanding Payable" value={formatMoney(kpis.outstandingPayable, "USD", { compact: true })} icon={Wallet} tone="destructive" loading={loading} onClick={() => navigate("/accounting/reports/trial-balance")} />
+        <KpiCard label="Payments Received" value={formatMoney(kpis.received, undefined, { compact: true })} icon={ArrowDownCircle} tone="success" loading={loading} onClick={() => navigate("/purchase/invoices")} />
+        <KpiCard label="Payments Made" value={formatMoney(kpis.paid, undefined, { compact: true })} icon={ArrowUpCircle} tone="warning" loading={loading} onClick={() => navigate("/purchase/invoices")} />
+        <KpiCard label="Outstanding Payable" value={formatMoney(kpis.outstandingPayable, undefined, { compact: true })} icon={Wallet} tone="destructive" loading={loading} onClick={() => navigate("/accounting/reports/trial-balance")} />
         <KpiCard label="GL Entries Posted" value={kpis.glCount} icon={Receipt} loading={loading} onClick={() => navigate("/accounting/reports/general-ledger")} />
       </div>
 

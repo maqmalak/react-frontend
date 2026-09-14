@@ -6,6 +6,7 @@ import {
   useFrappeUpdateDoc,
   useFrappeDeleteDoc,
 } from "frappe-react-sdk";
+import { monthKeyAndLabel } from "@/utils/dates";
 import type { SalesOrder, SalesOrderItem } from "@/types/frappe";
 
 const SALES_ORDER_FIELDS = [
@@ -135,10 +136,9 @@ export function salesOrderProgress(items?: SalesOrderItem[]): SOProgress {
 export function monthlyExportTrend(orders: SalesOrder[] | undefined) {
   const months = new Map<string, { label: string; export: number }>();
   (orders ?? []).forEach((o) => {
-    if (!o.transaction_date) return;
-    const dt = new Date(o.transaction_date);
-    const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
-    const label = dt.toLocaleDateString("en-US", { month: "short" });
+    const bucket = monthKeyAndLabel(o.transaction_date);
+    if (!bucket) return;
+    const { key, label } = bucket;
     const entry = months.get(key) ?? { label, export: 0 };
     entry.export += Number(o.grand_total || 0);
     months.set(key, entry);

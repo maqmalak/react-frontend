@@ -7,6 +7,24 @@ import { asNumber } from "./cn";
 
 const DEFAULT_CURRENCY = "USD";
 
+/**
+ * The company/tenant's active currency, kept in sync with the selected
+ * company by `CompanyProvider` (see `useCompanyContext`). Any call site that
+ * doesn't pass an explicit currency (a list column with no per-row currency
+ * field, a KPI tile, etc.) falls back to this instead of a hardcoded code —
+ * so switching the active company updates every such amount automatically.
+ */
+let activeCurrency = DEFAULT_CURRENCY;
+
+/** Set the app-wide fallback currency. Pass `undefined`/empty to leave it unchanged. */
+export function setActiveCurrency(currency?: string | null): void {
+  if (currency) activeCurrency = currency;
+}
+
+export function getActiveCurrency(): string {
+  return activeCurrency;
+}
+
 /** Compact number -> "12.5M", "365.2K". */
 export function compactNumber(value: number): string {
   if (Number.isNaN(value)) return "0";
@@ -30,7 +48,7 @@ export const CURRENCY_SYMBOLS: Record<string, string> = {
   JPY: "¥",
 };
 
-export function currencySymbol(currency = DEFAULT_CURRENCY): string {
+export function currencySymbol(currency = activeCurrency): string {
   return CURRENCY_SYMBOLS[currency?.toUpperCase()] ?? `${currency} `;
 }
 
@@ -40,10 +58,10 @@ export interface MoneyFormatOptions {
   symbol?: string;
 }
 
-/** Format a number as money for a given currency code. */
+/** Format a number as money for a given currency code (defaults to the active company's currency). */
 export function formatMoney(
   value: number | null | undefined,
-  currency = DEFAULT_CURRENCY,
+  currency = activeCurrency,
   options: MoneyFormatOptions = {},
 ): string {
   const n = asNumber(value);

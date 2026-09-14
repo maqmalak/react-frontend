@@ -15,7 +15,7 @@ import { useCrmEmailActivity } from "@/hooks/useCrmEmailActivity";
 import { useMonthlyLeadTarget } from "@/hooks/useMonthlyLeadTarget";
 import { useCrmReferenceLabels } from "@/hooks/useCrmReferenceLabels";
 import { formatMoney } from "@/utils/currency";
-import { formatDateTime, formatDate } from "@/utils/dates";
+import { formatDateTime, formatDate, startOfMonthISO, todayISO } from "@/utils/dates";
 import type { FrappeEvent, CrmTask } from "@/types/frappe";
 
 /**
@@ -48,7 +48,7 @@ export function CrmDashboardPage() {
   // Total prospects this month, for the target/achieved widget below.
   const { data: newLeadsThisMonth } = useFrappeGetDocList<{ name: string }>(
     "CRM Lead",
-    { fields: ["name"], filters: [["creation", ">=", `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`]], limit: 5000 },
+    { fields: ["name"], filters: [["creation", ">=", startOfMonthISO()]], limit: 5000 },
     "apparel.crm.dashboard.new-leads-month",
   );
   const achieved = (newLeadsThisMonth ?? []).length;
@@ -59,7 +59,7 @@ export function CrmDashboardPage() {
     doctype: "Event",
     fields: ["name", "subject", "event_category", "starts_on", "status"],
     filters: [
-      ["starts_on", ">=", new Date().toISOString().slice(0, 10)],
+      ["starts_on", ">=", todayISO()],
       ["status", "=", "Open"],
     ],
     orderBy: { field: "starts_on", order: "asc" },
@@ -90,7 +90,7 @@ export function CrmDashboardPage() {
         <span className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
           <HandCoins className="h-4 w-4" /> Total Funds Raised
         </span>
-        <span className="text-3xl font-bold tabular-nums">{formatMoney(totalRaised, "USD")}</span>
+        <span className="text-3xl font-bold tabular-nums">{formatMoney(totalRaised)}</span>
         <span className="text-xs text-muted-foreground">{(wonDeals ?? []).length} closed donations, all time</span>
       </Card>
 

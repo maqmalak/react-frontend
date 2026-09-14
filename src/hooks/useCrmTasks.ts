@@ -4,6 +4,7 @@ import {
   useFrappeUpdateDoc,
   useFrappeDeleteDoc,
 } from "frappe-react-sdk";
+import { todayISO } from "@/utils/dates";
 import type { CrmTask } from "@/types/frappe";
 
 const CRM_TASK_FIELDS = [
@@ -91,8 +92,7 @@ const OPEN_STATUSES: CrmTask["status"][] = ["Backlog", "Todo", "In Progress"];
 
 /** Splits open tasks into overdue / due-today / upcoming buckets for the Follow-ups page. */
 export function bucketCrmTasks(rows: CrmTask[] | undefined) {
-  const now = new Date();
-  const todayStr = now.toISOString().slice(0, 10);
+  const todayStr = todayISO();
   const overdue: CrmTask[] = [];
   const dueToday: CrmTask[] = [];
   const upcoming: CrmTask[] = [];

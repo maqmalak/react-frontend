@@ -484,6 +484,7 @@ export const PAYMENT_ENTRY_FIELDS: FormFieldMeta[] = [
     default: "Receive",
   },
   { fieldname: "posting_date", label: "Posting Date", fieldtype: "Date", reqd: true, default: "Today" },
+  { fieldname: "title", label: "Title", fieldtype: "Data", hidden: true, description: "Optional label for this entry — defaults to the party name if left blank." },
   { fieldname: "column_break_pe_0", fieldtype: "Column Break" },
   { fieldname: "company", label: "Company", fieldtype: "Link", options: "Company", reqd: true },
   { fieldname: "mode_of_payment", label: "Mode of Payment", fieldtype: "Link", options: "Mode of Payment" },
@@ -491,15 +492,31 @@ export const PAYMENT_ENTRY_FIELDS: FormFieldMeta[] = [
   { fieldname: "section_break_pe_party", label: "Payment From / To", fieldtype: "Section Break" },
   { fieldname: "party_type", label: "Party Type", fieldtype: "Select", options: "Customer\nSupplier\nEmployee\nShareholder", reqd: true },
   { fieldname: "party", label: "Party", fieldtype: "Dynamic Link", options: "party_type", reqd: true },
+  { fieldname: "party_name", label: "Party Name", fieldtype: "Data", read_only: true, hidden: true },
   { fieldname: "column_break_pe_1", fieldtype: "Column Break" },
-  { fieldname: "party_name", label: "Party Name", fieldtype: "Data", read_only: true },
+  { fieldname: "contact_person", label: "Contact", fieldtype: "Link", options: "Contact" },
+  { fieldname: "contact_email", label: "Contact Email", fieldtype: "Data" },
 
-  { fieldname: "section_break_pe_accounts", label: "Accounts", fieldtype: "Section Break" },
+  {
+    fieldname: "section_break_pe_accounts",
+    label: "Accounts",
+    fieldtype: "Section Break",
+  },
   { fieldname: "paid_from", label: "Account Paid From", fieldtype: "Link", options: "Account", reqd: true },
   { fieldname: "paid_from_account_currency", label: "Account Currency (From)", fieldtype: "Link", options: "Currency", read_only: true },
   { fieldname: "column_break_pe_2", fieldtype: "Column Break" },
   { fieldname: "paid_to", label: "Account Paid To", fieldtype: "Link", options: "Account", reqd: true },
   { fieldname: "paid_to_account_currency", label: "Account Currency (To)", fieldtype: "Link", options: "Currency", read_only: true },
+  // Bank Details folded in as a third row here (rather than its own Section
+  // Break) — a lone Section Break with just one field per side of its own
+  // Column Break renders as two separate single-field rows (see FrappeForm's
+  // layout algorithm: each column-group gets its own grid, so a 1-field
+  // group wastes its second cell instead of sharing a row with the next
+  // group). Grouped under Accounts like this, the two bank fields land in
+  // one shared 2-column row instead.
+  { fieldname: "column_break_pe_bank", fieldtype: "Column Break" },
+  { fieldname: "bank_account", label: "Company Bank Account", fieldtype: "Link", options: "Bank Account" },
+  { fieldname: "party_bank_account", label: "Party Bank Account", fieldtype: "Link", options: "Bank Account" },
 
   { fieldname: "section_break_pe_amounts", label: "Amount", fieldtype: "Section Break" },
   { fieldname: "paid_amount", label: "Paid Amount", fieldtype: "Currency", reqd: true },
@@ -511,6 +528,7 @@ export const PAYMENT_ENTRY_FIELDS: FormFieldMeta[] = [
   { fieldname: "section_break_pe_ref", label: "Transaction ID", fieldtype: "Section Break" },
   { fieldname: "reference_no", label: "Cheque/Reference No", fieldtype: "Data" },
   { fieldname: "reference_date", label: "Cheque/Reference Date", fieldtype: "Date" },
+  { fieldname: "clearance_date", label: "Clearance Date", fieldtype: "Date", description: "When the cheque/transfer actually cleared the bank." },
   { fieldname: "column_break_pe_4", fieldtype: "Column Break" },
   { fieldname: "project", label: "Project", fieldtype: "Link", options: "Project" },
   { fieldname: "cost_center", label: "Cost Center", fieldtype: "Link", options: "Cost Center" },
@@ -519,6 +537,17 @@ export const PAYMENT_ENTRY_FIELDS: FormFieldMeta[] = [
   // row instead of squeezing it into one half of a 2-column grid.
   { fieldname: "section_break_pe_remarks", label: "Remarks", fieldtype: "Section Break" },
   { fieldname: "remarks", label: "Remarks", fieldtype: "Text" },
+];
+
+/** "Taxes and Charges" table (Advance Taxes and Charges) — bank charges, withholding, etc. applied to the payment. */
+export const PAYMENT_ENTRY_TAX_COLUMNS: FormFieldMeta[] = [
+  { fieldname: "charge_type", label: "Type", fieldtype: "Select", options: "Actual\nOn Paid Amount\nOn Previous Row Amount\nOn Previous Row Total", reqd: true },
+  { fieldname: "account_head", label: "Account Head", fieldtype: "Link", options: "Account", reqd: true },
+  { fieldname: "description", label: "Description", fieldtype: "Data", reqd: true },
+  { fieldname: "rate", label: "Rate (%)", fieldtype: "Float", description: "Ignored for Type \"Actual\" — set Tax Amount directly instead." },
+  { fieldname: "add_deduct_tax", label: "Add/Deduct", fieldtype: "Select", options: "Add\nDeduct", reqd: true, default: "Add" },
+  { fieldname: "tax_amount", label: "Tax Amount", fieldtype: "Currency", read_only: true, description: "Editable only for Type \"Actual\" — every other type computes this from Rate on save." },
+  { fieldname: "total", label: "Total", fieldtype: "Currency", read_only: true },
 ];
 
 /** "References" table — outstanding invoices/orders this payment is allocated against. */

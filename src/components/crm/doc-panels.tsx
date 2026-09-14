@@ -352,14 +352,13 @@ export function WhatsAppPanel({
               key={m.name}
               className={cn(
                 "max-w-[85%] rounded-lg border border-border px-3 py-2 text-sm",
-                m.direction === "Outgoing" ? "ml-auto bg-primary/10" : "bg-muted/40",
+                m.type === "Outgoing" ? "ml-auto bg-primary/10" : "bg-muted/40",
               )}
             >
               <p className="whitespace-pre-wrap break-words">{m.message}</p>
               <p className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                 <span>{formatDateTime(m.creation)}</span>
-                {m.direction === "Outgoing" && <Badge variant="outline" className="px-1.5 py-0 text-[10px]">{m.status}</Badge>}
-                {m.error_message && <span className="text-destructive">· {m.error_message}</span>}
+                {m.type === "Outgoing" && <Badge variant="outline" className="px-1.5 py-0 text-[10px]">{m.status}</Badge>}
               </p>
             </li>
           ))}

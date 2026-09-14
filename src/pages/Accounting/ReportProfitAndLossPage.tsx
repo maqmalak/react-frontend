@@ -107,7 +107,7 @@ function visibleRows(rows: PLRow[], collapsed: Set<string>): PLRow[] {
  * beyond flattening the tree and deriving the net-margin ratio.
  */
 export function ReportProfitAndLossPage() {
-  const { company } = useCompanyContext();
+  const { company, companyCurrency } = useCompanyContext();
   const { data: fiscalYears } = useFiscalYears();
   const [fiscalYear, setFiscalYear] = useState("");
   const [fromDate, setFromDate] = useState("");
@@ -163,12 +163,6 @@ export function ReportProfitAndLossPage() {
     [company, fromDate, toDate, periodicity, costCenter, project, financeBook, opts],
   );
 
-  const { data, error, isLoading, isPreparing, mutate } = useQueryReport(
-    "Profit and Loss Statement",
-    filters,
-    Boolean(company && fromDate && toDate),
-  );
-
   // Chart always drills to real monthly, non-cumulative figures across the
   // same validated date range, regardless of the table's own
   // periodicity/accumulated selection above.
@@ -177,10 +171,29 @@ export function ReportProfitAndLossPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [company, fromDate, toDate, costCenter, project, financeBook],
   );
+
+  // The report only (re)runs when "Generate" is clicked — changing a filter
+  // above just updates the form, it doesn't refetch until the applied
+  // snapshot below is explicitly refreshed.
+  const [appliedFilters, setAppliedFilters] = useState<typeof filters | null>(null);
+  const [appliedChartFilters, setAppliedChartFilters] = useState<typeof chartFilters | null>(null);
+  const hasGenerated = appliedFilters !== null;
+  const filtersDirty = hasGenerated && JSON.stringify(filters) !== JSON.stringify(appliedFilters);
+  const generate = () => {
+    setAppliedFilters(filters);
+    setAppliedChartFilters(chartFilters);
+  };
+
+  const { data, error, isLoading, isPreparing, mutate } = useQueryReport(
+    "Profit and Loss Statement",
+    appliedFilters ?? filters,
+    Boolean(company && fromDate && toDate && appliedFilters),
+  );
+
   const { data: chartReport, isLoading: chartLoading } = useQueryReport(
     "Profit and Loss Statement",
-    chartFilters,
-    Boolean(company && fromDate && toDate),
+    appliedChartFilters ?? chartFilters,
+    Boolean(company && fromDate && toDate && appliedChartFilters),
   );
 
   const allRows = ((data?.result ?? []) as unknown as PLRow[]).filter((r) => r && typeof r.account === "string");
@@ -245,7 +258,7 @@ export function ReportProfitAndLossPage() {
     exportToCsv(cols, rows, "profit-and-loss");
   };
 
-  const chartCurrency = chartReport?.chart?.currency ?? "PKR";
+  const chartCurrency = chartReport?.chart?.currency ?? companyCurrency ?? "USD";
   const chartLabels = chartReport?.chart?.data?.labels ?? [];
   const chartDatasets = chartReport?.chart?.data?.datasets ?? [];
   const incomeSeries = chartDatasets.find((d) => d.name === "Income")?.values ?? [];
@@ -364,7 +377,7 @@ export function ReportProfitAndLossPage() {
                 />
               </div>
             </div>
-            <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-border pt-4">
+            <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-border pt-4">
               {PL_OPTIONS.map((o) => (
                 <Checkbox
                   key={o.key}
@@ -373,10 +386,23 @@ export function ReportProfitAndLossPage() {
                   onChange={(e) => setOpts((prev) => ({ ...prev, [o.key]: e.target.checked }))}
                 />
               ))}
+              <div className="ml-auto flex items-center gap-2">
+                {filtersDirty && <span className="text-xs text-muted-foreground">Filters changed — click Generate to refresh</span>}
+                <Button variant="primary" size="sm" onClick={generate} disabled={!company || !fromDate || !toDate}>
+                  Generate
+                </Button>
+              </div>
             </div>
           </Card>
 
-          {error ? (
+          {!hasGenerated ? (
+            <EmptyState
+              title="Ready to generate"
+              description="Set your filters above, then click Generate to run the Profit and Loss Statement."
+              actionLabel="Generate"
+              onAction={generate}
+            />
+          ) : error ? (
             <EmptyState title="Couldn't load Profit and Loss" description={humanizeError(error)} actionLabel="Retry" onAction={() => void mutate()} />
           ) : isLoading ? (
             <div className="space-y-2">

@@ -6,7 +6,7 @@ import {
   useFrappeUpdateDoc,
   useFrappeDeleteDoc,
 } from "frappe-react-sdk";
-import type { MaterialRequest, PurchaseOrder, RequestForQuotation } from "@/types/frappe";
+import type { MaterialRequest, PurchaseOrder, RequestForQuotation, StockEntry } from "@/types/frappe";
 
 const MR_LIST_FIELDS = [
   "name",
@@ -105,6 +105,55 @@ export function usePurchaseOrdersForMR(mrName?: string) {
         }
       : { filters: [["name", "=", ""]], limit: 0 },
     names.length > 0 ? `apparel.po-for-mr.${mrName}` : undefined,
+  );
+
+  return {
+    data,
+    isLoading: namesLoading || isLoading,
+    error: namesError || error,
+    mutate: () => {
+      void refreshNames();
+      void mutate();
+    },
+  };
+}
+
+const SE_FIELDS_FOR_MR = ["name", "posting_date", "purpose", "docstatus", "total_amount"] as const;
+
+/** Stock Entries created from ("Create Stock Entry" on) a Material Request — linked via Stock Entry Detail.material_request. */
+export function useStockEntriesForMR(mrName?: string) {
+  const { data: parentNames, isLoading: namesLoading, error: namesError, mutate: refreshNames } =
+    useFrappeGetCall<string[]>(
+      "apparel.hooks.get_linked_parent_docs",
+      mrName
+        ? {
+            doctype: "Stock Entry Detail",
+            parenttype: "Stock Entry",
+            link_field: "material_request",
+            link_value: mrName,
+          }
+        : undefined,
+      mrName ? `apparel.se-parents-mr.${mrName}` : null,
+    );
+
+  const raw = parentNames as unknown;
+  const names: string[] = Array.isArray(raw)
+    ? raw
+    : Array.isArray((raw as { message?: unknown })?.message)
+      ? ((raw as { message: string[] }).message)
+      : [];
+
+  const { data, isLoading, error, mutate } = useFrappeGetDocList<StockEntry>(
+    "Stock Entry",
+    names.length > 0
+      ? {
+          fields: SE_FIELDS_FOR_MR as unknown as (keyof StockEntry)[],
+          filters: [["name", "in", names]],
+          limit: 200,
+          orderBy: { field: "posting_date", order: "desc" },
+        }
+      : { filters: [["name", "=", ""]], limit: 0 },
+    names.length > 0 ? `apparel.se-for-mr.${mrName}` : undefined,
   );
 
   return {

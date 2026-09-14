@@ -4,12 +4,17 @@ import { AppCard } from "@/components/common/app-card";
 import { Logo } from "@/components/common/logo";
 import { useAuth } from "@/hooks/useAuth";
 import { useVisibleModules, useModuleDocTypes } from "@/hooks/useWorkspaces";
+import { APP_TIME_ZONE } from "@/utils/dates";
 
 /** How many real doctypes to surface as "features" under each card's title. */
 const FEATURES_PER_APP = 4;
 
 function greeting(): string {
-  const hour = new Date().getHours();
+  const hour = Number(
+    new Intl.DateTimeFormat("en-US", { timeZone: APP_TIME_ZONE, hour: "numeric", hourCycle: "h23" }).format(
+      new Date(),
+    ),
+  );
   if (hour < 12) return "Good morning";
   if (hour < 18) return "Good afternoon";
   return "Good evening";

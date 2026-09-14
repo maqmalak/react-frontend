@@ -1,8 +1,6 @@
 import {
   LayoutDashboard,
-  ShoppingCart,
   Package,
-  Ship,
   Factory,
   Warehouse,
   BarChart3,
@@ -56,28 +54,12 @@ export const APPS: AppTile[] = [
     colorClass: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
   },
   {
-    id: "import",
-    label: "Import",
-    description: "Purchase orders, import shipments, cost sheets",
-    icon: ShoppingCart,
-    to: "/import/purchase-orders",
-    colorClass: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
-  },
-  {
     id: "purchase",
-    label: "Purchase",
-    description: "Receipts, invoices, landed cost vouchers",
+    label: "Buying",
+    description: "Material requests, RFQs, purchase orders, receipts and invoices",
     icon: Package,
-    to: "/purchase/receipts",
+    to: "/import/material-requests",
     colorClass: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  },
-  {
-    id: "export",
-    label: "Export",
-    description: "LC Proforma, orders, packing, shipments",
-    icon: Ship,
-    to: "/export/lc-proforma",
-    colorClass: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
   },
   {
     id: "production",
@@ -86,14 +68,6 @@ export const APPS: AppTile[] = [
     icon: Factory,
     to: "/production/work-orders",
     colorClass: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
-  },
-  {
-    id: "inventory",
-    label: "Inventory",
-    description: "Stock balances and material movement",
-    icon: Warehouse,
-    to: "/inventory/stock",
-    colorClass: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
   },
   {
     id: "reports",
@@ -123,7 +97,7 @@ export const APPS: AppTile[] = [
   {
     id: "selling",
     label: "Selling",
-    description: "Sales orders, delivery notes and sales invoices",
+    description: "Sales orders, delivery notes, sales invoices, LC proforma and export shipments",
     icon: ShoppingBag,
     to: "/selling/sales-orders",
     colorClass: "bg-green-500/10 text-green-600 dark:text-green-400",
@@ -141,7 +115,7 @@ export const APPS: AppTile[] = [
   {
     id: "stock",
     label: "Stock",
-    description: "Warehouses, stock levels and stock entries",
+    description: "Stock balances, material movement, warehouses and stock ledger",
     icon: Warehouse,
     to: "/inventory/stock",
     colorClass: "bg-slate-500/10 text-slate-600 dark:text-slate-400",

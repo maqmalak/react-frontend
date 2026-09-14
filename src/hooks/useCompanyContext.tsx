@@ -1,6 +1,7 @@
 import * as React from "react";
 import { useCompanies } from "./useCompanies";
 import { useAuth } from "./useAuth";
+import { setActiveCurrency } from "@/utils/currency";
 
 /**
  * Active-company context. The selected company is applied as a filter to all
@@ -32,6 +33,13 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
   );
 
   const companyCurrency = companies.find((c) => c.name === company)?.currency;
+
+  // Keep money formatting's app-wide fallback currency in sync with whatever
+  // company is active, so amounts rendered without an explicit currency (list
+  // columns, KPI tiles) reflect the real selected company instead of a static code.
+  React.useEffect(() => {
+    setActiveCurrency(companyCurrency);
+  }, [companyCurrency]);
 
   // Pick a sensible default once the list resolves.
   React.useEffect(() => {

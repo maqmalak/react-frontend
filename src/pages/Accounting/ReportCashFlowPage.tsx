@@ -97,7 +97,7 @@ function visibleRows(rows: CashFlowRow[], collapsed: Set<string>): CashFlowRow[]
  * tiles come straight from the report's own `report_summary`.
  */
 export function ReportCashFlowPage() {
-  const { company } = useCompanyContext();
+  const { company, companyCurrency } = useCompanyContext();
   const { data: fiscalYears } = useFiscalYears();
   const [fiscalYear, setFiscalYear] = useState("");
   const [fromDate, setFromDate] = useState("");
@@ -142,10 +142,18 @@ export function ReportCashFlowPage() {
     [company, fromDate, toDate, periodicity, costCenter, project, financeBook, opts],
   );
 
+  // The report only (re)runs when "Generate" is clicked — changing a filter
+  // above just updates the form, it doesn't refetch until the applied
+  // snapshot below is explicitly refreshed.
+  const [appliedFilters, setAppliedFilters] = useState<typeof filters | null>(null);
+  const hasGenerated = appliedFilters !== null;
+  const filtersDirty = hasGenerated && JSON.stringify(filters) !== JSON.stringify(appliedFilters);
+  const generate = () => setAppliedFilters(filters);
+
   const { data, error, isLoading, isPreparing, mutate } = useQueryReport(
     "Cash Flow",
-    filters,
-    Boolean(company && fromDate && toDate),
+    appliedFilters ?? filters,
+    Boolean(company && fromDate && toDate && appliedFilters),
   );
 
   const allRows = ((data?.result ?? []) as unknown as CashFlowRow[]).filter(
@@ -178,7 +186,7 @@ export function ReportCashFlowPage() {
   ];
 
   const base = Math.max(Math.abs(netOperating), Math.abs(netInvesting), Math.abs(netFinancing), Math.abs(netChange)) || 1;
-  const chartCurrency = allRows.find((r) => typeof r.currency === "string")?.currency ?? "PKR";
+  const chartCurrency = allRows.find((r) => typeof r.currency === "string")?.currency ?? companyCurrency ?? "USD";
 
   const netChangeRow = allRows.find((r) => cleanLabel(r.section ?? "") === "Net Change in Cash");
 
@@ -351,7 +359,7 @@ export function ReportCashFlowPage() {
                 />
               </div>
             </div>
-            <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 border-t border-border pt-4">
+            <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-border pt-4">
               {CF_OPTIONS.map((o) => (
                 <Checkbox
                   key={o.key}
@@ -360,12 +368,25 @@ export function ReportCashFlowPage() {
                   onChange={(e) => setOpts((prev) => ({ ...prev, [o.key]: e.target.checked }))}
                 />
               ))}
+              <div className="ml-auto flex items-center gap-2">
+                {filtersDirty && <span className="text-xs text-muted-foreground">Filters changed — click Generate to refresh</span>}
+                <Button variant="primary" size="sm" onClick={generate} disabled={!company || !fromDate || !toDate}>
+                  Generate
+                </Button>
+              </div>
             </div>
             </div>
             )}
           </Card>
 
-          {error ? (
+          {!hasGenerated ? (
+            <EmptyState
+              title="Ready to generate"
+              description="Set your filters above, then click Generate to run the Cash Flow report."
+              actionLabel="Generate"
+              onAction={generate}
+            />
+          ) : error ? (
             <EmptyState title="Couldn't load Cash Flow" description={humanizeError(error)} actionLabel="Retry" onAction={() => void mutate()} />
           ) : isLoading ? (
             <div className="space-y-2">

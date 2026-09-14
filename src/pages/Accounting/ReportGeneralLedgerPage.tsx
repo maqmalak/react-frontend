@@ -17,7 +17,7 @@ import { useQueryReport } from "@/hooks/useAccounting";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { formatNumber } from "@/utils/currency";
 import { asNumber, cn } from "@/utils/cn";
-import { todayISO, toISODate } from "@/utils/dates";
+import { todayISO, startOfMonthISO } from "@/utils/dates";
 import { humanizeError } from "@/services/frappe";
 import type { QueryReportColumn } from "@/types/frappe";
 
@@ -109,8 +109,7 @@ export function ReportGeneralLedgerPage() {
   // The user can still widen the range themselves if they want a bigger pull.
   useEffect(() => {
     if (!voucherNoParam && !fromDate) {
-      const now = new Date();
-      setFromDate(toISODate(new Date(now.getFullYear(), now.getMonth(), 1)));
+      setFromDate(startOfMonthISO());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fromDate]);

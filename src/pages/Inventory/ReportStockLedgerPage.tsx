@@ -15,7 +15,7 @@ import { useQueryReport } from "@/hooks/useAccounting";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { formatNumber } from "@/utils/currency";
 import { asNumber } from "@/utils/cn";
-import { todayISO, toISODate } from "@/utils/dates";
+import { todayISO, startOfMonthISO } from "@/utils/dates";
 import { humanizeError } from "@/services/frappe";
 import type { QueryReportColumn } from "@/types/frappe";
 
@@ -42,10 +42,7 @@ export function ReportStockLedgerPage() {
   const { company } = useCompanyContext();
 
   const [filtersOpen, setFiltersOpen] = useState(true);
-  const [fromDate, setFromDate] = useState(() => {
-    const now = new Date();
-    return toISODate(new Date(now.getFullYear(), now.getMonth(), 1));
-  });
+  const [fromDate, setFromDate] = useState(() => startOfMonthISO());
   const [toDate, setToDate] = useState(todayISO());
   const [itemCode, setItemCode] = useState("");
   const [warehouse, setWarehouse] = useState("");

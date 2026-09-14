@@ -7,7 +7,7 @@ import {
   useFrappeDeleteDoc,
 } from "frappe-react-sdk";
 import { postCall } from "@/services/frappe";
-import type { PaymentEntry } from "@/types/frappe";
+import type { PaymentEntry, PaymentEntryTax } from "@/types/frappe";
 
 const PAYMENT_ENTRY_FIELDS = [
   "name",
@@ -21,6 +21,8 @@ const PAYMENT_ENTRY_FIELDS = [
   "received_amount",
   "paid_from",
   "paid_to",
+  "paid_from_account_currency",
+  "paid_to_account_currency",
   "reference_no",
   "reference_date",
   "mode_of_payment",
@@ -91,6 +93,24 @@ export async function getPartyPaymentDetails(args: {
   bank_account?: string;
 }> {
   return postCall("erpnext.accounts.doctype.payment_entry.payment_entry.get_party_details", args);
+}
+
+/**
+ * Fetch a Purchase/Sales Taxes and Charges Template's own rows — the same
+ * generic whitelisted method the real desk form calls when a template is
+ * picked (`fetch_taxes_from_template` in payment_entry.js). Rows come back
+ * stripped of doctype/name/parent metadata, ready to drop into a fresh
+ * Advance Taxes and Charges table.
+ */
+export async function getTaxesAndCharges(
+  masterDoctype: "Purchase Taxes and Charges Template" | "Sales Taxes and Charges Template",
+  masterName: string,
+): Promise<Partial<PaymentEntryTax>[]> {
+  const result = await postCall<Partial<PaymentEntryTax>[] | null>(
+    "erpnext.controllers.accounts_controller.get_taxes_and_charges",
+    { master_doctype: masterDoctype, master_name: masterName },
+  );
+  return result ?? [];
 }
 
 /** Resolve an account's currency/type — used when the user picks Paid From/To manually. */

@@ -63,7 +63,7 @@ function NumberWidget({ widget }: { widget: CrmDashboardWidgetRaw }) {
   const d = widget.data ?? {};
   const raw = typeof d.value === "number" ? d.value : 0;
   const display = isMoneyMetric(widget.name)
-    ? formatMoney(raw, "USD", { compact: true })
+    ? formatMoney(raw, undefined, { compact: true })
     : isDurationMetric(widget.name)
       ? `${Math.round(raw)} days`
       : formatNumber(raw, 0);

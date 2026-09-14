@@ -23,8 +23,8 @@ export function PaymentEntriesPage() {
     { key: "posting_date", label: "Posting Date", render: (r) => formatDate(r.posting_date) },
     { key: "party", label: "Party", render: (r) => r.party_name || r.party || "—" },
     { key: "mode_of_payment", label: "Mode of Payment" },
-    { key: "paid_amount", label: "Paid Amount", align: "right", render: (r) => formatMoney(r.paid_amount) },
-    { key: "received_amount", label: "Received Amount", align: "right", render: (r) => formatMoney(r.received_amount) },
+    { key: "paid_amount", label: "Paid Amount", align: "right", render: (r) => formatMoney(r.paid_amount, r.paid_from_account_currency) },
+    { key: "received_amount", label: "Received Amount", align: "right", render: (r) => formatMoney(r.received_amount, r.paid_to_account_currency) },
     { key: "docstatus", label: "Status", render: (r) => <StatusBadge status={DOCSTATUS_LABEL[r.docstatus ?? 0]} /> },
   ];
 

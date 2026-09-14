@@ -2,7 +2,7 @@ import { Repeat, Clock, AlertTriangle, CheckCircle2, CalendarClock } from "lucid
 import { CrmManagementPage, type CrmManagementConfig } from "@/components/crm/CrmManagementPage";
 import type { ColumnDef } from "@/components/tables/data-table";
 import { StatusBadge } from "@/components/common/status-badge";
-import { formatDate } from "@/utils/dates";
+import { formatDate, todayISO } from "@/utils/dates";
 import type { CrmTask } from "@/types/frappe";
 
 const STATUSES = ["Todo", "In Progress", "Done", "Cancelled"];
@@ -54,7 +54,7 @@ const config: CrmManagementConfig<FollowUpRow> = {
     { label: "Open", value: rows.filter((r) => r.status === "Todo").length, icon: <Clock className="h-4 w-4" />, tone: "indigo" },
     {
       label: "Overdue",
-      value: rows.filter((r) => r.due_date && r.status !== "Done" && r.status !== "Cancelled" && new Date(r.due_date) < new Date()).length,
+      value: rows.filter((r) => r.due_date && r.status !== "Done" && r.status !== "Cancelled" && r.due_date < todayISO()).length,
       icon: <AlertTriangle className="h-4 w-4" />,
       tone: "rose",
     },

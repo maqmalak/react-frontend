@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
 import { ArrowLeftRight, Save, Send, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
@@ -35,10 +35,15 @@ function warehouseRequirement(purpose?: string): { needsFrom: boolean; needsTo: 
 export function StockEntryFormPage() {
   const { name } = useParams<{ name?: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const isNew = !name || name === "new";
   const { hasRole } = useAuth();
   const canWrite = hasRole();
   const { company } = useCompanyContext();
+
+  // A "Create Stock Entry" action on a Material Request routes here with an
+  // unsaved, server-mapped document in router state (see MaterialRequestDetailPage).
+  const prefill = (location.state as { prefill?: Partial<StockEntry> } | null)?.prefill;
 
   const { data: doc, error: docError, isLoading: docLoading, mutate } = useStockEntry(isNew ? undefined : name);
   const { createDoc, updateDoc, deleteDoc, loading: saving } = useStockEntryMutations();
@@ -68,13 +73,19 @@ export function StockEntryFormPage() {
       setValues(doc);
       setItemRows((doc.items ?? []).map((r) => ({ ...r, __uuid: crypto.randomUUID() })));
     } else if (!docLoading && isNew) {
-      setValues({
-        naming_series: "MAT-STE-.YYYY.-",
-        purpose: "Material Transfer",
-        posting_date: todayISO(),
-        company: company || undefined,
-      });
+      if (prefill) {
+        setValues(prefill);
+        setItemRows((prefill.items ?? []).map((r) => ({ ...r, __uuid: crypto.randomUUID() })));
+      } else {
+        setValues({
+          naming_series: "MAT-STE-.YYYY.-",
+          purpose: "Material Transfer",
+          posting_date: todayISO(),
+          company: company || undefined,
+        });
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc, docLoading, isNew, company]);
 
   const { needsFrom, needsTo } = warehouseRequirement(values.purpose);
@@ -210,6 +221,8 @@ export function StockEntryFormPage() {
         s_warehouse: needsFrom ? rest.s_warehouse || values.from_warehouse || undefined : undefined,
         t_warehouse: needsTo ? rest.t_warehouse || values.to_warehouse || undefined : undefined,
         cost_center: rest.cost_center || values.cost_center || undefined,
+        material_request: rest.material_request || undefined,
+        material_request_item: rest.material_request_item || undefined,
         idx: i + 1,
       };
     });

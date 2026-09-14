@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/common/status-badge";
 import { SectionCard } from "@/components/common/section-card";
-import { FrappeForm } from "@/components/forms/frappe-form";
+import { FrappeForm, FieldRenderer } from "@/components/forms/frappe-form";
 import { FrappeLinkField, type FormFieldMeta } from "@/components/forms/field-primitives";
 import { EditableChildTable, type ChildRow } from "@/components/tables/child-table";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -15,6 +15,7 @@ import {
   PAYMENT_ENTRY_FIELDS,
   PAYMENT_ENTRY_REFERENCE_COLUMNS,
   PAYMENT_ENTRY_DEDUCTION_COLUMNS,
+  PAYMENT_ENTRY_TAX_COLUMNS,
 } from "@/components/forms/form-configs";
 import {
   usePaymentEntry,
@@ -23,6 +24,7 @@ import {
   getPartyPaymentDetails,
   getAccountPaymentDetails,
   getOutstandingReferenceDocuments,
+  getTaxesAndCharges,
 } from "@/hooks/usePaymentEntries";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -52,6 +54,20 @@ function partyAccountField(paymentType?: string): "paid_from" | "paid_to" {
   return paymentType === "Pay" ? "paid_to" : "paid_from";
 }
 
+/**
+ * Real ERPNext has two separate template fields — `purchase_taxes_and_charges_template`
+ * (Supplier) and `sales_taxes_and_charges_template` (Customer) — shown one at
+ * a time depending on party_type. This app's FrappeForm has no per-field
+ * conditional visibility, so the form config declares one synthetic
+ * `taxes_and_charges_template` slot, rendered here via `renderField` against
+ * whichever real field/doctype matches the current party type.
+ */
+function taxTemplateField(partyType?: string): { fieldname: string; doctype: string } | undefined {
+  if (partyType === "Supplier") return { fieldname: "purchase_taxes_and_charges_template", doctype: "Purchase Taxes and Charges Template" };
+  if (partyType === "Customer") return { fieldname: "sales_taxes_and_charges_template", doctype: "Sales Taxes and Charges Template" };
+  return undefined;
+}
+
 /** Create / view / edit a Payment Entry — money received from or paid to a party, or moved between accounts. */
 export function PaymentEntryFormPage() {
   const { name } = useParams<{ name?: string }>();
@@ -61,17 +77,28 @@ export function PaymentEntryFormPage() {
   const canWrite = hasRole();
   const { company } = useCompanyContext();
 
-  const { data: doc, error: docError, isLoading: docLoading, mutate } = usePaymentEntry(isNew ? undefined : name);
+  // The app's global SWR config keeps previous data across a key change to
+  // `null` (see providers.tsx), and `/accounting/payment-entries/:name` and
+  // `/accounting/payment-entries/new` render this exact same component
+  // instance — so without this guard, navigating from an existing (e.g.
+  // submitted) entry to "New" would leave `doc` holding the old document's
+  // data, and every `doc?.xxx` read below (readOnly, the status badge, the
+  // Assign/Attachments/Tags/Share panel) would reflect that stale document
+  // instead of a blank new form.
+  const { data: rawDoc, error: docError, isLoading: docLoading, mutate } = usePaymentEntry(isNew ? undefined : name);
+  const doc = isNew ? undefined : rawDoc;
   const { createDoc, updateDoc, deleteDoc, loading: saving } = usePaymentEntryMutations();
 
   const [values, setValues] = useState<Partial<PaymentEntry>>({});
   const [referenceRows, setReferenceRows] = useState<ChildRow[]>([]);
   const [deductionRows, setDeductionRows] = useState<ChildRow[]>([]);
+  const [taxRows, setTaxRows] = useState<ChildRow[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [confirmSubmit, setConfirmSubmit] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [fetchingOutstanding, setFetchingOutstanding] = useState(false);
+  const taxTemplate = taxTemplateField(values.party_type);
 
   useEffect(() => {
     document.title = name && !isNew ? `Payment Entry — ${name}` : "Payment Entry";
@@ -82,6 +109,7 @@ export function PaymentEntryFormPage() {
       setValues(doc);
       setReferenceRows(withUuid(doc.references ?? []));
       setDeductionRows(withUuid(doc.deductions ?? []));
+      setTaxRows(withUuid(doc.taxes ?? []));
     } else if (!docLoading && isNew) {
       setValues({
         payment_type: "Receive",
@@ -93,6 +121,7 @@ export function PaymentEntryFormPage() {
       });
       setReferenceRows([]);
       setDeductionRows([]);
+      setTaxRows([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc, docLoading, isNew, company]);
@@ -226,6 +255,15 @@ export function PaymentEntryFormPage() {
     setDeductionRows((prev) => [...prev, { account: "", amount: 0, __uuid: crypto.randomUUID() }]);
   const removeDeductionRow = (index: number) => setDeductionRows((prev) => prev.filter((_, i) => i !== index));
 
+  const handleTaxChange = (index: number, fieldname: string, value: any) =>
+    setTaxRows((prev) => prev.map((r, i) => (i === index ? { ...r, [fieldname]: value } : r)));
+  const addTaxRow = () =>
+    setTaxRows((prev) => [
+      ...prev,
+      { charge_type: "Actual", account_head: "", description: "", add_deduct_tax: "Add", __uuid: crypto.randomUUID() },
+    ]);
+  const removeTaxRow = (index: number) => setTaxRows((prev) => prev.filter((_, i) => i !== index));
+
   const canFetchOutstanding =
     values.payment_type !== "Internal Transfer" && !!values.party_type && !!values.party && !!values.company;
 
@@ -305,15 +343,21 @@ export function PaymentEntryFormPage() {
     referenceRows.forEach((row, i) => {
       if (!row.reference_name) next[`ref_${i}`] = `Row ${i + 1}: Reference is required`;
     });
+    taxRows.forEach((row, i) => {
+      if (!row.account_head) next[`tax_${i}`] = `Row ${i + 1}: Account Head is required`;
+      if (!row.description) next[`tax_desc_${i}`] = `Row ${i + 1}: Description is required`;
+    });
     setErrors(next);
     return Object.keys(next).length === 0;
-  }, [values, referenceRows]);
+  }, [values, referenceRows, taxRows]);
 
   const buildPayload = useCallback((): Record<string, unknown> => {
     const isInternal = values.payment_type === "Internal Transfer";
+    const template = taxTemplateField(values.party_type);
     return {
       doctype: "Payment Entry",
       naming_series: values.naming_series || "ACC-PAY-.YYYY.-",
+      title: values.title || undefined,
       payment_type: values.payment_type || "Receive",
       posting_date: values.posting_date || todayISO(),
       company: values.company,
@@ -321,6 +365,10 @@ export function PaymentEntryFormPage() {
       party_type: isInternal ? undefined : values.party_type,
       party: isInternal ? undefined : values.party,
       party_name: isInternal ? undefined : values.party_name,
+      contact_person: values.contact_person || undefined,
+      contact_email: values.contact_email || undefined,
+      bank_account: values.bank_account || undefined,
+      party_bank_account: values.party_bank_account || undefined,
       paid_from: values.paid_from,
       paid_from_account_currency: values.paid_from_account_currency || undefined,
       paid_to: values.paid_to,
@@ -331,13 +379,68 @@ export function PaymentEntryFormPage() {
       target_exchange_rate: Number(values.target_exchange_rate || 1) || 1,
       reference_no: values.reference_no || undefined,
       reference_date: values.reference_date || undefined,
+      clearance_date: values.clearance_date || undefined,
       project: values.project || undefined,
       cost_center: values.cost_center || undefined,
       remarks: values.remarks || undefined,
+      purchase_taxes_and_charges_template: template?.fieldname === "purchase_taxes_and_charges_template" ? values.purchase_taxes_and_charges_template || undefined : undefined,
+      sales_taxes_and_charges_template: template?.fieldname === "sales_taxes_and_charges_template" ? values.sales_taxes_and_charges_template || undefined : undefined,
       references: referenceRows.map((r, i) => ({ doctype: "Payment Entry Reference", ...cleanRow(r), idx: i + 1 })),
       deductions: deductionRows.map((r, i) => ({ doctype: "Payment Entry Deduction", ...cleanRow(r), idx: i + 1 })),
+      taxes: taxRows.map((r, i) => ({ doctype: "Advance Taxes and Charges", ...cleanRow(r), idx: i + 1 })),
     };
-  }, [values, referenceRows, deductionRows]);
+  }, [values, referenceRows, deductionRows, taxRows]);
+
+  /**
+   * Mirrors the desk form's `fetch_taxes_from_template` (payment_entry.js):
+   * load the picked template's own rows into `taxes`, remapping "On Net
+   * Total" to "On Paid Amount" (Advance Taxes and Charges has no "On Net
+   * Total" option). The desk then computes amounts with its own client-side
+   * tax engine; rather than reimplement that here, an already-saved draft is
+   * silently re-saved so the server computes the real numbers immediately —
+   * for a brand-new, not-yet-saved document there's nothing to recompute
+   * against yet, so the raw rows just wait for the first Save, same as
+   * every other computed total on this form.
+   */
+  const applyTaxTemplate = useCallback(
+    async (templateName: string) => {
+      if (!taxTemplate) return;
+      setValues((v) => ({ ...v, [taxTemplate.fieldname]: templateName }));
+      clearError(taxTemplate.fieldname);
+      if (!templateName) return;
+
+      try {
+        const rawRows = await getTaxesAndCharges(taxTemplate.doctype as any, templateName);
+        const mapped = withUuid(
+          rawRows.map((r) => ({
+            ...r,
+            charge_type: r.charge_type === "On Net Total" ? "On Paid Amount" : r.charge_type,
+          })),
+        );
+        setTaxRows(mapped);
+
+        if (!isNew && doc?.name && canWrite) {
+          const payload: Record<string, unknown> = {
+            ...buildPayload(),
+            [taxTemplate.fieldname]: templateName,
+            taxes: mapped.map((r, i) => ({ doctype: "Advance Taxes and Charges", ...cleanRow(r), idx: i + 1 })),
+          };
+          const updated = await updateDoc(doc.name, payload as Partial<PaymentEntry>);
+          setValues(updated);
+          setReferenceRows(withUuid(updated.references ?? []));
+          setDeductionRows(withUuid(updated.deductions ?? []));
+          setTaxRows(withUuid(updated.taxes ?? []));
+          toast.success("Tax amounts calculated");
+          void mutate();
+        } else {
+          toast("Template rows loaded — amounts will be calculated when you save");
+        }
+      } catch (err) {
+        toast.error(humanizeError(err));
+      }
+    },
+    [taxTemplate, isNew, doc, canWrite, buildPayload, updateDoc, mutate],
+  );
 
   const persist = useCallback(async () => {
     if (!validate()) {
@@ -360,6 +463,7 @@ export function PaymentEntryFormPage() {
         setValues(updated);
         setReferenceRows(withUuid(updated.references ?? []));
         setDeductionRows(withUuid(updated.deductions ?? []));
+        setTaxRows(withUuid(updated.taxes ?? []));
         toast.success("Payment Entry updated");
         notifyDataChanged();
         void mutate();
@@ -403,18 +507,20 @@ export function PaymentEntryFormPage() {
   const readOnly = !canWrite || (doc?.docstatus !== undefined && doc.docstatus > 0);
 
   const renderPartyField = (meta: FormFieldMeta) => {
-    if (meta.fieldname !== "party") return undefined;
-    if (!values.party_type) {
-      return <p className="flex h-9 items-center px-3 text-sm text-muted-foreground">Select a party type first</p>;
+    if (meta.fieldname === "party") {
+      if (!values.party_type) {
+        return <p className="flex h-9 items-center px-3 text-sm text-muted-foreground">Select a party type first</p>;
+      }
+      return (
+        <FrappeLinkField
+          meta={{ ...meta, options: values.party_type }}
+          value={values.party ?? ""}
+          onChange={(v) => onChange("party", v)}
+          disabled={readOnly}
+        />
+      );
     }
-    return (
-      <FrappeLinkField
-        meta={{ ...meta, options: values.party_type }}
-        value={values.party ?? ""}
-        onChange={(v) => onChange("party", v)}
-        disabled={readOnly}
-      />
-    );
+    return undefined;
   };
 
   if (!isNew && docLoading) {
@@ -574,6 +680,53 @@ export function PaymentEntryFormPage() {
               align: "right",
             },
           ]}
+        />
+      </SectionCard>
+
+      <SectionCard
+        title="Taxes and Charges"
+        description="Bank charges, withholding, etc. applied on top of the paid amount — the server computes each row's tax_amount/total on save"
+        actions={!readOnly ? <Button size="sm" variant="outline" onClick={addTaxRow}>+ Add Row</Button> : undefined}
+      >
+        <div className="mb-4 max-w-sm">
+          <label className="mb-1 block text-sm font-medium">Taxes and Charges Template</label>
+          {taxTemplate ? (
+            <FrappeLinkField
+              meta={{ fieldname: taxTemplate.fieldname, label: taxTemplate.doctype, fieldtype: "Link", options: taxTemplate.doctype }}
+              value={(values as Record<string, unknown>)[taxTemplate.fieldname] as string ?? ""}
+              onChange={(v) => void applyTaxTemplate(v)}
+              disabled={readOnly}
+            />
+          ) : (
+            <p className="flex h-9 items-center px-3 text-sm text-muted-foreground">
+              Only available for Customer/Supplier payments
+            </p>
+          )}
+        </div>
+        <EditableChildTable
+          columns={PAYMENT_ENTRY_TAX_COLUMNS}
+          rows={taxRows}
+          onChange={handleTaxChange}
+          onRemoveRow={readOnly ? undefined : removeTaxRow}
+          readOnly={readOnly}
+          emptyMessage="No taxes or charges."
+          renderCell={(row, col) => {
+            // Only charge_type "Actual" reads tax_amount directly — every
+            // other type (On Paid Amount / On Previous Row Amount / On
+            // Previous Row Total) computes it server-side from `rate`, so
+            // tax_amount stays the column's default read-only display there.
+            if (col.fieldname !== "tax_amount" || row.charge_type !== "Actual" || readOnly) return undefined;
+            const index = taxRows.indexOf(row);
+            return (
+              <FieldRenderer
+                meta={{ ...col, read_only: false }}
+                values={row}
+                hideLabel
+                onChange={(fieldname, value) => handleTaxChange(index, fieldname, value)}
+              />
+            );
+          }}
+          totals={[{ label: "Total Taxes and Charges", value: formatMoney(values.total_taxes_and_charges), align: "right" }]}
         />
       </SectionCard>
 

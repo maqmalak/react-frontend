@@ -41,6 +41,8 @@ export interface CrmManagementConfig<T extends Record<string, any>> {
   doctype: string;
   /** List fields fetched for every row. */
   fields: (keyof T)[];
+  /** Extra server-side filters (e.g. company scoping) applied to the list query. */
+  filters?: unknown[][];
   /** Create / edit form definition. */
   formFields: FormFieldMeta[];
   /** Defaults applied when creating. */
@@ -100,6 +102,7 @@ export function CrmManagementPage<T extends Record<string, any>>({ config }: { c
     useCrmManagement<T>({
       doctype: config.doctype,
       fields: config.fields,
+      filters: config.filters,
       orderBy: { field: "modified", order: "desc" },
     });
 

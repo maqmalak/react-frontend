@@ -222,7 +222,7 @@ export function SalesInvoiceDetailPage() {
                       <span className="flex items-center gap-1.5">
                         <Wallet className="h-3.5 w-3.5 opacity-60" /> {pe.name}
                       </span>
-                      <span className="text-xs text-muted-foreground">{formatMoney(pe.received_amount)}</span>
+                      <span className="text-xs text-muted-foreground">{formatMoney(pe.received_amount, si.currency)}</span>
                     </Link>
                   </li>
                 ))}

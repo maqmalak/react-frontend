@@ -481,6 +481,8 @@ export interface StockEntryItem {
   basic_rate?: number;
   basic_amount?: number;
   amount?: number;
+  material_request?: string;
+  material_request_item?: string;
   idx?: number;
 }
 
@@ -875,6 +877,21 @@ export interface PaymentEntryDeduction {
   idx?: number;
 }
 
+/** "Advance Taxes and Charges" — Payment Entry's own tax/charge line, distinct from (but shaped like) Purchase/Sales Taxes and Charges. */
+export interface PaymentEntryTax {
+  name?: string;
+  charge_type: "Actual" | "On Paid Amount" | "On Previous Row Amount" | "On Previous Row Total" | string;
+  account_head: string;
+  description: string;
+  rate?: number;
+  add_deduct_tax?: "Add" | "Deduct" | string;
+  tax_amount?: number;
+  total?: number;
+  base_tax_amount?: number;
+  base_total?: number;
+  idx?: number;
+}
+
 /**
  * Standard ERPNext Payment Entry — full core field set for a compact
  * create/edit form (advance-tax-withholding, payment-order and auto-repeat
@@ -885,6 +902,7 @@ export interface PaymentEntryDeduction {
 export interface PaymentEntry {
   name: string;
   naming_series?: string;
+  title?: string;
   payment_type?: "Receive" | "Pay" | "Internal Transfer" | string;
   posting_date?: string;
   company?: string;
@@ -892,6 +910,10 @@ export interface PaymentEntry {
   party_type?: string;
   party?: string;
   party_name?: string;
+  contact_person?: string;
+  contact_email?: string;
+  bank_account?: string;
+  party_bank_account?: string;
   paid_from?: string;
   paid_from_account_currency?: string;
   paid_from_account_type?: string;
@@ -916,8 +938,13 @@ export interface PaymentEntry {
   remarks?: string;
   status?: "Draft" | "Submitted" | "Cancelled" | string;
   docstatus?: 0 | 1 | 2;
+  purchase_taxes_and_charges_template?: string;
+  sales_taxes_and_charges_template?: string;
+  total_taxes_and_charges?: number;
+  base_total_taxes_and_charges?: number;
   references?: PaymentEntryReference[];
   deductions?: PaymentEntryDeduction[];
+  taxes?: PaymentEntryTax[];
 }
 
 // ---------------------------------------------------------- Landed Cost Voucher

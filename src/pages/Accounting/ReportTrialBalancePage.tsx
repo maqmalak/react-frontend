@@ -128,7 +128,7 @@ function visibleRows(rows: TrialBalanceRow[], collapsed: Set<string>): TrialBala
  * live accumulated subtotals computed by ERPNext itself, not re-derived here.
  */
 export function ReportTrialBalancePage() {
-  const { company } = useCompanyContext();
+  const { company, companyCurrency } = useCompanyContext();
   const { data: fiscalYears } = useFiscalYears();
   const [fiscalYear, setFiscalYear] = useState("");
   const [fromDate, setFromDate] = useState("");
@@ -181,7 +181,19 @@ export function ReportTrialBalancePage() {
     [company, fiscalYear, fromDate, toDate, costCenter],
   );
 
-  const { data, error, isLoading, isPreparing, mutate } = useQueryReport("Trial Balance", filters, Boolean(company && fiscalYear));
+  // The report only (re)runs when "Generate" is clicked — changing a filter
+  // above just updates the form, it doesn't refetch until the applied
+  // snapshot below is explicitly refreshed.
+  const [appliedFilters, setAppliedFilters] = useState<typeof filters | null>(null);
+  const hasGenerated = appliedFilters !== null;
+  const filtersDirty = hasGenerated && JSON.stringify(filters) !== JSON.stringify(appliedFilters);
+  const generate = () => setAppliedFilters(filters);
+
+  const { data, error, isLoading, isPreparing, mutate } = useQueryReport(
+    "Trial Balance",
+    appliedFilters ?? filters,
+    Boolean(company && fiscalYear && appliedFilters),
+  );
 
   // Trial Balance rows don't carry root_type themselves — look it up from the
   // real Chart of Accounts (same doctype field ERPNext itself groups by).
@@ -194,7 +206,7 @@ export function ReportTrialBalancePage() {
   const totalRow = allRows.find((r) => r.account === "'Total'");
   const bodyRows = allRows.filter((r) => r.account !== "'Total'");
   const shown = visibleRows(bodyRows, collapsed);
-  const chartCurrency = allRows.find((r) => typeof r.currency === "string")?.currency ?? "PKR";
+  const chartCurrency = allRows.find((r) => typeof r.currency === "string")?.currency ?? companyCurrency ?? "USD";
 
   // One net figure per head, read straight off the report's own root-level
   // group rows (indent 0) — no accounting math re-derived here.
@@ -367,10 +379,23 @@ export function ReportTrialBalancePage() {
             onChange={setCostCenter}
           />
         </div>
+        <div className="flex items-center gap-2">
+          <Button variant="primary" size="sm" onClick={generate} disabled={!company || !fiscalYear}>
+            Generate
+          </Button>
+          {filtersDirty && <span className="text-xs text-muted-foreground">Filters changed — click Generate to refresh</span>}
+        </div>
       </div>
 
       {!company ? (
         <EmptyState title="No company selected" description="Choose a company from the header to run this report." />
+      ) : !hasGenerated ? (
+        <EmptyState
+          title="Ready to generate"
+          description="Choose a fiscal year and filters above, then click Generate to run the Trial Balance."
+          actionLabel="Generate"
+          onAction={generate}
+        />
       ) : error ? (
         <EmptyState title="Couldn't load Trial Balance" description={humanizeError(error)} actionLabel="Retry" onAction={() => void mutate()} />
       ) : isLoading ? (

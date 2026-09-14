@@ -201,7 +201,7 @@ export function AssignedToCard({
 
     if (!enabled) {
     return inTab ? (
-      <EmptyState title="Save to enable assignments" />
+      <p className="py-1 text-sm text-muted-foreground">Save to enable assignments</p>
     ) : (
       <SectionCard title="Assigned To">
         <EmptyState title="Save to enable assignments" />
@@ -370,7 +370,7 @@ export function AttachmentsCard({
 
     if (!enabled) {
     return inTab ? (
-      <EmptyState title="Save to enable attachments" />
+      <p className="py-1 text-sm text-muted-foreground">Save to enable attachments</p>
     ) : (
       <SectionCard title="Attachments">
         <EmptyState title="Save to enable attachments" />
@@ -481,7 +481,7 @@ export function TagsCard({
 
     if (!enabled) {
     return inTab ? (
-      <EmptyState title="Save to enable tags" />
+      <p className="py-1 text-sm text-muted-foreground">Save to enable tags</p>
     ) : (
       <SectionCard title="Tags">
         <EmptyState title="Save to enable tags" />
@@ -742,7 +742,7 @@ export function SharedWithCard({
 
     if (!enabled) {
     return inTab ? (
-      <EmptyState title="Save to enable sharing" />
+      <p className="py-1 text-sm text-muted-foreground">Save to enable sharing</p>
     ) : (
       <SectionCard title="Shared With">
         <EmptyState title="Save to enable sharing" />

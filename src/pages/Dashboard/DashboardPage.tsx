@@ -22,7 +22,7 @@ import { useImportCostSheets } from "@/hooks/useImportCostSheets";
 import { useCompanyContext, companyFilter } from "@/hooks/useCompanyContext";
 import { formatMoney, compactNumber } from "@/utils/currency";
 import { asNumber } from "@/utils/cn";
-import { daysUntil } from "@/utils/dates";
+import { daysUntil, monthKeyAndLabel } from "@/utils/dates";
 
 /** Group a numeric field by month label for the last 12 months. */
 function monthlySeries<T extends Record<string, any>>(
@@ -33,12 +33,9 @@ function monthlySeries<T extends Record<string, any>>(
 ) {
   const map = new Map<string, Record<string, any>>();
   (rows ?? []).forEach((r) => {
-    const raw = r[dateKey];
-    if (!raw) return;
-    const d = new Date(raw);
-    if (Number.isNaN(d.getTime())) return;
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    const label = d.toLocaleDateString("en-US", { month: "short" });
+    const bucket = monthKeyAndLabel(r[dateKey]);
+    if (!bucket) return;
+    const { key, label } = bucket;
     const entry = map.get(key) ?? { month: label, [seriesKey]: 0 };
     entry[seriesKey] = asNumber(entry[seriesKey]) + asNumber(r[valueKey]);
     map.set(key, entry);
@@ -162,10 +159,10 @@ export function DashboardPage() {
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label="Export Value" value={formatMoney(kpis.exportValue, "USD", { compact: true })} icon={DollarSign} tone="success" loading={loading} onClick={() => navigate("/export/orders")} />
-        <KpiCard label="Import Value" value={formatMoney(kpis.importValue, "USD", { compact: true })} icon={Container} tone="info" loading={loading} onClick={() => navigate("/import/cost-sheets")} />
+        <KpiCard label="Export Value" value={formatMoney(kpis.exportValue, undefined, { compact: true })} icon={DollarSign} tone="success" loading={loading} onClick={() => navigate("/export/orders")} />
+        <KpiCard label="Import Value" value={formatMoney(kpis.importValue, undefined, { compact: true })} icon={Container} tone="info" loading={loading} onClick={() => navigate("/import/cost-sheets")} />
         <KpiCard label="Open LC" value={kpis.openLcCount} icon={FileText} loading={loading} onClick={() => navigate("/export/lc-proforma")} />
-        <KpiCard label="LC Value" value={formatMoney(kpis.lcValue, "USD", { compact: true })} icon={Landmark} tone="warning" loading={loading} onClick={() => navigate("/reports/lc")} />
+        <KpiCard label="LC Value" value={formatMoney(kpis.lcValue, undefined, { compact: true })} icon={Landmark} tone="warning" loading={loading} onClick={() => navigate("/reports/lc")} />
         <KpiCard label="Shipments In Transit" value={kpis.inTransit} icon={Ship} tone="info" loading={loading} onClick={() => navigate("/export/shipments")} />
         <KpiCard label="Delayed Shipments" value={kpis.delayed} icon={AlertTriangle} tone="destructive" loading={loading} onClick={() => navigate("/reports/shipments")} />
         <KpiCard label="Pending Export Orders" value={kpis.pendingOrders} icon={Package} loading={loading} onClick={() => navigate("/export/orders")} />

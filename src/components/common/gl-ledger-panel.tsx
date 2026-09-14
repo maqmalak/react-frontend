@@ -2,6 +2,7 @@ import { Landmark, RefreshCw } from "lucide-react";
 import { SectionCard } from "@/components/common/section-card";
 import { Button } from "@/components/ui/button";
 import { useGLEntries } from "@/hooks/useGLEntries";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { humanizeError } from "@/services/frappe";
 import { formatMoney } from "@/utils/currency";
 import { formatDate } from "@/utils/dates";
@@ -23,6 +24,7 @@ export function GLLedgerPanel({
   title?: string;
   description?: string;
 }) {
+  const { companyCurrency } = useCompanyContext();
   const { data, isLoading, error, mutate } = useGLEntries({ voucherType, voucherNo });
   const rows = data ?? [];
   const totalDebit = rows.reduce((s, r) => s + Number(r.debit || 0), 0);
@@ -62,8 +64,8 @@ export function GLLedgerPanel({
                 <tr key={r.name} className="border-b border-border/50 last:border-0">
                   <td className="py-2 pr-3 font-medium">{r.account}</td>
                   <td className="py-2 pr-3 text-xs text-muted-foreground">{r.against}</td>
-                  <td className="py-2 pr-3 text-right">{r.debit ? formatMoney(r.debit) : "—"}</td>
-                  <td className="py-2 pr-3 text-right">{r.credit ? formatMoney(r.credit) : "—"}</td>
+                  <td className="py-2 pr-3 text-right">{r.debit ? formatMoney(r.debit, companyCurrency) : "—"}</td>
+                  <td className="py-2 pr-3 text-right">{r.credit ? formatMoney(r.credit, companyCurrency) : "—"}</td>
                   <td className="py-2 text-right text-xs text-muted-foreground">{formatDate(r.posting_date)}</td>
                 </tr>
               ))}
@@ -73,8 +75,8 @@ export function GLLedgerPanel({
                 <td className="py-2 pr-3" colSpan={2}>
                   Total
                 </td>
-                <td className="py-2 pr-3 text-right">{formatMoney(totalDebit)}</td>
-                <td className="py-2 pr-3 text-right">{formatMoney(totalCredit)}</td>
+                <td className="py-2 pr-3 text-right">{formatMoney(totalDebit, companyCurrency)}</td>
+                <td className="py-2 pr-3 text-right">{formatMoney(totalCredit, companyCurrency)}</td>
                 <td />
               </tr>
             </tfoot>

@@ -7,7 +7,7 @@ import type { QueryReportResult } from "@/types/frappe";
 
 const NUMERIC_TYPES = new Set(["Currency", "Float", "Int"]);
 
-function formatCell(value: unknown, fieldtype: string | undefined, currency: string): string {
+function formatCell(value: unknown, fieldtype: string | undefined, currency?: string): string {
   if (value === null || value === undefined || value === "") return "—";
   if (fieldtype === "Currency") return formatMoney(asNumber(value), currency);
   if (fieldtype === "Float" || fieldtype === "Int") return formatNumber(asNumber(value), fieldtype === "Int" ? 0 : 2);
@@ -51,6 +51,8 @@ export function QueryReportView({
   exportFilename: string;
   emptyDescription?: string;
 }) {
+  const reportCurrency = data?.chart?.currency ?? data?.report_summary?.find((s) => s.currency)?.currency;
+
   const columns: ColumnDef<Record<string, unknown>>[] = useMemo(
     () =>
       (data?.columns ?? [])
@@ -63,9 +65,9 @@ export function QueryReportView({
             const v = r[c.fieldname];
             return typeof v === "number" || typeof v === "string" ? v : String(v ?? "");
           },
-          render: (r) => formatCell(r[c.fieldname], c.fieldtype, "USD"),
+          render: (r) => formatCell(r[c.fieldname], c.fieldtype, reportCurrency),
         })),
-    [data?.columns],
+    [data?.columns, reportCurrency],
   );
 
   const rows = useMemo(() => (data?.result ?? []).map((r, i) => ({ ...r, __key: i })), [data?.result]);
@@ -78,7 +80,7 @@ export function QueryReportView({
             <KpiCard
               key={s.label}
               label={s.label}
-              value={s.datatype === "Currency" ? formatMoney(asNumber(s.value), s.currency ?? "USD") : String(s.value)}
+              value={s.datatype === "Currency" ? formatMoney(asNumber(s.value), s.currency ?? reportCurrency) : String(s.value)}
               tone={summaryTone(s.indicator)}
             />
           ))}

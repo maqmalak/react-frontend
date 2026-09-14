@@ -3,6 +3,7 @@ import toast from "react-hot-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { notifyDataChanged } from "@/hooks/useRealtime";
 import { whatsappUrl } from "@/utils/whatsapp";
+import { nowERPDateTime } from "@/utils/dates";
 import type { CrmCallLog } from "@/types/frappe";
 
 /**
@@ -28,7 +29,7 @@ export function useWhatsAppCall() {
         from: currentUser ?? undefined,
         to: phone,
         caller: currentUser ?? undefined,
-        start_time: new Date().toISOString().slice(0, 19).replace("T", " "),
+        start_time: nowERPDateTime(),
         reference_doctype: referenceDoctype,
         reference_docname: referenceDocname,
       } as Partial<CrmCallLog>);

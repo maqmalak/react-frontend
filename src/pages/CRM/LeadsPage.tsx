@@ -46,15 +46,9 @@ import { useWhatsAppCall } from "@/hooks/useWhatsAppCall";
 import { notifyDataChanged } from "@/hooks/useRealtime";
 import { convertCrmLeadToDeal } from "@/services/api";
 import { humanizeError } from "@/services/frappe";
-import { relativeDays } from "@/utils/dates";
+import { relativeDays, startOfMonthISO, APP_TIME_ZONE } from "@/utils/dates";
 import { whatsappUrl } from "@/utils/whatsapp";
 import type { CrmLead } from "@/types/frappe";
-
-/** First-of-month, formatted the way Frappe filters expect ("YYYY-MM-DD"). */
-function startOfMonthISO(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
-}
 
 /** Target / Achieved / Achieved% for leads created this calendar month. Target is editable inline (persisted per-browser — there's no backend concept for this to share across users). */
 function LeadTargetWidget() {
@@ -83,7 +77,11 @@ function LeadTargetWidget() {
 
   const achievedCount = Number(achieved ?? 0);
   const pct = Math.round((achievedCount / target) * 100);
-  const monthLabel = new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const monthLabel = new Date().toLocaleDateString("en-US", {
+    timeZone: APP_TIME_ZONE,
+    month: "long",
+    year: "numeric",
+  });
 
   return (
     <Card className="p-4">

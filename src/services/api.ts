@@ -10,6 +10,7 @@ import type {
   DeliveryNote,
   SalesInvoice,
   RequestForQuotation,
+  StockEntry,
 } from "@/types/frappe";
 
 /**
@@ -98,6 +99,20 @@ export function makePurchaseOrderFromMR(mrName: string): Promise<PurchaseOrder> 
 export function makeRequestForQuotationFromMR(mrName: string): Promise<RequestForQuotation> {
   return postCall<RequestForQuotation>(
     "erpnext.stock.doctype.material_request.material_request.make_request_for_quotation",
+    { source_name: mrName },
+  );
+}
+
+/**
+ * Build an unsaved Stock Entry from a submitted ("Material Issue" /
+ * "Material Transfer" type) Material Request — the mapped-doc method sets
+ * `purpose`/`stock_entry_type` from `material_request_type` and, for
+ * Material Issue, populates `from_warehouse` from the request's target
+ * warehouse (there's nowhere stock is issued *to*).
+ */
+export function makeStockEntryFromMR(mrName: string): Promise<StockEntry> {
+  return postCall<StockEntry>(
+    "erpnext.stock.doctype.material_request.material_request.make_stock_entry",
     { source_name: mrName },
   );
 }
@@ -501,48 +516,79 @@ export async function convertCrmLeadToDeal(leadName: string, expectedAmount?: nu
 }
 
 /**
- * `frappe/whatsapp` app integration — installed alongside `crm` in this
- * bench. Its conversation API is generic and reference-based (same shape as
- * our Email panel), so a Lead/Deal's WhatsApp thread is just "every
- * `WhatsApp Message` with this reference_doctype/reference_docname", with
- * no CRM-specific wiring needed on the whatsapp app's side.
+ * `frappe_whatsapp` app integration (this bench's actual WhatsApp app —
+ * NOT the official `frappe/whatsapp`, which was swapped out for CRM's own
+ * Vue frontend compatibility; see `WhatsAppMessage.type`/`reference_name`
+ * below, which follow that app's schema, not the official one's). No custom
+ * backend wrapper exists for this app, so — mirroring the Email panel's use
+ * of the core `Communication` doctype directly — this calls the generic
+ * `frappe.client.get_list` / `frappe.client.insert` methods straight
+ * against `WhatsApp Message`. Inserting with `type: "Outgoing"` triggers
+ * that doctype's own `before_insert` hook, which dispatches to Meta's Cloud
+ * API synchronously — same mechanism Frappe CRM's own WhatsApp tab uses.
  */
 export interface WhatsAppMessage {
   name: string;
-  direction: "Outgoing" | "Incoming";
+  type: "Outgoing" | "Incoming";
   to?: string;
   from?: string;
   message: string;
-  status: "Pending" | "Sent" | "Delivered" | "Read" | "Failed";
-  is_template?: 0 | 1;
-  whatsapp_template?: string;
-  media_url?: string;
-  mime_type?: string;
-  reaction?: string;
-  error_message?: string;
+  status: "Pending" | "Sent" | "Delivered" | "Read" | "Failed" | "Success";
+  is_reply?: 0 | 1;
+  reply_to_message_id?: string;
+  use_template?: 0 | 1;
+  template?: string;
   reference_doctype?: string;
-  reference_docname?: string;
+  reference_name?: string;
   creation: string;
 }
 
-/** A document's WhatsApp thread — `references` is `[[doctype, docname]]`. */
+/** A document's WhatsApp thread — every `WhatsApp Message` linked to it, oldest first. */
 export function getWhatsAppMessages(references: [string, string][]): Promise<WhatsAppMessage[]> {
-  return postCall<WhatsAppMessage[]>("whatsapp.whatsapp.api.messages.get_messages", {
-    references: JSON.stringify(references),
+  const [referenceDoctype, referenceName] = references[0] ?? [];
+  return getCall<WhatsAppMessage[]>("frappe.client.get_list", {
+    doctype: "WhatsApp Message",
+    filters: JSON.stringify([
+      ["reference_doctype", "=", referenceDoctype],
+      ["reference_name", "=", referenceName],
+    ]),
+    fields: JSON.stringify([
+      "name",
+      "type",
+      "to",
+      "from",
+      "message",
+      "status",
+      "is_reply",
+      "reply_to_message_id",
+      "use_template",
+      "template",
+      "reference_doctype",
+      "reference_name",
+      "creation",
+    ]),
+    order_by: "creation asc",
+    limit_page_length: 0,
   });
 }
 
 /** Send a WhatsApp text message linked to a reference document; returns the new message's name. */
-export function sendWhatsAppMessage(args: {
+export async function sendWhatsAppMessage(args: {
   to: string;
   message: string;
   referenceDoctype?: string;
   referenceDocname?: string;
 }): Promise<string> {
-  return postCall<string>("whatsapp.whatsapp.api.messages.send_message", {
-    to: args.to,
-    message: args.message,
-    reference_doctype: args.referenceDoctype,
-    reference_docname: args.referenceDocname,
+  const doc = await postCall<{ name: string }>("frappe.client.insert", {
+    doc: JSON.stringify({
+      doctype: "WhatsApp Message",
+      type: "Outgoing",
+      content_type: "text",
+      to: args.to,
+      message: args.message,
+      reference_doctype: args.referenceDoctype,
+      reference_name: args.referenceDocname,
+    }),
   });
+  return doc.name;
 }

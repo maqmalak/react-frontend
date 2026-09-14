@@ -46,7 +46,16 @@ export function JournalEntryFormPage() {
   const canWrite = hasRole();
   const { company, companies } = useCompanyContext();
 
-  const { data: doc, error: docError, isLoading: docLoading, mutate } = useJournalEntry(isNew ? undefined : name);
+  // The app's global SWR config keeps previous data across a key change to
+  // `null` (see providers.tsx), and `/accounting/journal-entries/:name` and
+  // `/accounting/journal-entries/new` render this exact same component
+  // instance — so without this guard, navigating from an existing (e.g.
+  // submitted) entry to "New" would leave `doc` holding the old document's
+  // data, and every `doc?.xxx` read below (readOnly, the status badge, the
+  // Assign/Attachments/Tags/Share panel) would reflect that stale document
+  // instead of a blank new form.
+  const { data: rawDoc, error: docError, isLoading: docLoading, mutate } = useJournalEntry(isNew ? undefined : name);
+  const doc = isNew ? undefined : rawDoc;
   const { createDoc, updateDoc, deleteDoc, loading: saving } = useJournalEntryMutations();
 
   const [values, setValues] = useState<Partial<JournalEntry>>({});
@@ -369,7 +378,7 @@ export function JournalEntryFormPage() {
           </Button>
         </div>
         <div className="lg:col-span-1">
-          <DocActionsPanel doctype="Journal Entry" docname={isNew ? undefined : doc?.name} />
+          <DocActionsPanel doctype="Journal Entry" docname={doc?.name} />
         </div>
       </div>
 
@@ -414,7 +423,7 @@ export function JournalEntryFormPage() {
       </SectionCard>
 
       {/* Comments + Activity live below the child table */}
-      <ActivityTimeline doctype="Journal Entry" docname={isNew ? undefined : doc?.name} />
+      <ActivityTimeline doctype="Journal Entry" docname={doc?.name} />
 
       <ConfirmDialog
         open={!!pendingTemplate}

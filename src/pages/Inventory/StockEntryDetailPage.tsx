@@ -30,7 +30,12 @@ function Row({ label, value }: { label: string; value?: string | number | null }
   );
 }
 
-/** Stock Entry view page — a standalone movement document, no forward chain. */
+/**
+ * Stock Entry view page — no forward chain, but a Material Issue / Transfer
+ * created via "Create Stock Entry" on a Material Request carries that link
+ * back on each row (Stock Entry Detail.material_request), shown here as a
+ * back-reference.
+ */
 export function StockEntryDetailPage() {
   const { name } = useParams<{ name: string }>();
   const navigate = useNavigate();
@@ -82,6 +87,7 @@ export function StockEntryDetailPage() {
   const totalQty = items.reduce((s, it) => s + Number(it.qty || 0), 0);
   const totalAmount = items.reduce((s, it) => s + Number(it.basic_amount ?? lineAmount(it)), 0);
   const editable = canWrite && (se.docstatus ?? 0) === 0;
+  const linkedRequest = items.find((it) => it.material_request)?.material_request;
 
   const statusLabel = se.docstatus === 1 ? "Submitted" : se.docstatus === 2 ? "Cancelled" : "Draft";
 
@@ -141,6 +147,17 @@ export function StockEntryDetailPage() {
           <Row label="Target Warehouse" value={se.to_warehouse} />
           <Row label="Total Qty" value={totalQty} />
           <Row label="Remarks" value={se.remarks} />
+          {linkedRequest && (
+            <div className="flex items-baseline justify-between gap-4 border-b border-border/60 py-1.5 last:border-0">
+              <span className="text-xs text-muted-foreground">Material Request</span>
+              <Link
+                to={`/import/material-requests/${encodeURIComponent(linkedRequest)}`}
+                className="text-sm font-medium text-primary hover:underline"
+              >
+                {linkedRequest}
+              </Link>
+            </div>
+          )}
         </div>
       </SectionCard>
 
