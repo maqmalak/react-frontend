@@ -921,7 +921,7 @@ export const CRM_LEAD_FIELDS: FormFieldMeta[] = [
   { fieldname: "gender", label: "Gender", fieldtype: "Link", options: "Gender" },
 
   { fieldname: "section_break_org", label: "Organization", fieldtype: "Section Break" },
-  { fieldname: "organization", label: "Organization", fieldtype: "Data" },
+  { fieldname: "organization", label: "Organization", fieldtype: "Link", options: "CRM Organization" },
   { fieldname: "job_title", label: "Job Title", fieldtype: "Data" },
   { fieldname: "website", label: "Website", fieldtype: "Data" },
   { fieldname: "column_break_org", fieldtype: "Column Break" },
@@ -953,8 +953,8 @@ export const CRM_LEAD_FIELDS: FormFieldMeta[] = [
   { fieldname: "column_break_fundraising", fieldtype: "Column Break" },
   { fieldname: "focus_area", label: "Focus Area", fieldtype: "Data" },
   { fieldname: "education_focus", label: "Education Focus", fieldtype: "Data" },
-  { fieldname: "proposed_ask", label: "Proposed Ask", fieldtype: "Text" },
   { fieldname: "first_contact_date", label: "First Contact", fieldtype: "Date" },
+  { fieldname: "proposed_ask", label: "Proposed Ask", fieldtype: "Text" },
   { fieldname: "remarks", label: "Remarks", fieldtype: "Text" },
 
   { fieldname: "section_break_lost", label: "Lost Details", fieldtype: "Section Break" },
@@ -967,7 +967,7 @@ export const CRM_LEAD_FIELDS: FormFieldMeta[] = [
  */
 export const CRM_DEAL_FIELDS: FormFieldMeta[] = [
   { fieldname: "section_break_org", label: "Organization", fieldtype: "Section Break" },
-  { fieldname: "organization", label: "Organization", fieldtype: "Data", reqd: true },
+  { fieldname: "organization", label: "Organization", fieldtype: "Link", options: "CRM Organization", reqd: true },
   { fieldname: "website", label: "Website", fieldtype: "Data" },
   { fieldname: "industry", label: "Industry", fieldtype: "Link", options: "CRM Industry" },
   { fieldname: "column_break_org", fieldtype: "Column Break" },

@@ -5,6 +5,7 @@ import type { ColumnDef } from "@/components/tables/data-table";
 import { StatusBadge } from "@/components/common/status-badge";
 import { formatDate, todayISO } from "@/utils/dates";
 import { useCompanyContext, companyFilter } from "@/hooks/useCompanyContext";
+import { useEmployeeQueryFilter } from "@/hooks/useEmployeeQueryFilter";
 
 interface ShiftAssignmentRow {
   name: string;
@@ -29,6 +30,7 @@ const columns: ColumnDef<ShiftAssignmentRow>[] = [
 
 export default function ShiftAssignmentsPage() {
   const { company } = useCompanyContext();
+  const { employee, filter: employeeFilter } = useEmployeeQueryFilter();
 
   const config: CrmManagementConfig<ShiftAssignmentRow> = useMemo(
     () => ({
@@ -37,7 +39,7 @@ export default function ShiftAssignmentsPage() {
       icon: <Clock3 className="h-5 w-5" />,
       doctype: "Shift Assignment",
       fields: ["name", "employee", "employee_name", "company", "department", "shift_type", "status", "start_date", "end_date"],
-      filters: companyFilter(company),
+      filters: [...companyFilter(company), ...employeeFilter],
       formFields: [
         { fieldname: "employee", label: "Employee", fieldtype: "Link", options: "Employee", reqd: true },
         { fieldname: "company", label: "Company", fieldtype: "Link", options: "Company", reqd: true },
@@ -46,7 +48,7 @@ export default function ShiftAssignmentsPage() {
         { fieldname: "end_date", label: "End Date", fieldtype: "Date" },
         { fieldname: "status", label: "Status", fieldtype: "Select", options: STATUSES.join("\n"), default: "Active" },
       ],
-      defaults: { company, status: "Active", start_date: todayISO() },
+      defaults: { company, status: "Active", start_date: todayISO(), employee: employee ?? undefined },
       kanbanField: "status",
       kanbanColumns: STATUSES.map((s) => ({ value: s })),
       searchField: "employee_name",
@@ -59,7 +61,7 @@ export default function ShiftAssignmentsPage() {
       emptyDescription: "Shift assignments will appear here",
       newLabel: "New Shift Assignment",
     }),
-    [company],
+    [company, employee],
   );
 
   return <CrmManagementPage config={config} />;

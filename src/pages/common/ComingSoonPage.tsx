@@ -1,6 +1,6 @@
-import { Shirt } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { EmptyState } from "@/components/common/empty-state";
+import { Logo } from "@/components/common/logo";
 
 /**
  * Full-screen centered loader — shown while the session is being resolved
@@ -12,9 +12,7 @@ import { EmptyState } from "@/components/common/empty-state";
 export function FullPageLoader() {
   return (
     <div className="relative flex h-screen flex-col items-center justify-center gap-4 overflow-hidden bg-background dark:bg-transparent">
-      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground dark:shadow-[0_10px_35px_hsl(var(--primary)/0.32)]">
-        <Shirt className="h-5 w-5" />
-      </span>
+      <Logo variant="mark" className="h-11 w-auto dark:drop-shadow-[0_10px_35px_hsl(var(--primary)/0.32)]" />
       <svg className="h-6 w-6 animate-spin text-primary" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
         <path

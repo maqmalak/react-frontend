@@ -31,13 +31,13 @@ const LEAD_FORM_TABS = [
     id: "organization",
     label: "Organization",
     icon: Building2,
-    fields: ["organization", "job_title", "website", "no_of_employees", "annual_revenue", "industry"],
+    fields: ["organization", "job_title", "website", "no_of_employees", "annual_revenue", "industry", "address"],
   },
   {
     id: "qualification",
     label: "Qualification",
     icon: ListChecks,
-    fields: ["status", "source", "lead_owner", "territory"],
+    fields: ["status", "source", "lead_owner", "territory", "remarks"],
   },
   {
     id: "fundraising",
@@ -46,12 +46,11 @@ const LEAD_FORM_TABS = [
     fields: [
       "priority",
       "csr_department",
-      "address",
       "focus_area",
       "education_focus",
-      "proposed_ask",
       "first_contact_date",
-      "remarks",
+      "proposed_ask",
+
     ],
   },
   {
@@ -232,14 +231,20 @@ export function LeadFormPage() {
               </h3>
               <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
                 {fields.map((meta) => (
-                  <FieldRenderer
+                  <div
                     key={meta.fieldname}
-                    meta={meta}
-                    values={values}
-                    onChange={onChange}
-                    errors={errors}
-                    readOnly={readOnly}
-                  />
+                    className={
+                      ["address", "remarks", "proposed_ask", "lost_notes"].includes(meta.fieldname) ? "sm:col-span-2" : undefined
+                    }
+                  >
+                    <FieldRenderer
+                      meta={meta}
+                      values={values}
+                      onChange={onChange}
+                      errors={errors}
+                      readOnly={readOnly}
+                    />
+                  </div>
                 ))}
               </div>
             </Card>

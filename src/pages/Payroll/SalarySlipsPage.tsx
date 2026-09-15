@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/common/status-badge";
 import { formatMoney } from "@/utils/currency";
 import { formatDate, todayISO } from "@/utils/dates";
 import { useCompanyContext, companyFilter } from "@/hooks/useCompanyContext";
+import { useEmployeeQueryFilter } from "@/hooks/useEmployeeQueryFilter";
 
 interface SalarySlipRow {
   name: string;
@@ -35,6 +36,7 @@ const columns: ColumnDef<SalarySlipRow>[] = [
 
 export default function SalarySlipsPage() {
   const { company } = useCompanyContext();
+  const { employee, filter: employeeFilter } = useEmployeeQueryFilter();
   const navigate = useNavigate();
 
   const config: CrmManagementConfig<SalarySlipRow> = useMemo(
@@ -47,7 +49,7 @@ export default function SalarySlipsPage() {
         "name", "employee", "employee_name", "company", "department", "posting_date", "start_date", "end_date",
         "salary_structure", "currency", "gross_pay", "net_pay", "status",
       ],
-      filters: companyFilter(company),
+      filters: [...companyFilter(company), ...employeeFilter],
       formFields: [
         { fieldname: "employee", label: "Employee", fieldtype: "Link", options: "Employee", reqd: true },
         { fieldname: "salary_structure", label: "Salary Structure", fieldtype: "Link", options: "Salary Structure", reqd: true },
@@ -57,7 +59,7 @@ export default function SalarySlipsPage() {
         { fieldname: "start_date", label: "Start Date", fieldtype: "Date" },
         { fieldname: "end_date", label: "End Date", fieldtype: "Date" },
       ],
-      defaults: { company, posting_date: todayISO(), status: "Draft" },
+      defaults: { company, posting_date: todayISO(), status: "Draft", employee: employee ?? undefined },
       kanbanField: "status",
       kanbanColumns: STATUSES.map((s) => ({ value: s })),
       searchField: "employee_name",
@@ -82,7 +84,7 @@ export default function SalarySlipsPage() {
       emptyDescription: "Salary slips will appear here",
       newLabel: "New Salary Slip",
     }),
-    [company, navigate],
+    [company, employee, navigate],
   );
 
   return <CrmManagementPage config={config} />;

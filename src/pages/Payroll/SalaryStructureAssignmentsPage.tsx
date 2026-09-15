@@ -5,6 +5,7 @@ import type { ColumnDef } from "@/components/tables/data-table";
 import { formatMoney } from "@/utils/currency";
 import { formatDate, todayISO } from "@/utils/dates";
 import { useCompanyContext, companyFilter } from "@/hooks/useCompanyContext";
+import { useEmployeeQueryFilter } from "@/hooks/useEmployeeQueryFilter";
 
 interface SalaryStructureAssignmentRow {
   name: string;
@@ -27,6 +28,7 @@ const columns: ColumnDef<SalaryStructureAssignmentRow>[] = [
 
 export default function SalaryStructureAssignmentsPage() {
   const { company } = useCompanyContext();
+  const { employee, filter: employeeFilter } = useEmployeeQueryFilter();
 
   const config: CrmManagementConfig<SalaryStructureAssignmentRow> = useMemo(
     () => ({
@@ -35,7 +37,7 @@ export default function SalaryStructureAssignmentsPage() {
       icon: <FileSignature className="h-5 w-5" />,
       doctype: "Salary Structure Assignment",
       fields: ["name", "employee", "employee_name", "company", "department", "designation", "salary_structure", "from_date", "currency", "base"],
-      filters: companyFilter(company),
+      filters: [...companyFilter(company), ...employeeFilter],
       formFields: [
         { fieldname: "employee", label: "Employee", fieldtype: "Link", options: "Employee", reqd: true },
         { fieldname: "salary_structure", label: "Salary Structure", fieldtype: "Link", options: "Salary Structure", reqd: true },
@@ -44,7 +46,7 @@ export default function SalaryStructureAssignmentsPage() {
         { fieldname: "currency", label: "Currency", fieldtype: "Link", options: "Currency", reqd: true },
         { fieldname: "base", label: "Base", fieldtype: "Currency" },
       ],
-      defaults: { company, from_date: todayISO() },
+      defaults: { company, from_date: todayISO(), employee: employee ?? undefined },
       kanbanField: "salary_structure",
       searchField: "employee_name",
       statusField: "salary_structure",
@@ -55,7 +57,7 @@ export default function SalaryStructureAssignmentsPage() {
       emptyDescription: "Assign a salary structure to an employee to see it here",
       newLabel: "New Assignment",
     }),
-    [company],
+    [company, employee],
   );
 
   return <CrmManagementPage config={config} />;

@@ -67,7 +67,7 @@ export default function GratuityPage() {
       emptyDescription: "Gratuity payments will appear here",
       newLabel: "New Gratuity",
     }),
-    [company],
+    [company, employee],
   );
 
   return <CrmManagementPage config={config} />;
