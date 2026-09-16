@@ -284,6 +284,10 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
         { label: "Salutations", to: "/crm/masters/salutations", icon: Quote },
       ],
     },
+    {
+      title: "Configuration",
+      items: [{ label: "Settings", to: "/crm/settings", icon: SettingsIcon }],
+    },
   ],
   subcontracting: [{ items: [{ label: "Subcontracting", to: "/subcontracting", icon: Cog }] }],
   assets: [{ items: [{ label: "Assets", to: "/assets", icon: Building2 }] }],

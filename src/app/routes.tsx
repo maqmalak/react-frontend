@@ -63,6 +63,7 @@ const CrmDealsPage = lazy(() => import("@/pages/CRM/DealsPage").then((m) => ({ d
 const CrmDealDetailPage = lazy(() => import("@/pages/CRM/DealDetailPage").then((m) => ({ default: m.DealDetailPage })));
 const CrmDealFormPage = lazy(() => import("@/pages/CRM/DealFormPage").then((m) => ({ default: m.DealFormPage })));
 const CrmDashboardPageLazy = lazy(() => import("@/pages/CRM/DashboardPage").then((m) => ({ default: m.CrmDashboardPage })));
+const CrmSettingsPage = lazy(() => import("@/pages/CRM/SettingsPage").then((m) => ({ default: m.CrmSettingsPage })));
 const HrEmployeesPage = lazy(() => import("@/pages/HR/EmployeesPage").then((m) => ({ default: m.default })));
 const HrEmployeeDetailPage = lazy(() => import("@/pages/HR/EmployeeDetailPage").then((m) => ({ default: m.default })));
 const HrDepartmentsPage = lazy(() => import("@/pages/HR/DepartmentsPage").then((m) => ({ default: m.default })));
@@ -314,6 +315,16 @@ export function AppRoutes() {
         <Route path="crm/masters/industries" element={<Suspense fallback={<FullPageLoader />}><CrmIndustriesPage /></Suspense>} />
         <Route path="crm/masters/salutations" element={<Suspense fallback={<FullPageLoader />}><CrmSalutationsPage /></Suspense>} />
         <Route path="crm/dashboard" element={<Suspense fallback={<FullPageLoader />}><CrmDashboardPageLazy /></Suspense>} />
+        <Route
+          path="crm/settings"
+          element={
+            <RequireRole roles={["System Manager"]}>
+              <Suspense fallback={<FullPageLoader />}>
+                <CrmSettingsPage />
+              </Suspense>
+            </RequireRole>
+          }
+        />
 
         <Route path="subcontracting" element={<ComingSoonPage title="Subcontracting" description="Subcontracting orders and receipts" />} />
         <Route path="assets" element={<ComingSoonPage title="Assets" description="Fixed asset register, depreciation and maintenance" />} />

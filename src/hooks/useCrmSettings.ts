@@ -47,7 +47,7 @@ export function useWhatsAppAccounts() {
   const { data, error, isLoading, mutate } = useFrappeGetDocList<CrmWhatsAppAccount>(
     "WhatsApp Account",
     {
-      fields: WHATSAPP_ACCOUNT_FIELDS as string[],
+      fields: WHATSAPP_ACCOUNT_FIELDS as unknown as (keyof CrmWhatsAppAccount)[],
       orderBy: { field: "account_name", order: "asc" },
       limit: 0,
     },
