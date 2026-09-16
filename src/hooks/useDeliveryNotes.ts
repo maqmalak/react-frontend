@@ -33,13 +33,13 @@ export function useDeliveryNotes(args?: { filters?: unknown[][]; limit?: number;
       limit,
       orderBy: { field: "modified", order: "desc" },
     },
-    enabled ? `apparel.dn.${JSON.stringify({ filters, limit })}` : null,
+    enabled ? `micromax.dn.${JSON.stringify({ filters, limit })}` : null,
   );
 }
 
 /** Single Delivery Note (full document with items). */
 export function useDeliveryNote(name?: string) {
-  return useFrappeGetDoc<DeliveryNote>("Delivery Note", name ?? undefined, name ? `apparel.dn.doc.${name}` : null);
+  return useFrappeGetDoc<DeliveryNote>("Delivery Note", name ?? undefined, name ? `micromax.dn.doc.${name}` : null);
 }
 
 /** Create / Update / Delete mutations. */
@@ -75,7 +75,7 @@ export function useDeliveryNoteMutations(onSuccess?: (doc: DeliveryNote) => void
 export function useDeliveryNotesForSO(soName?: string) {
   const { data: parentNames, isLoading: namesLoading, error: namesError, mutate: refreshNames } =
     useFrappeGetCall<string[]>(
-      "apparel.hooks.get_linked_parent_docs",
+      "micromax.hooks.get_linked_parent_docs",
       soName
         ? {
             doctype: "Delivery Note Item",
@@ -84,7 +84,7 @@ export function useDeliveryNotesForSO(soName?: string) {
             link_value: soName,
           }
         : undefined,
-      soName ? `apparel.dn-parents-so.${soName}` : null,
+      soName ? `micromax.dn-parents-so.${soName}` : null,
     );
 
   const raw = parentNames as unknown;
@@ -104,7 +104,7 @@ export function useDeliveryNotesForSO(soName?: string) {
           orderBy: { field: "posting_date", order: "desc" },
         }
       : { filters: [["name", "=", ""]], limit: 0 },
-    names.length > 0 ? `apparel.dn-for-so.${soName}` : undefined,
+    names.length > 0 ? `micromax.dn-for-so.${soName}` : undefined,
   );
 
   return {

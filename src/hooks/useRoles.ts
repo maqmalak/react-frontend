@@ -2,7 +2,7 @@ import { useCallback, useMemo } from "react";
 import { useFrappeGetDocList, useFrappeGetCall, useSWRConfig } from "frappe-react-sdk";
 import type { FrappeRole } from "@/types/frappe";
 
-const HAS_ROLE_ROWS_KEY = "apparel.hasrole.all";
+const HAS_ROLE_ROWS_KEY = "micromax.hasrole.all";
 
 /** List all Roles (Administration → Roles). */
 export function useRoles(args?: { enabled?: boolean }) {
@@ -14,7 +14,7 @@ export function useRoles(args?: { enabled?: boolean }) {
       limit: 0,
       orderBy: { field: "name", order: "asc" },
     },
-    enabled ? "apparel.roles.all" : null,
+    enabled ? "micromax.roles.all" : null,
   );
 }
 

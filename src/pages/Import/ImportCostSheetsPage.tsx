@@ -4,7 +4,7 @@ import { Plus } from "lucide-react";
 import { formatMoney } from "@/utils/currency";
 import { useNavigate } from "react-router-dom";
 
-/** Import Cost Sheets (custom Apparel DocType) — landed-cost calculator. */
+/** Import Cost Sheets (custom Micromax DocType) — landed-cost calculator. */
 export function ImportCostSheetsPage() {
   const navigate = useNavigate();
   return (

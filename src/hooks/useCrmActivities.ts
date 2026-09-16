@@ -18,7 +18,7 @@ export type { CrmActivityItem };
  * doctype below, the same reliable pattern the rest of this app uses.
  */
 export function useCrmActivities(name?: string) {
-  const key = name ? `apparel.crm.activities.${name}` : null;
+  const key = name ? `micromax.crm.activities.${name}` : null;
   const { data, error, isLoading, mutate } = useSWR(key, () => getCrmActivities(name!));
 
   const activities = data?.activities ?? [];
@@ -78,7 +78,7 @@ export function useCrmNotes(referenceDoctype: string, referenceDocname?: string)
       limit: 50,
       orderBy: { field: "modified", order: "desc" },
     },
-    referenceDocname ? `apparel.crm.notes.${referenceDoctype}.${referenceDocname}` : null,
+    referenceDocname ? `micromax.crm.notes.${referenceDoctype}.${referenceDocname}` : null,
   );
 }
 
@@ -125,6 +125,6 @@ export function useCrmCallLogs(referenceDoctype: string, referenceDocname?: stri
       limit: 50,
       orderBy: { field: "start_time", order: "desc" },
     },
-    referenceDocname ? `apparel.crm.calllogs.${referenceDoctype}.${referenceDocname}` : null,
+    referenceDocname ? `micromax.crm.calllogs.${referenceDoctype}.${referenceDocname}` : null,
   );
 }

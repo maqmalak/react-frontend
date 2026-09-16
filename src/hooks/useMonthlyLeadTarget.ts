@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-const STORAGE_KEY = "apparel.crm.monthly-lead-target";
+const STORAGE_KEY = "micromax.crm.monthly-lead-target";
 const DEFAULT_TARGET = 50;
 
 /**

@@ -30,7 +30,7 @@ export function useImportCostSheets(args?: { filters?: unknown[][]; limit?: numb
       limit,
       orderBy: { field: "modified", order: "desc" },
     },
-    enabled ? `apparel.impcost.${JSON.stringify({ filters, limit })}` : null,
+    enabled ? `micromax.impcost.${JSON.stringify({ filters, limit })}` : null,
   );
 }
 
@@ -38,7 +38,7 @@ export function useImportCostSheet(name?: string) {
   return useFrappeGetDoc<ImportCostSheet>(
     "Import Cost Sheet",
     name ?? undefined,
-    name ? `apparel.impcost.doc.${name}` : null,
+    name ? `micromax.impcost.doc.${name}` : null,
   );
 }
 
@@ -68,6 +68,6 @@ export function useExportPackingList(args?: { limit?: number; enabled?: boolean 
   return useFrappeGetDocList<ImportCostSheet>(
     "Export Packing Details",
     { fields: ["name", "packing_no", "packing_date", "sales_order", "customer", "total_cartons", "total_pieces"] as (keyof ImportCostSheet)[], limit: _limit },
-    enabled ? "apparel.exppack" : null,
+    enabled ? "micromax.exppack" : null,
   );
 }

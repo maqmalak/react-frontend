@@ -18,7 +18,7 @@ interface CompanyContextValue {
 }
 
 const CompanyContext = React.createContext<CompanyContextValue | null>(null);
-const STORAGE_KEY = "apparel-active-company";
+const STORAGE_KEY = "micromax-active-company";
 
 export function CompanyProvider({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, defaultCompany } = useAuth();

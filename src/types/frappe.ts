@@ -1,8 +1,8 @@
 /**
  * Frappe / ERPNext TypeScript domain types.
  *
- * These map 1:1 to ERPNext standard DocTypes and the custom Apparel
- * Import/Export DocTypes defined in the `apparel` Frappe app.
+ * These map 1:1 to ERPNext standard DocTypes and the custom Micromax
+ * Import/Export DocTypes defined in the `micromax` Frappe app.
  */
 
 export interface FrappeMeta {
@@ -332,8 +332,8 @@ export interface SalesOrderItem {
 }
 
 /**
- * Standard ERPNext Sales Order plus the Apparel custom export fields added by
- * the `apparel` app (see install.py make_custom_fields).
+ * Standard ERPNext Sales Order plus the Micromax custom export fields added by
+ * the `micromax` app (see install.py make_custom_fields).
  */
 export interface SalesOrder {
   name: string;
@@ -355,7 +355,7 @@ export interface SalesOrder {
   docstatus: 0 | 1 | 2;
   per_delivered?: number;
   per_billed?: number;
-  // Apparel custom fields
+  // Micromax custom fields
   export_status?: string;
   lc_proforma?: string;
   lc_no?: string;
@@ -1350,7 +1350,7 @@ export interface CrmNotification {
   creation?: string;
 }
 
-/** A `CRM Prospect Scrape` review-queue row (custom `apparel` doctype, not vendored crm). */
+/** A `CRM Prospect Scrape` review-queue row (custom `micromax` doctype, not vendored crm). */
 export interface CrmProspectScrape {
   name?: string;
   source_url?: string;

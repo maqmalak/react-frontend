@@ -1,5 +1,5 @@
 import { useState, type FormEvent, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { AlertCircle, ShieldCheck, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -272,7 +272,12 @@ export function LoginPage() {
           ))}
         </div>
 
-        <p className="mt-8 text-xs text-muted-foreground">Powered by ERPNext / Frappe</p>
+        <p className="mt-8 text-xs text-muted-foreground">
+          Powered by MicroMax ·{" "}
+          <Link to="/website" className="font-medium text-primary hover:underline">
+            Company profile &amp; modules
+          </Link>
+        </p>
       </div>
     </div>
   );

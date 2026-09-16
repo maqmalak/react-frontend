@@ -63,7 +63,7 @@ export function AccountProfilePage() {
       void mutate();
       // The header reads the profile doc under its own SWR key — nudge it
       // too so the name/avatar there update without a full page reload.
-      void mutateGlobal(`apparel.user.${currentUser}`);
+      void mutateGlobal(`micromax.user.${currentUser}`);
     } catch (err) {
       toast.error(humanizeError(err));
     }

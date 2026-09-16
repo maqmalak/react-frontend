@@ -14,10 +14,10 @@ import type {
 } from "@/types/frappe";
 
 /**
- * Apparel business-logic API layer.
+ * Micromax business-logic API layer.
  *
  * These wrap ERPNext whitelisted methods. Any authorization / accounting logic
- * lives server-side in the `apparel` Frappe app; this frontend only calls it.
+ * lives server-side in the `micromax` Frappe app; this frontend only calls it.
  */
 
 /** Fetch the current user (with roles) — used by the header. */
@@ -465,7 +465,7 @@ export function getCalendarEvents(
 }
 
 /**
- * Donor-prospecting scraper (custom `apparel.crm_scraper` module — no
+ * Donor-prospecting scraper (custom `micromax.crm_scraper` module — no
  * equivalent in the vendored crm app). Given a batch of company/NGO URLs,
  * the backend fetches each and best-effort extracts identity + CSR contact
  * info into a `CRM Prospect Scrape` review-queue row (one row per URL,
@@ -478,7 +478,7 @@ export function getCalendarEvents(
  * one-off bulk action, not a background poll.
  */
 export function scrapeCrmProspectUrls(urls: string[]): Promise<string[]> {
-  return postCall<string[]>("apparel.crm_scraper.scrape_urls", { urls }, { timeout: 240_000 });
+  return postCall<string[]>("micromax.crm_scraper.scrape_urls", { urls }, { timeout: 240_000 });
 }
 
 /** Approve a reviewed `CRM Prospect Scrape` row into a real `CRM Lead`. */

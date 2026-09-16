@@ -7,7 +7,7 @@ export function ItemsPage() {
     <SimpleListPage
       doctype="Item"
       title="Items"
-      subtitle="Apparel product master — ERPNext Item records"
+      subtitle="Micromax product master — ERPNext Item records"
       fields={["name", "item_name", "item_group", "stock_uom", "is_stock_item", "disabled"]}
       columns={[
         { key: "name", label: "Item Code", render: (r) => <span className="font-medium">{r.name}</span> },

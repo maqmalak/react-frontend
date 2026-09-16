@@ -5,7 +5,7 @@ export function useEmployee(name?: string) {
   return useFrappeGetDoc<Record<string, any>>(
     "Employee",
     name ?? undefined,
-    name ? `apparel.hr.employee.${name}` : null,
+    name ? `micromax.hr.employee.${name}` : null,
   );
 }
 

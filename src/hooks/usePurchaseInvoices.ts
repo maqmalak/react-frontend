@@ -39,7 +39,7 @@ export function usePurchaseInvoices(args?: {
       limit,
       orderBy: { field: "modified", order: "desc" },
     },
-    enabled ? `apparel.pi.${JSON.stringify({ filters, limit })}` : null,
+    enabled ? `micromax.pi.${JSON.stringify({ filters, limit })}` : null,
   );
 }
 
@@ -48,7 +48,7 @@ export function usePurchaseInvoice(name?: string) {
   return useFrappeGetDoc<PurchaseInvoice>(
     "Purchase Invoice",
     name ?? undefined,
-    name ? `apparel.pi.doc.${name}` : null,
+    name ? `micromax.pi.doc.${name}` : null,
   );
 }
 
@@ -86,17 +86,17 @@ export function usePurchaseInvoiceMutations(onSuccess?: (doc: PurchaseInvoice) =
 export function usePurchaseInvoicesForPO(poName?: string) {
   const { data: parentNames, isLoading: namesLoading, error: namesError, mutate: refreshNames } =
     useFrappeGetCall<string[]>(
-      "apparel.hooks.get_linked_parent_docs",
+      "micromax.hooks.get_linked_parent_docs",
       poName
         ? {
             doctype: "Purchase Invoice Item",
             parenttype: "Purchase Invoice",
             // NOTE: uses the legacy `purchase_order` kwarg — matches the
-            // currently-deployed apparel backend (see usePurchaseReceiptsForPO).
+            // currently-deployed micromax backend (see usePurchaseReceiptsForPO).
             purchase_order: poName,
           }
         : undefined,
-      poName ? `apparel.pi-parents-po.${poName}` : null,
+      poName ? `micromax.pi-parents-po.${poName}` : null,
     );
 
   const raw = parentNames as unknown;
@@ -116,7 +116,7 @@ export function usePurchaseInvoicesForPO(poName?: string) {
           orderBy: { field: "posting_date", order: "desc" },
         }
       : { filters: [["name", "=", ""]], limit: 0 },
-    names.length > 0 ? `apparel.pi-for-po.${poName}` : undefined,
+    names.length > 0 ? `micromax.pi-for-po.${poName}` : undefined,
   );
 
   return {
@@ -139,7 +139,7 @@ export function usePurchaseInvoicesForPO(poName?: string) {
 export function usePurchaseInvoicesForPR(prName?: string) {
   const { data: parentNames, isLoading: namesLoading, error: namesError, mutate: refreshNames } =
     useFrappeGetCall<string[]>(
-      "apparel.hooks.get_linked_parent_docs",
+      "micromax.hooks.get_linked_parent_docs",
       prName
         ? {
             doctype: "Purchase Invoice Item",
@@ -148,7 +148,7 @@ export function usePurchaseInvoicesForPR(prName?: string) {
             link_value: prName,
           }
         : undefined,
-      prName ? `apparel.pi-parents-pr.${prName}` : null,
+      prName ? `micromax.pi-parents-pr.${prName}` : null,
     );
 
   const raw = parentNames as unknown;
@@ -168,7 +168,7 @@ export function usePurchaseInvoicesForPR(prName?: string) {
           orderBy: { field: "posting_date", order: "desc" },
         }
       : { filters: [["name", "=", ""]], limit: 0 },
-    names.length > 0 ? `apparel.pi-for-pr.${prName}` : undefined,
+    names.length > 0 ? `micromax.pi-for-pr.${prName}` : undefined,
   );
 
   return {

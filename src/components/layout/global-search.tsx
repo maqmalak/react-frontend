@@ -10,7 +10,7 @@ import { cn } from "@/utils/cn";
 /**
  * Global search (Ctrl/Cmd + K).
  *
- * Uses Frappe's global search RPC across the DocTypes relevant to Apparel.
+ * Uses Frappe's global search RPC across the DocTypes relevant to Micromax.
  * Results are permission-filtered by ERPNext on the server.
  */
 
@@ -75,7 +75,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
   const { data, isLoading } = useFrappeGetCall<any>(
     "frappe.utils.global_search.search",
     { text: debounced, start: 0, limit: 20 },
-    enabled ? `apparel.search.global.${debounced}` : null,
+    enabled ? `micromax.search.global.${debounced}` : null,
   );
 
   const results: SearchHit[] = React.useMemo(() => {

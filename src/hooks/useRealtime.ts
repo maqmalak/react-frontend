@@ -33,7 +33,7 @@ export function useRevalidateAll() {
 }
 
 /** Tell the whole UI "data changed" (used after local mutations). */
-export const DATA_CHANGED_EVENT = "apparel:data-changed";
+export const DATA_CHANGED_EVENT = "micromax:data-changed";
 
 export function notifyDataChanged() {
   if (typeof window !== "undefined") {
@@ -42,10 +42,10 @@ export function notifyDataChanged() {
 }
 
 /** Extra server-published events we listen to for revalidation. */
-export const APPAREL_SERVER_EVENTS = [
-  "apparel_lc_updated",
-  "apparel_shipment_updated",
-  "apparel_import_updated",
-  "apparel_cost_sheet_updated",
-  "apparel_production_updated",
+export const MICROMAX_SERVER_EVENTS = [
+  "micromax_lc_updated",
+  "micromax_shipment_updated",
+  "micromax_import_updated",
+  "micromax_cost_sheet_updated",
+  "micromax_production_updated",
 ] as const;

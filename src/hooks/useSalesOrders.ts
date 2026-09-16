@@ -41,7 +41,7 @@ const SALES_ORDER_FIELDS = [
   "country_of_destination",
 ] as const;
 
-/** List export orders (Sales Orders with Apparel fields). */
+/** List export orders (Sales Orders with Micromax fields). */
 export function useSalesOrders(args?: {
   filters?: unknown[][];
   limit?: number;
@@ -56,7 +56,7 @@ export function useSalesOrders(args?: {
       limit,
       orderBy: { field: "modified", order: "desc" },
     },
-    enabled ? `apparel.so.${JSON.stringify({ filters, limit })}` : null,
+    enabled ? `micromax.so.${JSON.stringify({ filters, limit })}` : null,
   );
 }
 
@@ -65,7 +65,7 @@ export function useSalesOrder(name?: string) {
   return useFrappeGetDoc<SalesOrder>(
     "Sales Order",
     name ?? undefined,
-    name ? `apparel.so.doc.${name}` : null,
+    name ? `micromax.so.doc.${name}` : null,
   );
 }
 
@@ -75,7 +75,7 @@ export function useSalesOrderCount(filters: unknown[][], enabled = true) {
     "Sales Order",
     filters as any,
     false,
-    enabled ? `apparel.so.count.${JSON.stringify(filters)}` : null,
+    enabled ? `micromax.so.count.${JSON.stringify(filters)}` : null,
   );
 }
 

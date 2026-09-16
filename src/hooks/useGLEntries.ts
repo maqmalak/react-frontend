@@ -40,6 +40,6 @@ export function useGLEntries(args: { voucherType?: string; voucherNo?: string; e
       limit: 200,
       orderBy: { field: "creation", order: "asc" },
     },
-    ready ? `apparel.gl.${voucherType}.${voucherNo}` : null,
+    ready ? `micromax.gl.${voucherType}.${voucherNo}` : null,
   );
 }

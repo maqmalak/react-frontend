@@ -32,7 +32,7 @@ export function useLandedCostVouchers(args?: {
       limit,
       orderBy: { field: "modified", order: "desc" },
     },
-    enabled ? `apparel.lcv.${JSON.stringify({ filters, limit })}` : null,
+    enabled ? `micromax.lcv.${JSON.stringify({ filters, limit })}` : null,
   );
 }
 
@@ -41,7 +41,7 @@ export function useLandedCostVoucher(name?: string) {
   return useFrappeGetDoc<LandedCostVoucher>(
     "Landed Cost Voucher",
     name ?? undefined,
-    name ? `apparel.lcv.doc.${name}` : null,
+    name ? `micromax.lcv.doc.${name}` : null,
   );
 }
 
@@ -77,7 +77,7 @@ export function useLandedCostVoucherMutations(onSuccess?: (doc: LandedCostVouche
 export function useLandedCostVouchersFor(docType: LandedCostReceiptDocType, docName?: string) {
   const { data: parentNames, isLoading: namesLoading, error: namesError, mutate: refreshNames } =
     useFrappeGetCall<string[]>(
-      "apparel.hooks.get_linked_parent_docs",
+      "micromax.hooks.get_linked_parent_docs",
       docName
         ? {
             doctype: "Landed Cost Purchase Receipt",
@@ -87,7 +87,7 @@ export function useLandedCostVouchersFor(docType: LandedCostReceiptDocType, docN
             extra_filters: JSON.stringify({ receipt_document_type: docType }),
           }
         : undefined,
-      docName ? `apparel.lcv-parents.${docType}.${docName}` : null,
+      docName ? `micromax.lcv-parents.${docType}.${docName}` : null,
     );
 
   const raw = parentNames as unknown;
@@ -107,7 +107,7 @@ export function useLandedCostVouchersFor(docType: LandedCostReceiptDocType, docN
           orderBy: { field: "posting_date", order: "desc" },
         }
       : { filters: [["name", "=", ""]], limit: 0 },
-    names.length > 0 ? `apparel.lcv-for.${docType}.${docName}` : undefined,
+    names.length > 0 ? `micromax.lcv-for.${docType}.${docName}` : undefined,
   );
 
   return {

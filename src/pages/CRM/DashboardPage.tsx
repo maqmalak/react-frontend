@@ -38,7 +38,7 @@ export function CrmDashboardPage() {
   const { data: wonDeals } = useFrappeGetDocList<{ deal_value?: number; expected_deal_value?: number; currency?: string }>(
     "CRM Deal",
     { fields: ["deal_value", "expected_deal_value", "currency"], filters: [["status", "=", "Won"]], limit: 5000 },
-    "apparel.crm.dashboard.won-deals",
+    "micromax.crm.dashboard.won-deals",
   );
   const totalRaised = useMemo(
     () => (wonDeals ?? []).reduce((sum, d) => sum + Number(d.deal_value ?? d.expected_deal_value ?? 0), 0),
@@ -49,7 +49,7 @@ export function CrmDashboardPage() {
   const { data: newLeadsThisMonth } = useFrappeGetDocList<{ name: string }>(
     "CRM Lead",
     { fields: ["name"], filters: [["creation", ">=", startOfMonthISO()]], limit: 5000 },
-    "apparel.crm.dashboard.new-leads-month",
+    "micromax.crm.dashboard.new-leads-month",
   );
   const achieved = (newLeadsThisMonth ?? []).length;
   const achievedPct = Math.round((achieved / target) * 100);

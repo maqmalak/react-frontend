@@ -40,13 +40,13 @@ export function useCrmLeads(args?: { filters?: unknown[][]; limit?: number; enab
       limit,
       orderBy: { field: "modified", order: "desc" },
     },
-    enabled ? `apparel.crm.leads.${JSON.stringify({ filters, limit })}` : null,
+    enabled ? `micromax.crm.leads.${JSON.stringify({ filters, limit })}` : null,
   );
 }
 
 /** Single CRM Lead (full document). */
 export function useCrmLead(name?: string) {
-  return useFrappeGetDoc<CrmLead>("CRM Lead", name ?? undefined, name ? `apparel.crm.lead.doc.${name}` : null);
+  return useFrappeGetDoc<CrmLead>("CRM Lead", name ?? undefined, name ? `micromax.crm.lead.doc.${name}` : null);
 }
 
 /** Create / Update / Delete mutations for CRM Lead. */

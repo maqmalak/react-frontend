@@ -42,7 +42,7 @@ export function useExportShipments(args?: { filters?: unknown[][]; limit?: numbe
       limit,
       orderBy: { field: "modified", order: "desc" },
     },
-    enabled ? `apparel.expship.${JSON.stringify({ filters, limit })}` : null,
+    enabled ? `micromax.expship.${JSON.stringify({ filters, limit })}` : null,
   );
 }
 
@@ -50,7 +50,7 @@ export function useExportShipment(name?: string) {
   return useFrappeGetDoc<ExportShipment>(
     "Export Shipment",
     name ?? undefined,
-    name ? `apparel.expship.doc.${name}` : null,
+    name ? `micromax.expship.doc.${name}` : null,
   );
 }
 

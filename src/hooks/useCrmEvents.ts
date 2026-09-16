@@ -14,7 +14,7 @@ import type { FrappeEvent } from "@/types/frappe";
  * events server-side, so the returned rows are already resolved occurrences.
  */
 export function useCrmCalendarEvents(start?: string, end?: string, filters?: unknown[][]) {
-  const key = start && end ? `apparel.crm.events.${start}.${end}.${JSON.stringify(filters ?? [])}` : null;
+  const key = start && end ? `micromax.crm.events.${start}.${end}.${JSON.stringify(filters ?? [])}` : null;
   const { data, error, isLoading, mutate } = useSWR<Record<string, unknown>[]>(key, () =>
     getCalendarEvents(start!, end!, filters),
   );
@@ -22,7 +22,7 @@ export function useCrmCalendarEvents(start?: string, end?: string, filters?: unk
 }
 
 export function useCrmEvent(name?: string) {
-  return useFrappeGetDoc<FrappeEvent>("Event", name ?? undefined, name ? `apparel.crm.event.doc.${name}` : null);
+  return useFrappeGetDoc<FrappeEvent>("Event", name ?? undefined, name ? `micromax.crm.event.doc.${name}` : null);
 }
 
 /**

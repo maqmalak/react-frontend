@@ -53,12 +53,12 @@ http.interceptors.request.use((config) => {
  * `frappe.sessions.get_csrf_token` (what Frappe injects server-side into
  * pages it renders itself) is not whitelisted for direct API access, and
  * this SPA is served by Vite in dev — not by Frappe — so it has no such
- * injection point. `apparel.api.get_csrf_token_for_session` is a minimal
- * whitelisted wrapper added to the `apparel` app for exactly this.
+ * injection point. `micromax.api.get_csrf_token_for_session` is a minimal
+ * whitelisted wrapper added to the `micromax` app for exactly this.
  */
 export async function refreshCSRFToken(): Promise<void> {
   try {
-    const res = await fetch("/api/method/apparel.api.get_csrf_token_for_session", {
+    const res = await fetch("/api/method/micromax.api.get_csrf_token_for_session", {
       credentials: "include",
     });
     if (!res.ok) return;
@@ -115,7 +115,7 @@ http.interceptors.response.use(
       // Session expired / not authenticated (a recovered CSRF error never
       // reaches here — see the retry interceptor above).
       if (status === 401 || status === 403) {
-        window.dispatchEvent(new CustomEvent("apparel:session-expired"));
+        window.dispatchEvent(new CustomEvent("micromax:session-expired"));
       }
       // Reject with the original AxiosError (not a flattened Error) so
       // humanizeError can see the full response.data payload — Frappe's real,

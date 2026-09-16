@@ -6,12 +6,12 @@ export function useCompanies(enabled = true) {
   return useFrappeGetDocList<Company>(
     "Company",
     { fields: ["name", "company_name", "default_currency", "abbr"], orderBy: { field: "name", order: "asc" } },
-    enabled ? "apparel.companies" : null,
+    enabled ? "micromax.companies" : null,
   );
 }
 
 export function useCompany(name?: string) {
-  return useFrappeGetDoc<Company>("Company", name ?? undefined, name ? `apparel.company.${name}` : null);
+  return useFrappeGetDoc<Company>("Company", name ?? undefined, name ? `micromax.company.${name}` : null);
 }
 
 /** Companies available to the current user (respects ERPNext per-user permissions). */

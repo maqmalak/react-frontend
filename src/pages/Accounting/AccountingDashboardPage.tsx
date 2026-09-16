@@ -54,7 +54,7 @@ export function AccountingDashboardPage() {
       limit: 1000,
       orderBy: { field: "posting_date", order: "desc" },
     },
-    `apparel.acct-dash.gl.${company ?? "all"}`,
+    `micromax.acct-dash.gl.${company ?? "all"}`,
   );
 
   const { data: payments, isLoading: paymentsLoading } = useFrappeGetDocList<Record<string, any>>(
@@ -64,7 +64,7 @@ export function AccountingDashboardPage() {
       filters: [...coFilter, ["docstatus", "=", 1]] as any,
       limit: 500,
     },
-    `apparel.acct-dash.payments.${company ?? "all"}`,
+    `micromax.acct-dash.payments.${company ?? "all"}`,
   );
 
   const { data: purchaseInvoices, isLoading: piLoading } = useFrappeGetDocList<Record<string, any>>(
@@ -74,7 +74,7 @@ export function AccountingDashboardPage() {
       filters: [...coFilter, ["docstatus", "=", 1]] as any,
       limit: 500,
     },
-    `apparel.acct-dash.pi.${company ?? "all"}`,
+    `micromax.acct-dash.pi.${company ?? "all"}`,
   );
 
   const kpis = useMemo(() => {

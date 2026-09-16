@@ -2,7 +2,7 @@ import { SimpleListPage } from "@/pages/common/SimpleListPage";
 import { StatusBadge } from "@/components/common/status-badge";
 import { useNavigate } from "react-router-dom";
 
-/** Export Shipments (custom Apparel DocType). */
+/** Export Shipments (custom Micromax DocType). */
 export function ExportShipmentsPage() {
   const navigate = useNavigate();
   return (

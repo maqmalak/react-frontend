@@ -29,7 +29,7 @@ export function useRequestForQuotations(args?: { filters?: unknown[][]; limit?: 
       limit,
       orderBy: { field: "modified", order: "desc" },
     },
-    enabled ? `apparel.rfq.${JSON.stringify({ filters, limit })}` : null,
+    enabled ? `micromax.rfq.${JSON.stringify({ filters, limit })}` : null,
   );
 }
 
@@ -38,7 +38,7 @@ export function useRequestForQuotation(name?: string) {
   return useFrappeGetDoc<RequestForQuotation>(
     "Request for Quotation",
     name ?? undefined,
-    name ? `apparel.rfq.doc.${name}` : null,
+    name ? `micromax.rfq.doc.${name}` : null,
   );
 }
 

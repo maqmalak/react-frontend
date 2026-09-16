@@ -1,7 +1,7 @@
 import { asNumber } from "./cn";
 import type { LCProformaItem, ImportCostSheetItem, SalesOrderItem } from "@/types/frappe";
 
-/** Business calculations for the Apparel module. These mirror the server-side
+/** Business calculations for the Micromax module. These mirror the server-side
  *  `validate()` logic so the UI is responsive. ERPNext remains the source of
  *  truth; values are persisted on submit. */
 

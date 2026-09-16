@@ -32,7 +32,7 @@ export function useMaterialRequests(args?: { filters?: unknown[][]; limit?: numb
       limit,
       orderBy: { field: "modified", order: "desc" },
     },
-    enabled ? `apparel.mr.${JSON.stringify({ filters, limit })}` : null,
+    enabled ? `micromax.mr.${JSON.stringify({ filters, limit })}` : null,
   );
 }
 
@@ -41,7 +41,7 @@ export function useMaterialRequest(name?: string) {
   return useFrappeGetDoc<MaterialRequest>(
     "Material Request",
     name ?? undefined,
-    name ? `apparel.mr.doc.${name}` : null,
+    name ? `micromax.mr.doc.${name}` : null,
   );
 }
 
@@ -75,7 +75,7 @@ const PO_FIELDS_FOR_MR = [
 export function usePurchaseOrdersForMR(mrName?: string) {
   const { data: parentNames, isLoading: namesLoading, error: namesError, mutate: refreshNames } =
     useFrappeGetCall<string[]>(
-      "apparel.hooks.get_linked_parent_docs",
+      "micromax.hooks.get_linked_parent_docs",
       mrName
         ? {
             doctype: "Purchase Order Item",
@@ -84,7 +84,7 @@ export function usePurchaseOrdersForMR(mrName?: string) {
             link_value: mrName,
           }
         : undefined,
-      mrName ? `apparel.po-parents-mr.${mrName}` : null,
+      mrName ? `micromax.po-parents-mr.${mrName}` : null,
     );
 
   const raw = parentNames as unknown;
@@ -104,7 +104,7 @@ export function usePurchaseOrdersForMR(mrName?: string) {
           orderBy: { field: "transaction_date", order: "desc" },
         }
       : { filters: [["name", "=", ""]], limit: 0 },
-    names.length > 0 ? `apparel.po-for-mr.${mrName}` : undefined,
+    names.length > 0 ? `micromax.po-for-mr.${mrName}` : undefined,
   );
 
   return {
@@ -124,7 +124,7 @@ const SE_FIELDS_FOR_MR = ["name", "posting_date", "purpose", "docstatus", "total
 export function useStockEntriesForMR(mrName?: string) {
   const { data: parentNames, isLoading: namesLoading, error: namesError, mutate: refreshNames } =
     useFrappeGetCall<string[]>(
-      "apparel.hooks.get_linked_parent_docs",
+      "micromax.hooks.get_linked_parent_docs",
       mrName
         ? {
             doctype: "Stock Entry Detail",
@@ -133,7 +133,7 @@ export function useStockEntriesForMR(mrName?: string) {
             link_value: mrName,
           }
         : undefined,
-      mrName ? `apparel.se-parents-mr.${mrName}` : null,
+      mrName ? `micromax.se-parents-mr.${mrName}` : null,
     );
 
   const raw = parentNames as unknown;
@@ -153,7 +153,7 @@ export function useStockEntriesForMR(mrName?: string) {
           orderBy: { field: "posting_date", order: "desc" },
         }
       : { filters: [["name", "=", ""]], limit: 0 },
-    names.length > 0 ? `apparel.se-for-mr.${mrName}` : undefined,
+    names.length > 0 ? `micromax.se-for-mr.${mrName}` : undefined,
   );
 
   return {
@@ -173,7 +173,7 @@ const RFQ_FIELDS_FOR_MR = ["name", "transaction_date", "status", "docstatus", "c
 export function useRFQsForMR(mrName?: string) {
   const { data: parentNames, isLoading: namesLoading, error: namesError, mutate: refreshNames } =
     useFrappeGetCall<string[]>(
-      "apparel.hooks.get_linked_parent_docs",
+      "micromax.hooks.get_linked_parent_docs",
       mrName
         ? {
             doctype: "Request for Quotation Item",
@@ -182,7 +182,7 @@ export function useRFQsForMR(mrName?: string) {
             link_value: mrName,
           }
         : undefined,
-      mrName ? `apparel.rfq-parents-mr.${mrName}` : null,
+      mrName ? `micromax.rfq-parents-mr.${mrName}` : null,
     );
 
   const raw = parentNames as unknown;
@@ -202,7 +202,7 @@ export function useRFQsForMR(mrName?: string) {
           orderBy: { field: "transaction_date", order: "desc" },
         }
       : { filters: [["name", "=", ""]], limit: 0 },
-    names.length > 0 ? `apparel.rfq-for-mr.${mrName}` : undefined,
+    names.length > 0 ? `micromax.rfq-for-mr.${mrName}` : undefined,
   );
 
   return {

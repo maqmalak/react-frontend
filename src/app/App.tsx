@@ -10,9 +10,9 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   const location = useLocation();
 
   if (isLoading) return <FullPageLoader />;
-  // Already on the login page — render it instead of redirecting to ourselves
-  // (redirecting here would cause an infinite navigation loop).
-  if (!isAuthenticated && location.pathname !== "/login") {
+  // Public pages (login, marketing site) render as-is instead of redirecting
+  // to ourselves — redirecting here would cause an infinite navigation loop.
+  if (!isAuthenticated && !PUBLIC_PATHS.includes(location.pathname)) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
   return <>{children}</>;
@@ -25,6 +25,9 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
  * business logic and storage all live on the server. This React app is the
  * modern presentation layer over the REST/RPC/Socket.IO APIs.
  */
+/** Paths that render without a session (login, and the public website). */
+const PUBLIC_PATHS = ["/login", "/website"];
+
 export default function App() {
   return (
     <AppProviders>

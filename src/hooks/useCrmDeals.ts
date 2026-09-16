@@ -39,13 +39,13 @@ export function useCrmDeals(args?: { filters?: unknown[][]; limit?: number; enab
       limit,
       orderBy: { field: "modified", order: "desc" },
     },
-    enabled ? `apparel.crm.deals.${JSON.stringify({ filters, limit })}` : null,
+    enabled ? `micromax.crm.deals.${JSON.stringify({ filters, limit })}` : null,
   );
 }
 
 /** Single CRM Deal (full document). */
 export function useCrmDeal(name?: string) {
-  return useFrappeGetDoc<CrmDeal>("CRM Deal", name ?? undefined, name ? `apparel.crm.deal.doc.${name}` : null);
+  return useFrappeGetDoc<CrmDeal>("CRM Deal", name ?? undefined, name ? `micromax.crm.deal.doc.${name}` : null);
 }
 
 /** Create / Update / Delete mutations for CRM Deal. */

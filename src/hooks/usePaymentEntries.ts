@@ -41,7 +41,7 @@ export function usePaymentEntries(args?: { filters?: unknown[][]; limit?: number
       limit,
       orderBy: { field: "posting_date", order: "desc" },
     },
-    enabled ? `apparel.pe.${JSON.stringify({ filters, limit })}` : null,
+    enabled ? `micromax.pe.${JSON.stringify({ filters, limit })}` : null,
   );
 }
 
@@ -50,7 +50,7 @@ export function usePaymentEntry(name?: string) {
   return useFrappeGetDoc<PaymentEntry>(
     "Payment Entry",
     name ?? undefined,
-    name ? `apparel.pe.doc.${name}` : null,
+    name ? `micromax.pe.doc.${name}` : null,
   );
 }
 
@@ -166,7 +166,7 @@ export async function getOutstandingReferenceDocuments(args: {
 export function usePaymentEntriesForPurchaseInvoice(piName?: string) {
   const { data: parentNames, isLoading: namesLoading, error: namesError, mutate: refreshNames } =
     useFrappeGetCall<string[]>(
-      "apparel.hooks.get_linked_parent_docs",
+      "micromax.hooks.get_linked_parent_docs",
       piName
         ? {
             doctype: "Payment Entry Reference",
@@ -178,7 +178,7 @@ export function usePaymentEntriesForPurchaseInvoice(piName?: string) {
             extra_filters: JSON.stringify({ reference_doctype: "Purchase Invoice" }),
           }
         : undefined,
-      piName ? `apparel.pe-parents-pi.${piName}` : null,
+      piName ? `micromax.pe-parents-pi.${piName}` : null,
     );
 
   const raw = parentNames as unknown;
@@ -198,7 +198,7 @@ export function usePaymentEntriesForPurchaseInvoice(piName?: string) {
           orderBy: { field: "posting_date", order: "desc" },
         }
       : { filters: [["name", "=", ""]], limit: 0 },
-    names.length > 0 ? `apparel.pe-for-pi.${piName}` : undefined,
+    names.length > 0 ? `micromax.pe-for-pi.${piName}` : undefined,
   );
 
   return {
@@ -223,7 +223,7 @@ export function usePaymentEntriesForPurchaseInvoice(piName?: string) {
 export function usePaymentEntriesForSalesInvoice(siName?: string) {
   const { data: parentNames, isLoading: namesLoading, error: namesError, mutate: refreshNames } =
     useFrappeGetCall<string[]>(
-      "apparel.hooks.get_linked_parent_docs",
+      "micromax.hooks.get_linked_parent_docs",
       siName
         ? {
             doctype: "Payment Entry Reference",
@@ -233,7 +233,7 @@ export function usePaymentEntriesForSalesInvoice(siName?: string) {
             extra_filters: JSON.stringify({ reference_doctype: "Sales Invoice" }),
           }
         : undefined,
-      siName ? `apparel.pe-parents-si.${siName}` : null,
+      siName ? `micromax.pe-parents-si.${siName}` : null,
     );
 
   const raw = parentNames as unknown;
@@ -253,7 +253,7 @@ export function usePaymentEntriesForSalesInvoice(siName?: string) {
           orderBy: { field: "posting_date", order: "desc" },
         }
       : { filters: [["name", "=", ""]], limit: 0 },
-    names.length > 0 ? `apparel.pe-for-si.${siName}` : undefined,
+    names.length > 0 ? `micromax.pe-for-si.${siName}` : undefined,
   );
 
   return {

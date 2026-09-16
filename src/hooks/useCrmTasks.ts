@@ -50,7 +50,7 @@ export function useCrmTasks(args?: {
       limit,
       orderBy: { field: "due_date", order: "asc" },
     },
-    enabled ? `apparel.crm.tasks.${JSON.stringify({ referenceDoctype, referenceDocname, status, dueBefore, limit })}` : null,
+    enabled ? `micromax.crm.tasks.${JSON.stringify({ referenceDoctype, referenceDocname, status, dueBefore, limit })}` : null,
   );
 }
 

@@ -118,7 +118,7 @@ export function EmailPanel({
     ],
     orderBy: { field: "creation", order: "desc" },
     limit: 50,
-  }, referenceDocname ? `apparel.doc.emails.${referenceDocname}` : null);
+  }, referenceDocname ? `micromax.doc.emails.${referenceDocname}` : null);
 
   const send = async () => {
     if (!to.trim() || !subject.trim() || !message.trim()) {
@@ -278,7 +278,7 @@ export function WhatsAppPanel({
   const [to, setTo] = useState(defaultRecipient ?? "");
   const [message, setMessage] = useState("");
 
-  const key = referenceDocname ? `apparel.doc.whatsapp.${referenceDoctype}.${referenceDocname}` : null;
+  const key = referenceDocname ? `micromax.doc.whatsapp.${referenceDoctype}.${referenceDocname}` : null;
   const { data: messages, isLoading, mutate } = useSWR(
     key,
     () => getWhatsAppMessages([[referenceDoctype, referenceDocname!]]),
@@ -437,7 +437,7 @@ export function useLinkedEvents(referenceDoctype: string, referenceDocname?: str
       ["reference_docname", "=", referenceDocname ?? ""],
     ],
     limit: 50,
-  }, referenceDocname ? `apparel.doc.eventparticipants.${referenceDocname}` : null);
+  }, referenceDocname ? `micromax.doc.eventparticipants.${referenceDocname}` : null);
 
   const eventNames = useMemo(
     () => Array.from(new Set((participants.data ?? []).map((p) => p.parent))),
@@ -449,7 +449,7 @@ export function useLinkedEvents(referenceDoctype: string, referenceDocname?: str
     filters: [["name", "in", eventNames]],
     orderBy: { field: "starts_on", order: "asc" },
     limit: 50,
-  }, eventNames.length ? `apparel.doc.events.${eventNames.join(",")}` : null);
+  }, eventNames.length ? `micromax.doc.events.${eventNames.join(",")}` : null);
 
   return {
     events: events.data ?? [],
@@ -490,7 +490,7 @@ export function AttachmentsPanel({
       orderBy: { field: "creation", order: "desc" },
       limit: 50,
     },
-    docname ? `apparel.doc.files.${doctype}.${docname}` : null,
+    docname ? `micromax.doc.files.${doctype}.${docname}` : null,
   );
 
   const handleFile = async (file: File) => {

@@ -6,7 +6,7 @@ import { StatusBadge } from "@/components/common/status-badge";
 import { formatDate } from "@/utils/dates";
 
 /**
- * Import Shipments list (custom Apparel DocType).
+ * Import Shipments list (custom Micromax DocType).
  *
  * Field names must match the ERPNext DocType exactly — Frappe rejects unknown
  * fields in list queries (e.g. customs_status is not a field; use shipment_status).

@@ -69,7 +69,7 @@ function notificationHref(n: CrmNotificationDoc): string | undefined {
 }
 
 function NotificationsBell() {
-  // Open ToDos assigned to the user (created by the apparel LC alert
+  // Open ToDos assigned to the user (created by the micromax LC alert
   // scheduler) plus CRM follow-up/reminder notifications (assignment/mention
   // hooks in the crm app, and our own crm_reminders scheduled job) share one
   // bell — both are "things assigned or due to you" from the user's POV.
@@ -81,7 +81,7 @@ function NotificationsBell() {
       ["owner", "=", currentUser ?? ""],
     ],
     false,
-    currentUser ? `apparel.todo.count.${currentUser}` : null,
+    currentUser ? `micromax.todo.count.${currentUser}` : null,
     // Poll rather than rely solely on remount/refocus — this header stays
     // mounted across the whole app, so without this the badge would only
     // ever update when the browser tab regains focus.

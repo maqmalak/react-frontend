@@ -45,7 +45,7 @@ export function useCrmNotifications() {
       orderBy: { field: "creation", order: "desc" },
       limit: 30,
     },
-    currentUser ? `apparel.crm.notifications.${currentUser}` : null,
+    currentUser ? `micromax.crm.notifications.${currentUser}` : null,
     { refreshInterval: POLL_INTERVAL_MS },
   );
 

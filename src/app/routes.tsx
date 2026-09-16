@@ -55,6 +55,7 @@ const StockEntriesPage = lazy(() => import("@/pages/Inventory/StockEntriesPage")
 const StockEntryFormPage = lazy(() => import("@/pages/Inventory/StockEntryFormPage").then((m) => ({ default: m.StockEntryFormPage })));
 const StockEntryDetailPage = lazy(() => import("@/pages/Inventory/StockEntryDetailPage").then((m) => ({ default: m.StockEntryDetailPage })));
 const ReportStockLedgerPage = lazy(() => import("@/pages/Inventory/ReportStockLedgerPage").then((m) => ({ default: m.ReportStockLedgerPage })));
+const CompanyWebsitePage = lazy(() => import("@/pages/Website/CompanyWebsitePage").then((m) => ({ default: m.CompanyWebsitePage })));
 const CrmLeadsPage = lazy(() => import("@/pages/CRM/LeadsPage").then((m) => ({ default: m.LeadsPage })));
 const CrmLeadDetailPage = lazy(() => import("@/pages/CRM/LeadDetailPage").then((m) => ({ default: m.LeadDetailPage })));
 const CrmLeadFormPage = lazy(() => import("@/pages/CRM/LeadFormPage").then((m) => ({ default: m.LeadFormPage })));
@@ -136,6 +137,15 @@ export function AppRoutes() {
     <Routes>
       {/* Public */}
       <Route path="/login" element={<LoginPage />} />
+      {/* Marketing site for MicroMax Erp Pvt Ltd — public, code-split. */}
+      <Route
+        path="/website"
+        element={
+          <Suspense fallback={<FullPageLoader />}>
+            <CompanyWebsitePage />
+          </Suspense>
+        }
+      />
 
       {/* Authenticated shell */}
       <Route element={<AppShell />}>

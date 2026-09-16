@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { data: userDoc, isLoading: userLoading } = useFrappeGetDoc<FrappeUser>(
     "User",
     isAuthenticated ? (currentUser as string) : undefined,
-    isAuthenticated ? `apparel.user.${currentUser}` : null,
+    isAuthenticated ? `micromax.user.${currentUser}` : null,
   );
 
   // Roles of the logged-in user (server-evaluated).
@@ -59,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       parent: "User",
       limit_page_length: 0,
     },
-    isAuthenticated ? `apparel.roles.${currentUser}` : null,
+    isAuthenticated ? `micromax.roles.${currentUser}` : null,
   );
 
   const roles = React.useMemo(() => {
@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       fieldname: JSON.stringify(["default_company"]),
       filters: JSON.stringify({}),
     },
-    isAuthenticated ? "apparel.defaults.company" : null,
+    isAuthenticated ? "micromax.defaults.company" : null,
   );
 
   /**

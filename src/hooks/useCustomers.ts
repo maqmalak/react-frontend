@@ -23,7 +23,7 @@ export function useCustomers(args?: { enabled?: boolean; limit?: number; search?
       filters: filters as any,
       ...(orFilters ? { orFilters: orFilters as any } : {}),
     },
-    enabled ? `apparel.customers.${search?.trim() || "all"}.${limit}` : null,
+    enabled ? `micromax.customers.${search?.trim() || "all"}.${limit}` : null,
   );
 }
 

@@ -21,12 +21,12 @@ export function useCrmReferenceLabels() {
   const { data: leads, isLoading: leadsLoading } = useFrappeGetDocList<{ name: string; lead_name?: string }>(
     "CRM Lead",
     { fields: ["name", "lead_name"], limit: 1000 },
-    "apparel.crm.reflabels.leads",
+    "micromax.crm.reflabels.leads",
   );
   const { data: deals, isLoading: dealsLoading } = useFrappeGetDocList<{ name: string; organization?: string }>(
     "CRM Deal",
     { fields: ["name", "organization"], limit: 1000 },
-    "apparel.crm.reflabels.deals",
+    "micromax.crm.reflabels.deals",
   );
 
   const map = useMemo(() => {

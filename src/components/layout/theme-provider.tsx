@@ -7,14 +7,14 @@ export type Theme = "light" | "dark";
 /** Persist and toggle the app theme (Tailwind "dark" class). */
 export function ThemeToggle({ initial }: { initial?: Theme }) {
   const [theme, setTheme] = useState<Theme>(() => {
-    const stored = initial ?? (localStorage.getItem("apparel-theme") as Theme | null);
+    const stored = initial ?? (localStorage.getItem("micromax-theme") as Theme | null);
     if (stored === "light" || stored === "dark") return stored;
     return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   });
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
-    localStorage.setItem("apparel-theme", theme);
+    localStorage.setItem("micromax-theme", theme);
   }, [theme]);
 
   return (
@@ -32,7 +32,7 @@ export function ThemeToggle({ initial }: { initial?: Theme }) {
 
 /** Initializer that reads the persisted theme before first paint. */
 export function applyInitialTheme() {
-  const stored = localStorage.getItem("apparel-theme");
+  const stored = localStorage.getItem("micromax-theme");
   const dark =
     stored === "dark" ||
     (!stored && window.matchMedia?.("(prefers-color-scheme: dark)").matches);

@@ -43,13 +43,13 @@ export function useLCProformas(args?: { filters?: unknown[][]; limit?: number; e
       limit,
       orderBy: { field: "modified", order: "desc" },
     },
-    enabled ? `apparel.lc.${JSON.stringify({ filters, limit })}` : null,
+    enabled ? `micromax.lc.${JSON.stringify({ filters, limit })}` : null,
   );
 }
 
 /** Single LC Proforma (full document with child items). */
 export function useLCProforma(name?: string) {
-  return useFrappeGetDoc<LCProforma>("LC Proforma", name ?? undefined, name ? `apparel.lc.doc.${name}` : null);
+  return useFrappeGetDoc<LCProforma>("LC Proforma", name ?? undefined, name ? `micromax.lc.doc.${name}` : null);
 }
 
 export function useLCProformaCount(filters: unknown[][], enabled = true) {
@@ -57,7 +57,7 @@ export function useLCProformaCount(filters: unknown[][], enabled = true) {
     "LC Proforma",
     filters as any,
     false,
-    enabled ? `apparel.lc.count.${JSON.stringify(filters)}` : null,
+    enabled ? `micromax.lc.count.${JSON.stringify(filters)}` : null,
   );
 }
 

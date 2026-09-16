@@ -24,7 +24,7 @@ export function useVisibleModules(enabled = true) {
       ] as any,
       limit: 0,
     },
-    enabled ? "apparel.workspaces.visible" : null,
+    enabled ? "micromax.workspaces.visible" : null,
   );
 
   const modules = useMemo(() => new Set((data ?? []).map((w) => w.module).filter(Boolean)), [data]);
@@ -58,7 +58,7 @@ export function useModuleDocTypes(modules: string[]) {
       orderBy: { field: "name", order: "asc" },
       limit: 0,
     },
-    modules.length > 0 ? `apparel.doctypes-by-module.${key}` : null,
+    modules.length > 0 ? `micromax.doctypes-by-module.${key}` : null,
   );
 
   const byModule = useMemo(() => {

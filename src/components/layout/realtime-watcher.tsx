@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useFrappeDocTypeEventListener, useFrappeEventListener } from "frappe-react-sdk";
 import {
   REALTIME_DOCTYPES,
-  APPAREL_SERVER_EVENTS,
+  MICROMAX_SERVER_EVENTS,
   DATA_CHANGED_EVENT,
   useRevalidateAll,
 } from "@/hooks/useRealtime";
@@ -31,11 +31,11 @@ export function RealtimeWatcher() {
   useFrappeDocTypeEventListener(REALTIME_DOCTYPES[9], () => revalidateAll());
 
   // Custom server events (e.g. published by scheduler/hooks).
-  useFrappeEventListener(APPAREL_SERVER_EVENTS[0], () => revalidateAll());
-  useFrappeEventListener(APPAREL_SERVER_EVENTS[1], () => revalidateAll());
-  useFrappeEventListener(APPAREL_SERVER_EVENTS[2], () => revalidateAll());
-  useFrappeEventListener(APPAREL_SERVER_EVENTS[3], () => revalidateAll());
-  useFrappeEventListener(APPAREL_SERVER_EVENTS[4], () => revalidateAll());
+  useFrappeEventListener(MICROMAX_SERVER_EVENTS[0], () => revalidateAll());
+  useFrappeEventListener(MICROMAX_SERVER_EVENTS[1], () => revalidateAll());
+  useFrappeEventListener(MICROMAX_SERVER_EVENTS[2], () => revalidateAll());
+  useFrappeEventListener(MICROMAX_SERVER_EVENTS[3], () => revalidateAll());
+  useFrappeEventListener(MICROMAX_SERVER_EVENTS[4], () => revalidateAll());
 
   // Local "data changed" broadcast after mutations performed in this SPA.
   useEffect(() => {

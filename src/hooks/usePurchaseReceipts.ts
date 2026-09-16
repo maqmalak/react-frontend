@@ -38,7 +38,7 @@ export function usePurchaseReceipts(args?: {
       limit,
       orderBy: { field: "modified", order: "desc" },
     },
-    enabled ? `apparel.pr.${JSON.stringify({ filters, limit })}` : null,
+    enabled ? `micromax.pr.${JSON.stringify({ filters, limit })}` : null,
   );
 }
 
@@ -47,7 +47,7 @@ export function usePurchaseReceipt(name?: string) {
   return useFrappeGetDoc<PurchaseReceipt>(
     "Purchase Receipt",
     name ?? undefined,
-    name ? `apparel.pr.doc.${name}` : null,
+    name ? `micromax.pr.doc.${name}` : null,
   );
 }
 
@@ -85,20 +85,20 @@ export function usePurchaseReceiptMutations(onSuccess?: (doc: PurchaseReceipt) =
 export function usePurchaseReceiptsForPO(poName?: string) {
   const { data: parentNames, isLoading: namesLoading, error: namesError, mutate: refreshNames } =
     useFrappeGetCall<string[]>(
-      "apparel.hooks.get_linked_parent_docs",
+      "micromax.hooks.get_linked_parent_docs",
       poName
         ? {
             doctype: "Purchase Receipt Item",
             parenttype: "Purchase Receipt",
             // NOTE: uses the legacy `purchase_order` kwarg — matches the
-            // currently-deployed apparel backend. Once that app is redeployed
+            // currently-deployed micromax backend. Once that app is redeployed
             // with the generalized `link_field`/`link_value` signature (see
-            // apps/apparel/apparel/hooks.py), this can switch over too, but
+            // apps/micromax/micromax/hooks.py), this can switch over too, but
             // the legacy kwarg keeps working either way.
             purchase_order: poName,
           }
         : undefined,
-      poName ? `apparel.pr-parents.${poName}` : null,
+      poName ? `micromax.pr-parents.${poName}` : null,
     );
 
     // frappe-react-sdk's useFrappeGetCall returns the full response envelope,
@@ -120,7 +120,7 @@ export function usePurchaseReceiptsForPO(poName?: string) {
           orderBy: { field: "posting_date", order: "desc" },
         }
       : { filters: [["name", "=", ""]], limit: 0 },
-    names.length > 0 ? `apparel.pr-for-po.${poName}` : undefined,
+    names.length > 0 ? `micromax.pr-for-po.${poName}` : undefined,
   );
 
   return {

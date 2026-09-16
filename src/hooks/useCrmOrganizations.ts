@@ -30,7 +30,7 @@ export function useCrmOrganizations(args?: { filters?: unknown[][]; limit?: numb
       limit,
       orderBy: { field: "modified", order: "desc" },
     },
-    enabled ? `apparel.crm.organizations.${JSON.stringify({ filters, limit })}` : null,
+    enabled ? `micromax.crm.organizations.${JSON.stringify({ filters, limit })}` : null,
   );
 }
 
@@ -38,7 +38,7 @@ export function useCrmOrganization(name?: string) {
   return useFrappeGetDoc<CrmOrganization>(
     "CRM Organization",
     name ?? undefined,
-    name ? `apparel.crm.organization.doc.${name}` : null,
+    name ? `micromax.crm.organization.doc.${name}` : null,
   );
 }
 

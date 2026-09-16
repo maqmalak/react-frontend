@@ -39,7 +39,7 @@ export function usePurchaseOrders(args?: {
       limit,
       orderBy: { field: "modified", order: "desc" },
     },
-    enabled ? `apparel.po.${JSON.stringify({ filters, limit })}` : null,
+    enabled ? `micromax.po.${JSON.stringify({ filters, limit })}` : null,
   );
 }
 
@@ -48,7 +48,7 @@ export function usePurchaseOrder(name?: string) {
   return useFrappeGetDoc<PurchaseOrder>(
     "Purchase Order",
     name ?? undefined,
-    name ? `apparel.po.doc.${name}` : null,
+    name ? `micromax.po.doc.${name}` : null,
   );
 }
 
@@ -57,7 +57,7 @@ export function usePurchaseOrderCount(filters: unknown[][], enabled = true) {
     "Purchase Order",
     filters as any,
     false,
-    enabled ? `apparel.po.count.${JSON.stringify(filters)}` : null,
+    enabled ? `micromax.po.count.${JSON.stringify(filters)}` : null,
   );
 }
 

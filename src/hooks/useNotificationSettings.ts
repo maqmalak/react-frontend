@@ -25,7 +25,7 @@ export function useNotificationSettings() {
   const { data, error, isLoading, mutate } = useFrappeGetDoc<NotificationSettingsDoc>(
     "Notification Settings",
     currentUser ?? undefined,
-    currentUser ? `apparel.notification-settings.${currentUser}` : null,
+    currentUser ? `micromax.notification-settings.${currentUser}` : null,
   );
 
   const { updateDoc: update, loading: saving } = useFrappeUpdateDoc<NotificationSettingsDoc>();

@@ -41,7 +41,7 @@ export function LeadDetailPage() {
     filters: [["lead", "=", name ?? ""]],
     orderBy: { field: "modified", order: "desc" },
     limit: 20,
-  }, name ? `apparel.crm.lead.deals.${name}` : null);
+  }, name ? `micromax.crm.lead.deals.${name}` : null);
   const { events: linkedEvents, isLoading: eventsLoading } = useLinkedEvents("CRM Lead", name);
 
   const connectionGroups: ConnectionGroup[] = [

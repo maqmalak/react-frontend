@@ -9,7 +9,7 @@ import { getCrmDashboard, type CrmDashboardWidgetRaw } from "@/services/api";
  * equivalent generic REST endpoint, so this whitelisted call is required).
  */
 export function useCrmDashboard(range?: { fromDate?: string; toDate?: string }) {
-  const key = `apparel.crm.dashboard.${range?.fromDate ?? ""}.${range?.toDate ?? ""}`;
+  const key = `micromax.crm.dashboard.${range?.fromDate ?? ""}.${range?.toDate ?? ""}`;
   const { data, error, isLoading, mutate } = useSWR<CrmDashboardWidgetRaw[]>(key, () => getCrmDashboard(range));
 
   const widgets: CrmDashboardWidgetRaw[] = Array.isArray(data) ? data : Object.values(data ?? {}) as CrmDashboardWidgetRaw[];

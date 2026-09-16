@@ -34,13 +34,13 @@ export function useSalesInvoices(args?: { filters?: unknown[][]; limit?: number;
       limit,
       orderBy: { field: "modified", order: "desc" },
     },
-    enabled ? `apparel.si.${JSON.stringify({ filters, limit })}` : null,
+    enabled ? `micromax.si.${JSON.stringify({ filters, limit })}` : null,
   );
 }
 
 /** Single Sales Invoice (full document with items). */
 export function useSalesInvoice(name?: string) {
-  return useFrappeGetDoc<SalesInvoice>("Sales Invoice", name ?? undefined, name ? `apparel.si.doc.${name}` : null);
+  return useFrappeGetDoc<SalesInvoice>("Sales Invoice", name ?? undefined, name ? `micromax.si.doc.${name}` : null);
 }
 
 /** Create / Update / Delete mutations. */
@@ -69,7 +69,7 @@ export function useSalesInvoiceMutations(onSuccess?: (doc: SalesInvoice) => void
 function useSalesInvoicesLinkedBy(linkField: string, keyPrefix: string, value?: string) {
   const { data: parentNames, isLoading: namesLoading, error: namesError, mutate: refreshNames } =
     useFrappeGetCall<string[]>(
-      "apparel.hooks.get_linked_parent_docs",
+      "micromax.hooks.get_linked_parent_docs",
       value
         ? {
             doctype: "Sales Invoice Item",
@@ -78,7 +78,7 @@ function useSalesInvoicesLinkedBy(linkField: string, keyPrefix: string, value?: 
             link_value: value,
           }
         : undefined,
-      value ? `apparel.si-parents-${keyPrefix}.${value}` : null,
+      value ? `micromax.si-parents-${keyPrefix}.${value}` : null,
     );
 
   const raw = parentNames as unknown;
@@ -98,7 +98,7 @@ function useSalesInvoicesLinkedBy(linkField: string, keyPrefix: string, value?: 
           orderBy: { field: "posting_date", order: "desc" },
         }
       : { filters: [["name", "=", ""]], limit: 0 },
-    names.length > 0 ? `apparel.si-for-${keyPrefix}.${value}` : undefined,
+    names.length > 0 ? `micromax.si-for-${keyPrefix}.${value}` : undefined,
   );
 
   return {

@@ -51,7 +51,7 @@ export function useChartOfAccounts(company?: string, enabled = true) {
       limit: 0,
       orderBy: { field: "lft", order: "asc" },
     },
-    enabled && company ? `apparel.coa.${company}` : null,
+    enabled && company ? `micromax.coa.${company}` : null,
   );
 }
 
@@ -72,7 +72,7 @@ export function useCostCenters(company?: string, enabled = true) {
       limit: 0,
       orderBy: { field: "name", order: "asc" },
     },
-    enabled ? `apparel.cost-centers.${company ?? "all"}` : null,
+    enabled ? `micromax.cost-centers.${company ?? "all"}` : null,
   );
 }
 
@@ -86,7 +86,7 @@ export function useFiscalYears(enabled = true) {
       limit: 0,
       orderBy: { field: "year_start_date", order: "desc" },
     },
-    enabled ? "apparel.fiscal-years" : null,
+    enabled ? "micromax.fiscal-years" : null,
   );
 }
 
@@ -100,7 +100,7 @@ export function usePaymentTerms(enabled = true) {
       limit: 0,
       orderBy: { field: "name", order: "asc" },
     },
-    enabled ? "apparel.payment-terms" : null,
+    enabled ? "micromax.payment-terms" : null,
   );
 }
 
@@ -114,7 +114,7 @@ export function useModesOfPayment(enabled = true) {
       limit: 0,
       orderBy: { field: "name", order: "asc" },
     },
-    enabled ? "apparel.modes-of-payment" : null,
+    enabled ? "micromax.modes-of-payment" : null,
   );
 }
 
@@ -134,7 +134,7 @@ export function useTaxTemplates(
       limit: 0,
       orderBy: { field: "modified", order: "desc" },
     },
-    enabled ? `apparel.tax-templates.${doctype}.${company ?? "all"}` : null,
+    enabled ? `micromax.tax-templates.${doctype}.${company ?? "all"}` : null,
   );
 }
 
@@ -161,12 +161,12 @@ export function useJournalEntries(args?: { filters?: unknown[][]; limit?: number
       limit,
       orderBy: { field: "posting_date", order: "desc" },
     },
-    enabled ? `apparel.je.${JSON.stringify({ filters, limit })}` : null,
+    enabled ? `micromax.je.${JSON.stringify({ filters, limit })}` : null,
   );
 }
 
 export function useJournalEntry(name?: string) {
-  return useFrappeGetDoc<JournalEntry>("Journal Entry", name ?? undefined, name ? `apparel.je.doc.${name}` : null);
+  return useFrappeGetDoc<JournalEntry>("Journal Entry", name ?? undefined, name ? `micromax.je.doc.${name}` : null);
 }
 
 export function useJournalEntryMutations() {
@@ -298,7 +298,7 @@ async function fetchReportResult(reportName: string, filters: Record<string, unk
  * `isPreparing` staying true a little longer than a normal `isLoading`.
  */
 export function useQueryReport(reportName: string, filters: Record<string, unknown>, enabled = true) {
-  const key = enabled ? `apparel.report.${reportName}.${JSON.stringify(filters)}` : null;
+  const key = enabled ? `micromax.report.${reportName}.${JSON.stringify(filters)}` : null;
   const { data, isLoading, error, mutate } = useFrappeGetCall<{ message: RawQueryReportResponse } | RawQueryReportResponse>(
     "frappe.desk.query_report.run",
     { report_name: reportName, filters: JSON.stringify(filters) },
@@ -465,7 +465,7 @@ export function useMonthlyTrialBalanceTrend(
 ) {
   const months = useMemo(() => (fromDate && toDate ? buildMonthRanges(fromDate, toDate) : []), [fromDate, toDate]);
   const key =
-    enabled && company && fiscalYear && months.length > 0 ? `apparel.report.monthly-trial-balance.${company}.${fiscalYear}.${fromDate}.${toDate}` : null;
+    enabled && company && fiscalYear && months.length > 0 ? `micromax.report.monthly-trial-balance.${company}.${fiscalYear}.${fromDate}.${toDate}` : null;
 
   const { data, error, isLoading, mutate } = useSWR<MonthlyRootActivity[]>(key, async () => {
     // Sequential, not `Promise.all` — firing all N months at once against the

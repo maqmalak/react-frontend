@@ -33,7 +33,7 @@ const BASE_VALUES: Partial<ImportShipment> = {
  * - `/import/shipments/:name/edit`  → update / delete
  *
  * Persists via frappe-react-sdk mutations (cookie/session auth); the form
- * fields mirror the `Import Shipment` DocType JSON in the `apparel` app.
+ * fields mirror the `Import Shipment` DocType JSON in the `micromax` app.
  */
 export function ImportShipmentFormPage() {
   const { name } = useParams<{ name?: string }>();

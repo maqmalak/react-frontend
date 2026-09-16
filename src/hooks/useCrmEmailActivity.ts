@@ -38,7 +38,7 @@ export function useCrmEmailActivity() {
       limit: 5000,
       orderBy: { field: "creation", order: "desc" },
     },
-    "apparel.crm.email-activity",
+    "micromax.crm.email-activity",
   );
 
   const rows: CrmEmailActivityRow[] = useMemo(() => {

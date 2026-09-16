@@ -1,8 +1,8 @@
 import type { FormFieldMeta } from "@/components/forms/field-primitives";
 
 /**
- * ERPNext-style form definitions for the custom Apparel DocTypes.
- * Field names/options mirror the DocType JSON in the `apparel` Frappe app so
+ * ERPNext-style form definitions for the custom micromax DocTypes.
+ * Field names/options mirror the DocType JSON in the `micromax` Frappe app so
  * create/update payloads round-trip correctly through frappe-react-sdk.
  */
 
@@ -574,15 +574,15 @@ export const PAYMENT_ENTRY_DEDUCTION_COLUMNS: FormFieldMeta[] = [
   { fieldname: "description", label: "Description", fieldtype: "Data" },
 ];
 
-// ------------------------------------------------------------ Sales Order (ERPNext standard + apparel export fields)
+// ------------------------------------------------------------ Sales Order (ERPNext standard + micromax export fields)
 
 /**
- * Sales Order fields — core commercial fields plus the apparel app's export
+ * Sales Order fields — core commercial fields plus the micromax app's export
  * custom fields (buyer PO, LC Proforma linkage, shipment/incoterm/destination)
  * already declared on the `SalesOrder` TS type and used read-only today by
  * the Export Orders list. Field types/options match the real custom field
- * definitions in `apps/apparel/apparel/install.py` exactly (e.g. `incoterm`
- * and `shipment_mode` are apparel-defined Selects here, not the core Link).
+ * definitions in `apps/micromax/micromax/install.py` exactly (e.g. `incoterm`
+ * and `shipment_mode` are micromax-defined Selects here, not the core Link).
  */
 export const SALES_ORDER_FIELDS: FormFieldMeta[] = [
   { fieldname: "section_break_so_basic", label: "Basic Information", fieldtype: "Section Break" },
@@ -1028,7 +1028,7 @@ export const CRM_NOTE_FIELDS: FormFieldMeta[] = [
 
 /**
  * `CRM Prospect Scrape` review-queue row — edited by hand before
- * "Convert to Lead" (see `apparel.crm_scraper`). Scraper-filled fields stay
+ * "Convert to Lead" (see `micromax.crm_scraper`). Scraper-filled fields stay
  * editable here since the heuristics are best-effort, not authoritative.
  */
 export const CRM_PROSPECT_SCRAPE_FIELDS: FormFieldMeta[] = [

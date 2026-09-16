@@ -31,7 +31,7 @@ export function useItems(args?: {
       limit,
       orderBy: { field: "item_name", order: "asc" },
     },
-    enabled ? `apparel.items.${JSON.stringify({ filters, limit })}` : null,
+    enabled ? `micromax.items.${JSON.stringify({ filters, limit })}` : null,
   );
 }
 

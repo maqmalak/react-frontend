@@ -29,13 +29,13 @@ export function useStockEntries(args?: { filters?: unknown[][]; limit?: number; 
       limit,
       orderBy: { field: "modified", order: "desc" },
     },
-    enabled ? `apparel.se.${JSON.stringify({ filters, limit })}` : null,
+    enabled ? `micromax.se.${JSON.stringify({ filters, limit })}` : null,
   );
 }
 
 /** Single Stock Entry (full document with items). */
 export function useStockEntry(name?: string) {
-  return useFrappeGetDoc<StockEntry>("Stock Entry", name ?? undefined, name ? `apparel.se.doc.${name}` : null);
+  return useFrappeGetDoc<StockEntry>("Stock Entry", name ?? undefined, name ? `micromax.se.doc.${name}` : null);
 }
 
 /** Create / Update / Delete mutations. */

@@ -70,7 +70,7 @@ function ConnectionButton({ item, employee }: { item: ConnectionItem; employee: 
     item.doctype,
     [["employee", "=", employee]],
     false,
-    `apparel.hr.employee.connections.${item.doctype}.${employee}`,
+    `micromax.hr.employee.connections.${item.doctype}.${employee}`,
   );
   return (
     <button

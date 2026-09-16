@@ -22,7 +22,7 @@ export function useCrmKanban<T extends Record<string, any>>(args: {
   enabled?: boolean;
 }) {
   const { doctype, columnField, filters = {}, kanbanFields, enabled = true } = args;
-  const key = enabled ? `apparel.crm.kanban.${doctype}.${columnField}.${JSON.stringify(filters)}.${JSON.stringify(kanbanFields ?? [])}` : null;
+  const key = enabled ? `micromax.crm.kanban.${doctype}.${columnField}.${JSON.stringify(filters)}.${JSON.stringify(kanbanFields ?? [])}` : null;
 
   const { data, error, isLoading, mutate } = useSWR<CrmKanbanColumnGroup[]>(key, async () => {
     const res = await getCrmKanbanData({ doctype, columnField, filters, kanbanFields });
@@ -39,7 +39,7 @@ export function useCrmKanban<T extends Record<string, any>>(args: {
 
 /** Saved per-user list/kanban view configs (`CRM View Settings`) for a doctype. */
 export function useCrmSavedViews(doctype: string, enabled = true) {
-  const key = enabled ? `apparel.crm.views.${doctype}` : null;
+  const key = enabled ? `micromax.crm.views.${doctype}` : null;
   const { data, error, isLoading, mutate } = useSWR(key, () => getCrmViews(doctype));
   return { data, isLoading, error, mutate };
 }

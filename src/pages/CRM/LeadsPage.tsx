@@ -57,7 +57,7 @@ function LeadTargetWidget() {
     "CRM Lead",
     [["creation", ">=", startOfMonthISO()]],
     false,
-    "apparel.crm.leads.achieved-this-month",
+    "micromax.crm.leads.achieved-this-month",
     { refreshInterval: 60_000 },
   );
 

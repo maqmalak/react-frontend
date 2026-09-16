@@ -1,6 +1,6 @@
 import { SimpleListPage } from "@/pages/common/SimpleListPage";
 
-/** Export Packing Details (custom Apparel DocType). */
+/** Export Packing Details (custom Micromax DocType). */
 export function ExportPackingPage() {
   return (
     <SimpleListPage<Record<string, any>>

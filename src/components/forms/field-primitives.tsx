@@ -198,7 +198,7 @@ export function FrappeLinkField({
       limit,
       orderBy: { field: titleField !== "name" ? titleField : "name", order: "asc" },
     },
-    doctype && open ? `apparel.link.${doctype}.${q || "__all__"}` : null,
+    doctype && open ? `micromax.link.${doctype}.${q || "__all__"}` : null,
   );
 
   React.useEffect(() => {

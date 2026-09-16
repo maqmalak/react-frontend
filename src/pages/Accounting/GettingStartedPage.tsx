@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useCompanyContext, companyFilter } from "@/hooks/useCompanyContext";
 import { cn } from "@/utils/cn";
 
-const VISITED_KEY = "apparel.accounting.onboarding.visited";
+const VISITED_KEY = "micromax.accounting.onboarding.visited";
 
 function readVisited(): Set<string> {
   try {
@@ -117,19 +117,19 @@ export function GettingStartedPage() {
   // Fixed, known set of tracked doctypes — called explicitly (not via .map)
   // so the hook count/order never varies across renders.
   const companyFilterRows = companyFilter(company);
-  const { data: coaCount } = useFrappeGetDocCount("Account", companyFilterRows as any, false, `apparel.onboarding.count.coa.${company ?? ""}`);
+  const { data: coaCount } = useFrappeGetDocCount("Account", companyFilterRows as any, false, `micromax.onboarding.count.coa.${company ?? ""}`);
   const { data: taxCount } = useFrappeGetDocCount(
     "Sales Taxes and Charges Template",
     companyFilterRows as any,
     false,
-    `apparel.onboarding.count.tax.${company ?? ""}`,
+    `micromax.onboarding.count.tax.${company ?? ""}`,
   );
-  const { data: salesCount } = useFrappeGetDocCount("Sales Order", companyFilterRows as any, false, `apparel.onboarding.count.sales.${company ?? ""}`);
+  const { data: salesCount } = useFrappeGetDocCount("Sales Order", companyFilterRows as any, false, `micromax.onboarding.count.sales.${company ?? ""}`);
   const { data: paymentCount } = useFrappeGetDocCount(
     "Payment Entry",
     companyFilterRows as any,
     false,
-    `apparel.onboarding.count.payment.${company ?? ""}`,
+    `micromax.onboarding.count.payment.${company ?? ""}`,
   );
   const countById = new Map<string, number>([
     ["chart-of-accounts", Number(coaCount) || 0],

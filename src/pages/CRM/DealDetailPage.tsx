@@ -38,7 +38,7 @@ export function DealDetailPage() {
     fields: ["name", "lead_name", "status", "email"],
     filters: [["name", "=", deal?.lead ?? "none"]],
     limit: 1,
-  }, deal?.lead ? `apparel.crm.deal.lead.${deal.lead}` : null);
+  }, deal?.lead ? `micromax.crm.deal.lead.${deal.lead}` : null);
   const { events: linkedEvents, isLoading: eventsLoading } = useLinkedEvents("CRM Deal", name);
 
   const connectionGroups: ConnectionGroup[] = [

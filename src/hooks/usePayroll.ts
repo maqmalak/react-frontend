@@ -39,7 +39,7 @@ export function useSalarySlip(name?: string) {
   return useFrappeGetDoc<SalarySlipDoc>(
     "Salary Slip",
     name ?? undefined,
-    name ? `apparel.payroll.salary-slip.${name}` : null,
+    name ? `micromax.payroll.salary-slip.${name}` : null,
   );
 }
 

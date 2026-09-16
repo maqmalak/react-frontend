@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Modern React + TypeScript frontend for ERPNext Apparel Import/Export",
+  "description": "Modern React + TypeScript frontend for ERPNext MicroMax Import/Export",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

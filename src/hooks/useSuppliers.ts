@@ -14,7 +14,7 @@ export function useSuppliers(args?: { enabled?: boolean; limit?: number }) {
       orderBy: { field: "supplier_name", order: "asc" },
       filters: [["disabled", "=", 0]] as unknown as [],
     },
-    enabled ? "apparel.suppliers" : null,
+    enabled ? "micromax.suppliers" : null,
   );
 }
 

@@ -33,7 +33,7 @@ export function useCrmManagement<T extends Record<string, any>>(
   loading: boolean;
 } {
   const { doctype, fields, filters = [], limit = 500, enabled = true, orderBy } = args;
-  const cacheKey = enabled ? `apparel.crm.mgmt.${doctype}.${JSON.stringify({ filters, limit, orderBy })}` : null;
+  const cacheKey = enabled ? `micromax.crm.mgmt.${doctype}.${JSON.stringify({ filters, limit, orderBy })}` : null;
 
   const list = useFrappeGetDocList<T>(
     doctype,

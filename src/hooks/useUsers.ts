@@ -33,13 +33,13 @@ export function useUsers(args?: { search?: string; limit?: number; enabled?: boo
       orderBy: { field: "full_name", order: "asc" },
       ...(orFilters ? { orFilters: orFilters as any } : {}),
     },
-    enabled ? `apparel.users.${search?.trim() || "all"}.${limit}` : null,
+    enabled ? `micromax.users.${search?.trim() || "all"}.${limit}` : null,
   );
 }
 
 /** Single full User doc (includes the `roles` child table). */
 export function useUser(name?: string) {
-  return useFrappeGetDoc<FrappeUser>("User", name ?? undefined, name ? `apparel.user.doc.${name}` : null);
+  return useFrappeGetDoc<FrappeUser>("User", name ?? undefined, name ? `micromax.user.doc.${name}` : null);
 }
 
 /** Create / update mutations for the User doctype, plus a role-assignment helper. */
