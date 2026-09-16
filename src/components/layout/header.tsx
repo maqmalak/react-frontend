@@ -22,7 +22,7 @@ function Breadcrumbs() {
 
   return (
     <nav aria-label="Breadcrumb" className="hidden items-center gap-1 text-xs text-muted-foreground md:flex">
-      <Link to="/" className="transition-colors hover:text-foreground">
+      <Link to="/home" className="transition-colors hover:text-foreground">
         Home
       </Link>
       {segments.map((seg, i) => {

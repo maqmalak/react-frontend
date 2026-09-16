@@ -385,6 +385,7 @@ export const NAVIGATION: NavGroup[] = Object.values(APP_NAVIGATION).flat();
 /** Human-readable breadcrumb segments for a pathname. */
 export const ROUTE_TITLES: Record<string, string> = {
   "": "Desktop",
+  home: "Desktop",
   dashboard: "Dashboard",
   admin: "Administration",
   users: "Users",

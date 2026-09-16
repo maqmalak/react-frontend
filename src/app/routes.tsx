@@ -139,7 +139,7 @@ export function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       {/* Marketing site for MicroMax Erp Pvt Ltd — public, code-split. */}
       <Route
-        path="/website"
+        path="/"
         element={
           <Suspense fallback={<FullPageLoader />}>
             <CompanyWebsitePage />
@@ -149,7 +149,7 @@ export function AppRoutes() {
 
       {/* Authenticated shell */}
       <Route element={<AppShell />}>
-        <Route index element={<DesktopPage />} />
+        <Route path="home" element={<DesktopPage />} />
         <Route path="dashboard" element={<DashboardPage />} />
 
         {/* Import */}
@@ -396,7 +396,7 @@ export function AppRoutes() {
           }
         />
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/home" replace />} />
       </Route>
     </Routes>
   );

@@ -23,7 +23,7 @@ export function RequireRole({ roles, children }: { roles: string[]; children: Re
         title="Access restricted"
         description={`This area requires the ${roles.join(" or ")} role.`}
         actionLabel="Back to Desktop"
-        onAction={() => navigate("/")}
+        onAction={() => navigate("/home")}
       />
     );
   }

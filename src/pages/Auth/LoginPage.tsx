@@ -55,7 +55,7 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const from = (location.state as { from?: string } | null)?.from || "/";
+  const from = (location.state as { from?: string } | null)?.from || "/home";
 
   // Already signed in (or just finished login) — leave the login screen.
   useEffect(() => {
@@ -274,7 +274,7 @@ export function LoginPage() {
 
         <p className="mt-8 text-xs text-muted-foreground">
           Powered by MicroMax ·{" "}
-          <Link to="/website" className="font-medium text-primary hover:underline">
+          <Link to="/" className="font-medium text-primary hover:underline">
             Company profile &amp; modules
           </Link>
         </p>

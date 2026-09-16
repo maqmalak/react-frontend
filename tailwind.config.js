@@ -9,6 +9,10 @@ export default {
       screens: { "2xl": "1440px" },
     },
     extend: {
+      spacing: {
+        13: "3.25rem",
+        15: "3.75rem",
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

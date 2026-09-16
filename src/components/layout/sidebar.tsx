@@ -18,7 +18,7 @@ function navLinkClass({ isActive }: { isActive: boolean }) {
 function BackToDesktop({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="border-b border-white/10 px-3 py-3">
-      <NavLink to="/" end onClick={onNavigate} className={navLinkClass}>
+      <NavLink to="/home" end onClick={onNavigate} className={navLinkClass}>
         <LayoutGrid className="h-4 w-4 shrink-0" />
         <span className="truncate">Desktop</span>
       </NavLink>

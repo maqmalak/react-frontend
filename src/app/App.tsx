@@ -26,7 +26,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
  * modern presentation layer over the REST/RPC/Socket.IO APIs.
  */
 /** Paths that render without a session (login, and the public website). */
-const PUBLIC_PATHS = ["/login", "/website"];
+const PUBLIC_PATHS = ["/login", "/"];
 
 export default function App() {
   return (

@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Logo } from "@/components/common/logo";
 import { ThemeToggle } from "@/components/layout/theme-provider";
-import { AreaChart, BarChart } from "@/components/charts/charts";
+import { AreaChart, BarChart, DonutChart } from "@/components/charts/charts";
 import { cn } from "@/utils/cn";
 import {
   BI_GOVERNANCE,
@@ -28,6 +28,7 @@ import {
   BI_PIPELINE,
   BI_PLATFORMS,
   COMPANY,
+  DASHBOARDS,
   HERO_KPIS,
   HERO_TREND,
   INDUSTRIES,
@@ -40,6 +41,7 @@ const SECTIONS = [
   { id: "profile", label: "Company" },
   { id: "industries", label: "Industries" },
   { id: "modules", label: "Modules" },
+  { id: "dashboards", label: "Dashboards" },
   { id: "bi", label: "Business Intelligence" },
   { id: "contact", label: "Contact" },
 ];
@@ -174,7 +176,7 @@ function HeroSection() {
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Button variant="primary" size="lg" onClick={() => navigate("/")}>
+            <Button variant="primary" size="lg" onClick={() => navigate("/home")}>
               Open the ERP
               <ArrowRight className="h-4 w-4" />
             </Button>
@@ -502,6 +504,159 @@ function ModulesSection() {
 }
 
 /**
+ * Renders whichever chart a dashboard snapshot declares. The `chart` field
+ * is a discriminated union on `kind`, so TypeScript narrows to the right
+ * branch — a donut dashboard cannot be given bar series, and vice versa.
+ */
+function DashboardChartView({ chart }: { chart: (typeof DASHBOARDS)[number]["chart"] }) {
+  if (chart.kind === "donut") {
+    return <DonutChart data={chart.slices} height={236} legend />;
+  }
+  if (chart.kind === "area") {
+    return (
+      <AreaChart data={chart.data} xKey={chart.xKey} series={chart.series} height={236} legend />
+    );
+  }
+  return <BarChart data={chart.data} xKey={chart.xKey} series={chart.series} height={236} legend />;
+}
+
+/**
+ * Dashboard snapshots — the standard screens we hand over, one tab each.
+ * Figures are static illustrative samples (no API calls from a public
+ * page); the panel says so rather than implying live numbers.
+ */
+function DashboardsSection() {
+  const [activeId, setActiveId] = useState(DASHBOARDS[0].id);
+  const dashboard = DASHBOARDS.find((d) => d.id === activeId) ?? DASHBOARDS[0];
+  const Icon = dashboard.icon;
+
+  return (
+    <section
+      id="dashboards"
+      className={cn("border-t border-border/70 dark:border-white/10", SECTION_CLASS)}
+    >
+      <div className="mx-auto w-full max-w-6xl px-4 py-16 lg:py-20">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <SectionHeading
+            eyebrow="Dashboard snapshots"
+            title="The screens your team runs the business from"
+            description="Each dashboard ships ready to use on your own data — the same figures drive the on-screen view, the Power BI model and the Grafana panels."
+          />
+          <Badge variant="outline" className="w-fit px-3 py-1">
+            {DASHBOARDS.length} dashboards
+          </Badge>
+        </div>
+
+        {/* Dashboard switcher — wraps on desktop, scrolls on narrow screens. */}
+        <div className="-mx-4 mt-8 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+          {DASHBOARDS.map((item) => {
+            const ItemIcon = item.icon;
+            const isActive = item.id === dashboard.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setActiveId(item.id)}
+                aria-pressed={isActive}
+                className={cn(
+                  "flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-medium transition-colors",
+                  isActive
+                    ? "border-primary/40 bg-primary/10 text-primary"
+                    : "border-border/70 bg-card/60 text-muted-foreground hover:border-primary/30 hover:text-foreground dark:border-white/10 dark:bg-white/5",
+                )}
+              >
+                <ItemIcon className="h-3.5 w-3.5" />
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <Card className="mt-6 animate-fade-in p-5 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <span
+                className={cn(
+                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
+                  dashboard.tone,
+                )}
+              >
+                <Icon className="h-5 w-5" />
+              </span>
+              <div>
+                <h3 className="text-base font-semibold">{dashboard.label}</h3>
+                <p className="text-xs text-muted-foreground">{dashboard.subtitle}</p>
+              </div>
+            </div>
+            <Badge variant="info" dot>
+              Illustrative snapshot
+            </Badge>
+          </div>
+
+          <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+            {dashboard.description}
+          </p>
+
+          {/* Headline figures */}
+          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {dashboard.kpis.map((kpi) => (
+              <div
+                key={kpi.label}
+                className="rounded-lg border border-border/70 bg-card/60 p-3.5 dark:border-white/10 dark:bg-white/5"
+              >
+                <p className="text-[11px] font-medium text-muted-foreground">{kpi.label}</p>
+                <p className="mt-1 flex items-baseline gap-1.5 text-xl font-semibold tabular-nums">
+                  {kpi.value}
+                  <span
+                    className={cn(
+                      "inline-flex items-center text-[11px] font-medium",
+                      kpi.up ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500",
+                    )}
+                  >
+                    {kpi.up ? (
+                      <TrendingUp className="h-3 w-3" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3" />
+                    )}
+                    {kpi.delta}
+                  </span>
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+            <div className="rounded-lg border border-border/70 bg-card/40 p-4 dark:border-white/10 dark:bg-white/5">
+              <p className="mb-3 text-xs font-medium text-muted-foreground">
+                {dashboard.chart.caption}
+              </p>
+              <DashboardChartView chart={dashboard.chart} />
+            </div>
+
+            <div className="rounded-lg border border-dashed border-border/70 p-4 dark:border-white/10">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                What it answers
+              </p>
+              <ul className="mt-3 space-y-2">
+                {dashboard.insights.map((insight) => (
+                  <li
+                    key={insight}
+                    className="flex items-start gap-2 text-xs text-muted-foreground"
+                  >
+                    <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                    <span className="leading-relaxed">{insight}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </section>
+  );
+}
+
+/**
  * Business Intelligence — the two platforms we ship on top of ERP data.
  * Power BI covers governed analytical reporting; Grafana covers real-time
  * operational monitoring and alerting.
@@ -770,6 +925,7 @@ export function CompanyWebsitePage() {
         <ProfileSection />
         <IndustriesSection />
         <ModulesSection />
+        <DashboardsSection />
         <BiSection />
         <ContactSection />
       </main>

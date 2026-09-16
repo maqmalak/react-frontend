@@ -4,6 +4,7 @@ import {
   Boxes,
   Calculator,
   ChartColumn,
+  CircleDollarSign,
   CircuitBoard,
   Cloud,
   CreditCard,
@@ -21,6 +22,7 @@ import {
   Network,
   Package,
   Route,
+  Scale,
   ScrollText,
   Server,
   ServerCog,
@@ -76,7 +78,7 @@ export const COMPANY = {
   facts: [
     { label: "Legal name", value: "MicroMax Erp Pvt Ltd" },
     { label: "Product", value: "MicroMax ERP Suite (ERP / BI Analytics, Datacenter, Virtualization)" },
-    { label: "Focus", value: "Buying & Selling trading, manufacturing, distribution, POS, Hospital, Education" },
+    { label: "Focus", value: "Import & Export, trading, manufacturing, distribution, POS, Hospital, Education" },
     { label: "Deployment", value: "On-prem datacenter, virtualized or managed cloud" },
     { label: "Analytics", value: "Microsoft Power BI + Grafana" },
     { label: "Support", value: "Implementation, training and AMC" },
@@ -628,4 +630,302 @@ export const BI_MOCK_SERIES: { day: string; docs: number; alerts: number }[] = [
   { day: "Fri", docs: 158, alerts: 4 },
   { day: "Sat", docs: 96, alerts: 1 },
   { day: "Sun", docs: 41, alerts: 0 },
+];
+
+/* ------------------------------------------------------------------ *
+ * Dashboard snapshots
+ *
+ * The shipped dashboards, one card each: three headline figures, a chart
+ * and the questions the screen answers. Numbers are illustrative samples
+ * (static, no API calls) and the page marks them as previews.
+ * ------------------------------------------------------------------ */
+
+/** KPI tile on a dashboard snapshot. */
+export interface DashboardKpi {
+  label: string;
+  value: string;
+  delta: string;
+  up: boolean;
+}
+
+/** Chart config — a discriminated union so the renderer can narrow on `kind`. */
+export type DashboardChart =
+  | {
+      kind: "bar";
+      caption: string;
+      xKey: string;
+      data: Record<string, string | number>[];
+      series: { key: string; label: string }[];
+    }
+  | {
+      kind: "area";
+      caption: string;
+      xKey: string;
+      data: Record<string, string | number>[];
+      series: { key: string; label: string }[];
+    }
+  | {
+      kind: "donut";
+      caption: string;
+      slices: { label: string; value: number }[];
+    };
+
+export interface Dashboard {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  subtitle: string;
+  description: string;
+  kpis: DashboardKpi[];
+  chart: DashboardChart;
+  /** What this screen lets a user decide. */
+  insights: string[];
+  tone: string;
+}
+
+export const DASHBOARDS: Dashboard[] = [
+  {
+    id: "profit-loss",
+    label: "Profit & Loss",
+    icon: CircleDollarSign,
+    subtitle: "Revenue, cost and margin by period",
+    description:
+      "Income and expense accounts rolled up by month, company, cost centre and currency, with the margin trend on the same screen.",
+    kpis: [
+      { label: "Revenue", value: "4.82M", delta: "+12.4%", up: true },
+      { label: "Gross margin", value: "27.6%", delta: "+1.8pt", up: true },
+      { label: "Net profit", value: "742K", delta: "+9.1%", up: true },
+    ],
+    chart: {
+      kind: "bar",
+      caption: "Revenue vs. expense, last 6 months (K)",
+      xKey: "month",
+      data: [
+        { month: "Jan", revenue: 620, expense: 468 },
+        { month: "Feb", revenue: 684, expense: 502 },
+        { month: "Mar", revenue: 731, expense: 529 },
+        { month: "Apr", revenue: 768, expense: 551 },
+        { month: "May", revenue: 812, expense: 574 },
+        { month: "Jun", revenue: 856, expense: 601 },
+      ],
+      series: [
+        { key: "revenue", label: "Revenue" },
+        { key: "expense", label: "Expense" },
+      ],
+    },
+    insights: [
+      "Month-on-month and year-on-year comparison",
+      "Profitability by company, cost centre and currency",
+      "Drill from a line straight to the ledger voucher",
+      "Budget vs. actual with variance flags",
+    ],
+    tone: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  },
+  {
+    id: "balance-sheet",
+    label: "Balance Sheet",
+    icon: Scale,
+    subtitle: "Assets, liabilities and working capital",
+    description:
+      "The position statement with asset composition, the balancing check and the ratios a lender or board asks for first.",
+    kpis: [
+      { label: "Total assets", value: "6.31M", delta: "+4.2%", up: true },
+      { label: "Liabilities", value: "2.87M", delta: "-1.6%", up: true },
+      { label: "Current ratio", value: "1.84", delta: "+0.07", up: true },
+    ],
+    chart: {
+      kind: "donut",
+      caption: "Asset composition",
+      slices: [
+        { label: "Inventory", value: 1.42 },
+        { label: "Receivables", value: 2.18 },
+        { label: "Cash & bank", value: 0.94 },
+        { label: "Fixed assets", value: 1.31 },
+        { label: "Advances", value: 0.46 },
+      ],
+    },
+    insights: [
+      "Assets = liabilities + equity balancing check",
+      "Receivable and payable ageing at a glance",
+      "Working capital, current and quick ratios",
+      "Comparative periods and company-wise view",
+    ],
+    tone: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
+  },
+  {
+    id: "production",
+    label: "Production",
+    icon: Factory,
+    subtitle: "Work orders, output and WIP",
+    description:
+      "Planned versus produced quantity by period, with open work orders, on-time completion and work-in-progress valuation.",
+    kpis: [
+      { label: "Open work orders", value: "38", delta: "+4", up: false },
+      { label: "On-time output", value: "92.5%", delta: "+2.1pt", up: true },
+      { label: "WIP value", value: "286K", delta: "-3.4%", up: true },
+    ],
+    chart: {
+      kind: "bar",
+      caption: "Planned vs. produced quantity (units)",
+      xKey: "week",
+      data: [
+        { week: "W1", planned: 1800, produced: 1745 },
+        { week: "W2", planned: 2100, produced: 2010 },
+        { week: "W3", planned: 1950, produced: 1902 },
+        { week: "W4", planned: 2400, produced: 2270 },
+        { week: "W5", planned: 2250, produced: 2196 },
+        { week: "W6", planned: 2600, produced: 2508 },
+      ],
+      series: [
+        { key: "planned", label: "Planned" },
+        { key: "produced", label: "Produced" },
+      ],
+    },
+    insights: [
+      "Work order status: pending, in process, completed",
+      "Material issue versus actual consumption variance",
+      "Machine, shift and operator-wise output",
+      "Rejection and rework trend by process",
+    ],
+    tone: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
+  },
+  {
+    id: "sales",
+    label: "Sales",
+    icon: ShoppingBag,
+    subtitle: "Orders, revenue and achievement",
+    description:
+      "Order value and invoice revenue against target, split by customer, item, territory and salesperson.",
+    kpis: [
+      { label: "Order value", value: "1.94M", delta: "+15.2%", up: true },
+      { label: "Orders", value: "412", delta: "+38", up: true },
+      { label: "Avg. order", value: "4.7K", delta: "-2.1%", up: false },
+    ],
+    chart: {
+      kind: "area",
+      caption: "Invoiced revenue vs. target, last 6 months (K)",
+      xKey: "month",
+      data: [
+        { month: "Jan", revenue: 248, target: 260 },
+        { month: "Feb", revenue: 276, target: 270 },
+        { month: "Mar", revenue: 302, target: 290 },
+        { month: "Apr", revenue: 318, target: 310 },
+        { month: "May", revenue: 344, target: 330 },
+        { month: "Jun", revenue: 372, target: 350 },
+      ],
+      series: [
+        { key: "revenue", label: "Revenue" },
+        { key: "target", label: "Target" },
+      ],
+    },
+    insights: [
+      "Top customers and item-wise revenue mix",
+      "Territory, salesperson and channel performance",
+      "Quote-to-order and order-to-delivery conversion",
+      "Pending deliveries and overdue order book",
+    ],
+    tone: "bg-green-500/10 text-green-600 dark:text-green-400",
+  },
+  {
+    id: "purchase",
+    label: "Purchase",
+    icon: Package,
+    subtitle: "Spend, suppliers and lead times",
+    description:
+      "Committed and received purchase value, supplier concentration and the lead times behind both.",
+    kpis: [
+      { label: "PO value", value: "1.28M", delta: "+7.9%", up: false },
+      { label: "Open POs", value: "76", delta: "-6", up: true },
+      { label: "Avg. lead time", value: "12.4d", delta: "-1.3d", up: true },
+    ],
+    chart: {
+      kind: "bar",
+      caption: "Purchase value by category, last 6 months (K)",
+      xKey: "month",
+      data: [
+        { month: "Jan", raw: 142, packing: 38 },
+        { month: "Feb", raw: 168, packing: 44 },
+        { month: "Mar", raw: 155, packing: 41 },
+        { month: "Apr", raw: 184, packing: 49 },
+        { month: "May", raw: 176, packing: 46 },
+        { month: "Jun", raw: 198, packing: 52 },
+      ],
+      series: [
+        { key: "raw", label: "Raw material" },
+        { key: "packing", label: "Packing" },
+      ],
+    },
+    insights: [
+      "Supplier-wise spend and concentration risk",
+      "Rate comparison against the last purchase",
+      "Pending receipts and partially received POs",
+      "Payable ageing and payment-due forecast",
+    ],
+    tone: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  },
+  {
+    id: "costing",
+    label: "Costing",
+    icon: Calculator,
+    subtitle: "Landed cost and cost build-up",
+    description:
+      "What each unit actually costs once material, labour, freight, duty and overhead are allocated — and how far that moved this period.",
+    kpis: [
+      { label: "Avg. landed cost", value: "18.42", delta: "+1.9%", up: false },
+      { label: "Cost variance", value: "2.3%", delta: "-0.6pt", up: true },
+      { label: "Gross margin", value: "27.6%", delta: "+1.8pt", up: true },
+    ],
+    chart: {
+      kind: "donut",
+      caption: "Cost build-up per unit",
+      slices: [
+        { label: "Material", value: 10.9 },
+        { label: "Labour", value: 3.1 },
+        { label: "Freight", value: 1.7 },
+        { label: "Duty & clearing", value: 1.8 },
+        { label: "Overhead", value: 0.92 },
+      ],
+    },
+    insights: [
+      "Landed cost allocation from the import cost sheet",
+      "Conversion cost per work order and per process",
+      "Item-wise margin after true landed cost",
+      "What-if costing against alternate suppliers",
+    ],
+    tone: "bg-teal-500/10 text-teal-600 dark:text-teal-400",
+  },
+  {
+    id: "stock",
+    label: "Stock",
+    icon: Warehouse,
+    subtitle: "Balances, movement and turnover",
+    description:
+      "Closing stock value by warehouse, movement velocity and the exceptions — reorder levels, slow movers and expiring batches.",
+    kpis: [
+      { label: "Stock value", value: "1.42M", delta: "+6.4%", up: true },
+      { label: "Active items", value: "3,180", delta: "+120", up: true },
+      { label: "Turnover", value: "4.6x", delta: "+0.3x", up: true },
+    ],
+    chart: {
+      kind: "bar",
+      caption: "Closing stock value by warehouse (K)",
+      xKey: "warehouse",
+      data: [
+        { warehouse: "Main", value: 486 },
+        { warehouse: "Raw", value: 328 },
+        { warehouse: "WIP", value: 142 },
+        { warehouse: "FG", value: 264 },
+        { warehouse: "Reject", value: 38 },
+        { warehouse: "Transit", value: 162 },
+      ],
+      series: [{ key: "value", label: "Stock value" }],
+    },
+    insights: [
+      "Warehouse and item-wise closing balance",
+      "Below-reorder and overstock alerts",
+      "Slow-moving and non-moving item ageing",
+      "Batch expiry watchlist and stock ledger drill-down",
+    ],
+    tone: "bg-slate-500/10 text-slate-600 dark:text-slate-400",
+  },
 ];

@@ -10,7 +10,7 @@ import { APP_NAVIGATION, APP_LABELS, appSegmentForPath } from "@/app/navigation"
  * Authenticated application shell: header + routed content, with a sidebar
  * scoped to whichever app the current route belongs to.
  *
- * The Desktop launcher (`/`) is the one route with no app context, so it
+ * The Desktop launcher (`/home`) is the one route with no app context, so it
  * renders full-width with no sidebar at all — the sidebar only appears once
  * you're inside a specific app, showing just that app's own nav.
  */
