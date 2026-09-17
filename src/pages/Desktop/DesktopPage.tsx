@@ -51,6 +51,11 @@ export function DesktopPage() {
   );
   const { byModule } = useModuleDocTypes(allModules);
   const featuresFor = (app: (typeof APPS)[number]) => {
+    // Curated bullets (copied from the public website's module catalogue)
+    // take priority — real doctype names are accurate but not necessarily
+    // the module's most meaningful ones (e.g. Accounting's first few
+    // doctypes alphabetically are setup tables, not Journal Entry).
+    if (app.features) return app.features;
     if (!app.module) return undefined;
     const names = app.module.flatMap((m) => byModule.get(m) ?? []);
     return names.length > 0 ? [...new Set(names)].slice(0, FEATURES_PER_APP) : undefined;

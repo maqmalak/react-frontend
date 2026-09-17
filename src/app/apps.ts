@@ -41,6 +41,15 @@ export interface AppTile {
    * always show.
    */
   module?: string[];
+  /**
+   * Curated capability bullets (copied from the public website's module
+   * catalogue, website-data.ts MODULES) shown under the tile's description.
+   * When unset, the Desktop falls back to real, live doctype names for
+   * `module` — accurate, but the first few doctypes ERPNext returns for a
+   * module aren't necessarily its most meaningful ones (e.g. Accounting
+   * surfaced "Account Closing Balance" ahead of "Journal Entry").
+   */
+  features?: string[];
 }
 
 /** Desktop app-launcher — one tile per module, shown after login. */
@@ -60,6 +69,7 @@ export const APPS: AppTile[] = [
     icon: Package,
     to: "/import/material-requests",
     colorClass: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    features: ["Material requests", "RFQ comparison", "Purchase orders", "Purchase receipts & invoices"],
   },
   {
     id: "production",
@@ -68,6 +78,7 @@ export const APPS: AppTile[] = [
     icon: Factory,
     to: "/production/work-orders",
     colorClass: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
+    features: ["Multi-level BOM", "Work orders", "Job cards", "WIP valuation"],
   },
   {
     id: "reports",
@@ -76,6 +87,7 @@ export const APPS: AppTile[] = [
     icon: BarChart3,
     to: "/reports/import",
     colorClass: "bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400",
+    features: ["Stock & GL ledgers", "Ageing analysis", "Shipment registers", "Custom query reports"],
   },
   {
     id: "masters",
@@ -93,6 +105,7 @@ export const APPS: AppTile[] = [
     to: "/accounting",
     colorClass: "bg-red-500/10 text-red-600 dark:text-red-400",
     module: ["Accounts"],
+    features: ["Chart of accounts", "Journal entries", "Trial balance & P&L", "Bank reconciliation"],
   },
   {
     id: "selling",
@@ -102,6 +115,7 @@ export const APPS: AppTile[] = [
     to: "/selling/sales-orders",
     colorClass: "bg-green-500/10 text-green-600 dark:text-green-400",
     module: ["Selling"],
+    features: ["Sales orders", "Delivery notes", "Sales invoices", "Buyer-wise price lists"],
   },
   {
     id: "crm",
@@ -111,6 +125,7 @@ export const APPS: AppTile[] = [
     to: "/crm",
     colorClass: "bg-pink-500/10 text-pink-600 dark:text-pink-400",
     module: ["CRM", "FCRM"],
+    features: ["Leads & deals", "Activities & events", "Targets vs. achievement", "Customer 360"],
   },
   {
     id: "stock",
@@ -119,6 +134,7 @@ export const APPS: AppTile[] = [
     icon: Warehouse,
     to: "/inventory/stock",
     colorClass: "bg-slate-500/10 text-slate-600 dark:text-slate-400",
+    features: ["Multi-warehouse", "Batch & serial tracking", "Stock ledger", "Stock reconciliation"],
   },
   {
     id: "subcontracting",
@@ -155,6 +171,7 @@ export const APPS: AppTile[] = [
     to: "/hr",
     colorClass: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
     module: ["HR"],
+    features: ["Employee records", "Attendance & leave", "Salary structures", "Payroll entries"],
   },
   {
     id: "payroll",
@@ -173,6 +190,7 @@ export const APPS: AppTile[] = [
     to: "/admin/users",
     colorClass: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
     roles: ["System Manager"],
+    features: ["Role-based access", "Field-level permissions", "Audit trail", "Backup & restore"],
   },
   {
     id: "settings",
