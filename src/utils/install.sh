@@ -169,6 +169,11 @@ if ! grep -q "character-set-server" /etc/mysql/my.cnf 2>/dev/null; then
 character-set-client-handshake = FALSE
 character-set-server = utf8mb4
 collation-server = utf8mb4_unicode_ci
+# Frappe's global-search reindex batches many rows into single INSERTs —
+# MariaDB's 16M default is too small once there's real data volume and
+# fails with "Got a packet bigger than 'max_allowed_packet' bytes"
+# (hit exactly this running `bench rebuild-global-search` against real data).
+max_allowed_packet = 256M
 
 [mysql]
 default-character-set = utf8mb4
