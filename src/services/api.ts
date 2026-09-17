@@ -516,55 +516,55 @@ export async function convertCrmLeadToDeal(leadName: string, expectedAmount?: nu
 }
 
 /**
- * `frappe_whatsapp` app integration (this bench's actual WhatsApp app —
- * NOT the official `frappe/whatsapp`, which was swapped out for CRM's own
- * Vue frontend compatibility; see `WhatsAppMessage.type`/`reference_name`
- * below, which follow that app's schema, not the official one's). No custom
- * backend wrapper exists for this app, so — mirroring the Email panel's use
- * of the core `Communication` doctype directly — this calls the generic
- * `frappe.client.get_list` / `frappe.client.insert` methods straight
- * against `WhatsApp Message`. Inserting with `type: "Outgoing"` triggers
- * that doctype's own `before_insert` hook, which dispatches to Meta's Cloud
- * API synchronously — same mechanism Frappe CRM's own WhatsApp tab uses.
+ * `frappe_whatsapp` app integration (this bench's actual WhatsApp app, the
+ * `whatsapp` app in `apps/`). No custom backend wrapper exists for this app,
+ * so — mirroring the Email panel's use of the core `Communication` doctype
+ * directly — this calls the generic `frappe.client.get_list` /
+ * `frappe.client.insert` methods straight against `WhatsApp Message`.
+ * Inserting with `direction: "Outgoing"` triggers that doctype's own
+ * `before_insert` hook, which dispatches to Meta's Cloud API synchronously —
+ * same mechanism Frappe CRM's own WhatsApp tab uses.
+ *
+ * Field names below match the currently-installed schema (confirmed live
+ * against production's `frappe.get_meta("WhatsApp Message")`, `whatsapp`
+ * app tag v1.0.0) — an earlier version of this code used an older schema
+ * (`type`/`reference_name`/`use_template`/`template`/`is_reply`/
+ * `reply_to_message_id`), which the installed app no longer has at all,
+ * causing every request here to 417 with "Field not permitted in query"
+ * on production. `is_reply`, `use_template`/`template` (now `is_template`/
+ * `whatsapp_template`) aren't read anywhere in the UI, so they're just
+ * dropped rather than re-added under their new names.
  */
 export interface WhatsAppMessage {
   name: string;
-  type: "Outgoing" | "Incoming";
+  direction: "Outgoing" | "Incoming";
   to?: string;
   from?: string;
   message: string;
-  status: "Pending" | "Sent" | "Delivered" | "Read" | "Failed" | "Success";
-  is_reply?: 0 | 1;
-  reply_to_message_id?: string;
-  use_template?: 0 | 1;
-  template?: string;
+  status: "Pending" | "Sent" | "Delivered" | "Read" | "Failed";
   reference_doctype?: string;
-  reference_name?: string;
+  reference_docname?: string;
   creation: string;
 }
 
 /** A document's WhatsApp thread — every `WhatsApp Message` linked to it, oldest first. */
 export function getWhatsAppMessages(references: [string, string][]): Promise<WhatsAppMessage[]> {
-  const [referenceDoctype, referenceName] = references[0] ?? [];
+  const [referenceDoctype, referenceDocname] = references[0] ?? [];
   return getCall<WhatsAppMessage[]>("frappe.client.get_list", {
     doctype: "WhatsApp Message",
     filters: JSON.stringify([
       ["reference_doctype", "=", referenceDoctype],
-      ["reference_name", "=", referenceName],
+      ["reference_docname", "=", referenceDocname],
     ]),
     fields: JSON.stringify([
       "name",
-      "type",
+      "direction",
       "to",
       "from",
       "message",
       "status",
-      "is_reply",
-      "reply_to_message_id",
-      "use_template",
-      "template",
       "reference_doctype",
-      "reference_name",
+      "reference_docname",
       "creation",
     ]),
     order_by: "creation asc",
@@ -582,12 +582,12 @@ export async function sendWhatsAppMessage(args: {
   const doc = await postCall<{ name: string }>("frappe.client.insert", {
     doc: JSON.stringify({
       doctype: "WhatsApp Message",
-      type: "Outgoing",
+      direction: "Outgoing",
       content_type: "text",
       to: args.to,
       message: args.message,
       reference_doctype: args.referenceDoctype,
-      reference_name: args.referenceDocname,
+      reference_docname: args.referenceDocname,
     }),
   });
   return doc.name;
