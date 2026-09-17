@@ -56,7 +56,7 @@ export const APPS: AppTile[] = [
   {
     id: "purchase",
     label: "Buying",
-    description: "Material requests, RFQs, purchase orders, receipts and invoices",
+    description: "Procurement from material request to purchase invoice",
     icon: Package,
     to: "/import/material-requests",
     colorClass: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
@@ -64,7 +64,7 @@ export const APPS: AppTile[] = [
   {
     id: "production",
     label: "Production",
-    description: "Work orders and production status",
+    description: "Plan, issue and cost manufacturing on the shop floor",
     icon: Factory,
     to: "/production/work-orders",
     colorClass: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
@@ -72,7 +72,7 @@ export const APPS: AppTile[] = [
   {
     id: "reports",
     label: "Reports",
-    description: "Import, export, shipment and LC reports",
+    description: "Audit-ready registers and query reports across every module",
     icon: BarChart3,
     to: "/reports/import",
     colorClass: "bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400",
@@ -88,7 +88,7 @@ export const APPS: AppTile[] = [
   {
     id: "accounting",
     label: "Accounting",
-    description: "Chart of accounts, journal entries, ledgers and financial statements",
+    description: "Multi-currency books, tax compliance and closed-loop reporting",
     icon: Landmark,
     to: "/accounting",
     colorClass: "bg-red-500/10 text-red-600 dark:text-red-400",
@@ -97,7 +97,7 @@ export const APPS: AppTile[] = [
   {
     id: "selling",
     label: "Selling",
-    description: "Sales orders, delivery notes, sales invoices, LC proforma and export shipments",
+    description: "Order to cash for domestic and export customers",
     icon: ShoppingBag,
     to: "/selling/sales-orders",
     colorClass: "bg-green-500/10 text-green-600 dark:text-green-400",
@@ -106,7 +106,7 @@ export const APPS: AppTile[] = [
   {
     id: "crm",
     label: "CRM",
-    description: "Leads, opportunities and customer engagement",
+    description: "Pipeline from first enquiry to repeat order",
     icon: Handshake,
     to: "/crm",
     colorClass: "bg-pink-500/10 text-pink-600 dark:text-pink-400",
@@ -115,7 +115,7 @@ export const APPS: AppTile[] = [
   {
     id: "stock",
     label: "Stock",
-    description: "Stock balances, material movement, warehouses and stock ledger",
+    description: "Real-time stock across warehouses, batches and serials",
     icon: Warehouse,
     to: "/inventory/stock",
     colorClass: "bg-slate-500/10 text-slate-600 dark:text-slate-400",
@@ -150,7 +150,7 @@ export const APPS: AppTile[] = [
   {
     id: "hr",
     label: "HR",
-    description: "Employee records, attendance and leave",
+    description: "People, attendance and salary in the same system as the ledger",
     icon: Users2,
     to: "/hr",
     colorClass: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
@@ -168,7 +168,7 @@ export const APPS: AppTile[] = [
   {
     id: "admin",
     label: "Administration",
-    description: "Users, roles and access control",
+    description: "Users, roles and audit trail for a compliant deployment",
     icon: ShieldCheck,
     to: "/admin/users",
     colorClass: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
