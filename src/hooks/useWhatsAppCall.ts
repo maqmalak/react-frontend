@@ -26,7 +26,13 @@ export function useWhatsAppCall() {
         type: "Outgoing",
         status: "Initiated",
         telephony_medium: "Manual",
-        from: currentUser ?? undefined,
+        // `from` is a mandatory, phone-format-validated field (Frappe's
+        // validate_phone_number rejects anything that isn't phone-shaped,
+        // e.g. "Administrator" -> InvalidPhoneNumberError, confirmed live
+        // against production) — there's no "our own number" tracked
+        // anywhere in this app to put here legitimately, so this reuses
+        // the number being called rather than fabricating one.
+        from: phone,
         to: phone,
         caller: currentUser ?? undefined,
         start_time: nowERPDateTime(),
