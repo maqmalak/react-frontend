@@ -182,6 +182,14 @@ log "Verifying the supplied MariaDB root password"
 mysql -u root -p"${MARIADB_ROOT_PASSWORD}" -e "SELECT 1;" >/dev/null 2>&1 \
   || die "Could not log into MariaDB as root with the given MARIADB_ROOT_PASSWORD. Use the exact password you set in mysql_secure_installation."
 
+log "Ensuring ${FRAPPE_USER} owns their entire home directory"
+# Self-heals any files/dirs left root-owned by an earlier manual command run
+# without the as_frappe/as_frappe_sh wrappers (e.g. a stray `sudo uv ...`) —
+# tools like `uv tool install --force` fail with a plain "Permission denied"
+# trying to remove such a directory, with no hint that ownership is the
+# actual problem, so this runs unconditionally rather than only on error.
+chown -R "${FRAPPE_USER}:${FRAPPE_USER}" "$FRAPPE_HOME"
+
 log "Allowing nginx (www-data) to traverse into ${FRAPPE_HOME}"
 chmod -R o+rx "$FRAPPE_HOME"
 
@@ -195,11 +203,36 @@ PYTHON_BIN="$(as_frappe "${UV_BIN_DIR}/uv" python find "$PYTHON_VERSION")"
 [[ -n "$PYTHON_BIN" ]] || die "uv could not resolve a python ${PYTHON_VERSION} interpreter."
 
 log "Installing Node ${NODE_MAJOR} via nvm"
-if [[ ! -d "${FRAPPE_HOME}/.nvm" ]]; then
-  as_frappe bash -c 'curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash'
+if [[ -s "${FRAPPE_HOME}/.nvm/nvm.sh" ]]; then
+  log "nvm already installed at ${FRAPPE_HOME}/.nvm — skipping installer"
+else
+  as_frappe bash -c 'curl -fsSL -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash' \
+    || die "nvm installer failed — check this server has outbound internet access to raw.githubusercontent.com/github.com (as ${FRAPPE_USER}: curl -I https://raw.githubusercontent.com)."
+  [[ -s "${FRAPPE_HOME}/.nvm/nvm.sh" ]] \
+    || die "nvm installer reported success but ${FRAPPE_HOME}/.nvm/nvm.sh still doesn't exist — inspect ${FRAPPE_HOME}/.nvm by hand."
 fi
-as_frappe bash -c "export NVM_DIR=\"\$HOME/.nvm\"; [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"; nvm install ${NODE_MAJOR}; nvm alias default ${NODE_MAJOR}"
-NODE_BIN_DIR="$(as_frappe bash -c "export NVM_DIR=\"\$HOME/.nvm\"; . \"\$NVM_DIR/nvm.sh\"; nvm use ${NODE_MAJOR} >/dev/null 2>&1; dirname \"\$(command -v node)\"")"
+# Bake the already-resolved absolute path in as a literal from install.sh's
+# own scope instead of re-deriving "$HOME/.nvm" inside the nested shell —
+# on at least one real server, `sudo -iu ... bash -c '... $HOME ...'`
+# produced an empty $HOME at the point nvm.sh was sourced (root cause not
+# fully pinned down; possibly nvm.sh's own self-location logic stepping on
+# it when there's no real backing script file, only a -c string), so this
+# sidesteps that class of bug entirely rather than chasing it further.
+NVM_SH="${FRAPPE_HOME}/.nvm/nvm.sh"
+
+# If node ${NODE_MAJOR} is already installed under nvm, skip `nvm install`/
+# `nvm alias default` entirely — on at least one server those two hit the
+# $HOME bug above even though the version was already there, so it's both
+# unnecessary and actively risky to always re-run them.
+NODE_BIN_DIR="$(as_frappe bash -c "NVM_DIR='${FRAPPE_HOME}/.nvm'; . '${NVM_SH}'; nvm use ${NODE_MAJOR} >/dev/null 2>&1; dirname \"\$(command -v node)\"" 2>/dev/null || true)"
+
+if [[ -n "$NODE_BIN_DIR" && -x "${NODE_BIN_DIR}/node" ]]; then
+  log "Node ${NODE_MAJOR} already installed via nvm at ${NODE_BIN_DIR} — skipping nvm install/alias"
+else
+  as_frappe bash -c "NVM_DIR='${FRAPPE_HOME}/.nvm'; . '${NVM_SH}'; nvm install ${NODE_MAJOR} && nvm alias default ${NODE_MAJOR}" \
+    || die "'nvm install ${NODE_MAJOR}' failed — see the nvm output above."
+  NODE_BIN_DIR="$(as_frappe bash -c "NVM_DIR='${FRAPPE_HOME}/.nvm'; . '${NVM_SH}'; nvm use ${NODE_MAJOR} >/dev/null 2>&1; dirname \"\$(command -v node)\"")"
+fi
 [[ -n "$NODE_BIN_DIR" ]] || die "Could not resolve the nvm-installed node ${NODE_MAJOR} bin directory."
 log "Node resolved at ${NODE_BIN_DIR}"
 

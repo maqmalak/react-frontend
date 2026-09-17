@@ -205,19 +205,19 @@ export function Header({
         </Button>
       )}
 
-      {brand && <Logo className="h-12 w-auto shrink-0" />}
+      {brand && <Logo className="h-8 w-auto shrink-0" />}
       <Breadcrumbs />
 
       <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
         {/* Global search trigger */}
         <button
           onClick={onOpenSearch}
-          className="flex h-8 items-center gap-2 rounded-md border border-input bg-transparent px-2.5 text-xs text-muted-foreground transition-colors hover:bg-accent sm:w-56"
+          className="flex h-10 items-center gap-2 rounded-md border border-input bg-transparent px-3 text-sm text-muted-foreground transition-colors hover:bg-accent sm:w-72"
           aria-label="Open global search"
         >
-          <Search className="h-4 w-4 shrink-0" />
+          <Search className="h-5 w-5 shrink-0" />
           <span className="hidden flex-1 text-left sm:inline">Search…</span>
-          <kbd className="hidden rounded border border-border px-1 py-0.5 font-mono text-[10px] sm:inline">
+          <kbd className="hidden rounded border border-border px-1.5 py-0.5 font-mono text-xs sm:inline">
             Ctrl K
           </kbd>
         </button>

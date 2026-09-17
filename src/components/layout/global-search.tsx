@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { useFrappeGetCall } from "frappe-react-sdk";
+import { useFrappeGetDocList } from "frappe-react-sdk";
 import { Search, CornerDownLeft } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/skeleton";
@@ -10,34 +10,41 @@ import { cn } from "@/utils/cn";
 /**
  * Global search (Ctrl/Cmd + K).
  *
- * Uses Frappe's global search RPC across the DocTypes relevant to Micromax.
- * Results are permission-filtered by ERPNext on the server.
+ * Queries each doctype below directly (name + title field, `or_filters`)
+ * instead of Frappe's generic `global_search.search` RPC. That RPC ranks
+ * hits across *every* indexed doctype by raw frequency, so a term that
+ * happens to appear inside thousands of unrelated documents (e.g. an Item
+ * name quoted inside every Purchase Receipt that ordered it) can crowd the
+ * one Item hit that actually matters out of the top N results entirely —
+ * confirmed live: searching "BOTTLE" returned 20 Purchase Receipt hits and
+ * zero Items, even though "BOTTLE BURSH" is a real Item. Querying each
+ * doctype's own table directly guarantees a match there surfaces.
+ * Results are permission-filtered by ERPNext on the server either way.
  */
 
 interface SearchHit {
   doctype: string;
   name: string;
   label: string;
-  description?: string;
   route: string;
 }
 
-/** DocType -> SPA route builder. */
-const ROUTE_MAP: Record<string, (name: string) => string> = {
-  "LC Proforma": (n) => `/export/lc-proforma/${encodeURIComponent(n)}`,
-  "Export Shipment": (n) => `/export/shipments/${encodeURIComponent(n)}`,
-  "Import Shipment": (n) => `/import/shipments/${encodeURIComponent(n)}`,
-  "Import Cost Sheet": (n) => `/import/cost-sheets/${encodeURIComponent(n)}`,
-  "Sales Order": (n) => `/export/orders/${encodeURIComponent(n)}`,
-  "Purchase Order": () => `/import/purchase-orders`,
-  Item: () => `/masters/items`,
-  Customer: () => `/masters/customers`,
-  Supplier: () => `/masters/suppliers`,
-  "Work Order": () => `/production/work-orders`,
-  "Sales Invoice": () => `/reports/export`,
+/** DocType -> { SPA route builder, field to search/display alongside `name` }. */
+const SEARCH_DOCTYPES: Record<string, { route: (name: string) => string; titleField: string }> = {
+  "LC Proforma": { route: (n) => `/export/lc-proforma/${encodeURIComponent(n)}`, titleField: "proforma_no" },
+  "Export Shipment": { route: (n) => `/export/shipments/${encodeURIComponent(n)}`, titleField: "shipment_no" },
+  "Import Shipment": { route: (n) => `/import/shipments/${encodeURIComponent(n)}`, titleField: "shipment_no" },
+  "Import Cost Sheet": { route: (n) => `/import/cost-sheets/${encodeURIComponent(n)}`, titleField: "name" },
+  "Sales Order": { route: (n) => `/export/orders/${encodeURIComponent(n)}`, titleField: "customer_name" },
+  "Purchase Order": { route: () => `/import/purchase-orders`, titleField: "supplier_name" },
+  Item: { route: () => `/masters/items`, titleField: "item_name" },
+  Customer: { route: () => `/masters/customers`, titleField: "customer_name" },
+  Supplier: { route: () => `/masters/suppliers`, titleField: "supplier_name" },
+  "Work Order": { route: () => `/production/work-orders`, titleField: "production_item" },
+  "Sales Invoice": { route: () => `/reports/export`, titleField: "customer_name" },
+  "CRM Lead": { route: (n) => `/crm/leads/${encodeURIComponent(n)}`, titleField: "lead_name" },
+  "CRM Deal": { route: (n) => `/crm/deals/${encodeURIComponent(n)}`, titleField: "organization" },
 };
-
-const SEARCH_DOCTYPES = Object.keys(ROUTE_MAP);
 
 function useDebounced<T>(value: T, delay = 250): T {
   const [debounced, setDebounced] = React.useState(value);
@@ -64,39 +71,69 @@ export function useGlobalSearchShortcut() {
   return { open, setOpen };
 }
 
+/** One doctype's live-search results — `doctype` is a fixed literal per call site, never changes across renders. */
+function useDoctypeSearch(doctype: string, titleField: string, query: string, enabled: boolean) {
+  const q = query.trim();
+  const active = enabled && q.length > 0;
+  const fields = titleField === "name" ? ["name"] : ["name", titleField];
+  const orFilters = [
+    ["name", "like", `%${q}%`],
+    ...(titleField !== "name" ? [[titleField, "like", `%${q}%`]] : []),
+  ];
+
+  const { data, isLoading } = useFrappeGetDocList<Record<string, unknown>>(
+    doctype,
+    { fields: fields as never, orFilters: orFilters as never, limit: 5 },
+    active ? `micromax.search.${doctype}.${q}` : null,
+  );
+
+  return { doctype, titleField, data: data ?? [], isLoading: active && isLoading };
+}
+
 export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate();
   const [query, setQuery] = React.useState("");
   const debounced = useDebounced(query.trim(), 250);
   const [activeIndex, setActiveIndex] = React.useState(0);
-  const enabled = debounced.length >= 2;
+  const enabled = open && debounced.length >= 2;
 
-  // Cross-doctype global search (permission filtered server-side).
-  const { data, isLoading } = useFrappeGetCall<any>(
-    "frappe.utils.global_search.search",
-    { text: debounced, start: 0, limit: 20 },
-    enabled ? `micromax.search.global.${debounced}` : null,
-  );
+  // Fixed, unconditional set of hook calls — SEARCH_DOCTYPES is a static
+  // compile-time map, never varies in size/order across renders, so this
+  // doesn't violate the rules of hooks despite being "one call per doctype".
+  const groups = [
+    useDoctypeSearch("LC Proforma", SEARCH_DOCTYPES["LC Proforma"].titleField, debounced, enabled),
+    useDoctypeSearch("Export Shipment", SEARCH_DOCTYPES["Export Shipment"].titleField, debounced, enabled),
+    useDoctypeSearch("Import Shipment", SEARCH_DOCTYPES["Import Shipment"].titleField, debounced, enabled),
+    useDoctypeSearch("Import Cost Sheet", SEARCH_DOCTYPES["Import Cost Sheet"].titleField, debounced, enabled),
+    useDoctypeSearch("Sales Order", SEARCH_DOCTYPES["Sales Order"].titleField, debounced, enabled),
+    useDoctypeSearch("Purchase Order", SEARCH_DOCTYPES["Purchase Order"].titleField, debounced, enabled),
+    useDoctypeSearch("Item", SEARCH_DOCTYPES["Item"].titleField, debounced, enabled),
+    useDoctypeSearch("Customer", SEARCH_DOCTYPES["Customer"].titleField, debounced, enabled),
+    useDoctypeSearch("Supplier", SEARCH_DOCTYPES["Supplier"].titleField, debounced, enabled),
+    useDoctypeSearch("Work Order", SEARCH_DOCTYPES["Work Order"].titleField, debounced, enabled),
+    useDoctypeSearch("Sales Invoice", SEARCH_DOCTYPES["Sales Invoice"].titleField, debounced, enabled),
+    useDoctypeSearch("CRM Lead", SEARCH_DOCTYPES["CRM Lead"].titleField, debounced, enabled),
+    useDoctypeSearch("CRM Deal", SEARCH_DOCTYPES["CRM Deal"].titleField, debounced, enabled),
+  ];
+
+  const isLoading = groups.some((g) => g.isLoading);
 
   const results: SearchHit[] = React.useMemo(() => {
-    const rows = (data as any)?.message ?? data ?? [];
-    if (!Array.isArray(rows)) return [];
+    if (!enabled) return [];
     const hits: SearchHit[] = [];
-    rows.forEach((r: any) => {
-      const doctype = r.doctype ?? r.doc_type;
-      const name = r.name ?? r.docname;
-      if (!doctype || !name || !SEARCH_DOCTYPES.includes(doctype)) return;
-      if (hits.some((h) => h.doctype === doctype && h.name === name)) return;
-      hits.push({
-        doctype,
-        name,
-        label: name,
-        description: String(r.content ?? "").replace(/\s+/g, " ").slice(0, 90),
-        route: (ROUTE_MAP[doctype] ?? (() => "/"))(name),
+    groups.forEach((g) => {
+      const meta = SEARCH_DOCTYPES[g.doctype];
+      g.data.forEach((d) => {
+        const name = String(d.name ?? "");
+        if (!name) return;
+        const title = g.titleField !== "name" ? (d[g.titleField] as string | undefined) : undefined;
+        const label = title && title !== name ? `${title} (${name})` : name;
+        hits.push({ doctype: g.doctype, name, label, route: meta.route(name) });
       });
     });
     return hits.slice(0, 20);
-  }, [data]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, ...groups.map((g) => g.data)]);
 
   React.useEffect(() => setActiveIndex(0), [debounced]);
 
@@ -124,15 +161,15 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
 
   return (
     <Dialog open={open} onClose={onClose} size="lg" className="p-0">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-        <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+        <Search className="h-5 w-5 shrink-0 text-muted-foreground" />
         <input
           autoFocus
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onKeyDown}
           placeholder="Search orders, shipments, LCs, items, customers…"
-          className="h-9 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          className="h-11 w-full bg-transparent text-base outline-none placeholder:text-muted-foreground"
         />
         {isLoading && <Spinner className="text-muted-foreground" />}
       </div>
@@ -157,12 +194,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
                 i === activeIndex ? "bg-accent" : "hover:bg-accent/60",
               )}
             >
-              <span className="min-w-0">
-                <span className="block truncate font-medium">{hit.label}</span>
-                {hit.description && (
-                  <span className="block truncate text-xs text-muted-foreground">{hit.description}</span>
-                )}
-              </span>
+              <span className="min-w-0 truncate font-medium">{hit.label}</span>
               <Badge variant="secondary" className="shrink-0">
                 {hit.doctype}
               </Badge>
