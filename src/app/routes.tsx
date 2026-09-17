@@ -7,8 +7,17 @@ import { DashboardPage } from "@/pages/Dashboard/DashboardPage";
 import { LCProformaListPage } from "@/pages/LCProforma/LCProformaListPage";
 import { LCProformaFormPage } from "@/pages/LCProforma/LCProformaFormPage";
 import { ItemsPage } from "@/pages/Masters/ItemsPage";
+import { ItemFormPage } from "@/pages/Masters/ItemFormPage";
+import { ItemGroupsPage } from "@/pages/Masters/ItemGroupsPage";
+import { ItemGroupFormPage } from "@/pages/Masters/ItemGroupFormPage";
 import { CustomersPage } from "@/pages/Masters/CustomersPage";
+import { CustomerFormPage } from "@/pages/Masters/CustomerFormPage";
+import { CustomerGroupsPage } from "@/pages/Masters/CustomerGroupsPage";
+import { CustomerGroupFormPage } from "@/pages/Masters/CustomerGroupFormPage";
 import { SuppliersPage } from "@/pages/Masters/SuppliersPage";
+import { SupplierFormPage } from "@/pages/Masters/SupplierFormPage";
+import { SupplierGroupsPage } from "@/pages/Masters/SupplierGroupsPage";
+import { SupplierGroupFormPage } from "@/pages/Masters/SupplierGroupFormPage";
 import { ComingSoonPage, FullPageLoader } from "@/pages/common/ComingSoonPage";
 import { RequireRole } from "@/components/common/require-role";
 
@@ -23,6 +32,7 @@ const MaterialRequestDetailPage = lazy(() => import("@/pages/Import/MaterialRequ
 const RequestForQuotationsPage = lazy(() => import("@/pages/Import/RequestForQuotationsPage").then((m) => ({ default: m.RequestForQuotationsPage })));
 const RequestForQuotationFormPage = lazy(() => import("@/pages/Import/RequestForQuotationFormPage").then((m) => ({ default: m.RequestForQuotationFormPage })));
 const RequestForQuotationDetailPage = lazy(() => import("@/pages/Import/RequestForQuotationDetailPage").then((m) => ({ default: m.RequestForQuotationDetailPage })));
+const BuyingSettingsPage = lazy(() => import("@/pages/Purchase/BuyingSettingsPage").then((m) => ({ default: m.BuyingSettingsPage })));
 const PurchaseOrdersPage = lazy(() => import("@/pages/Import/PurchaseOrdersPage").then((m) => ({ default: m.PurchaseOrdersPage })));
 const PurchaseOrderFormPage = lazy(() => import("@/pages/Import/PurchaseOrderFormPage").then((m) => ({ default: m.PurchaseOrderFormPage })));
 const PurchaseOrderDetailPage = lazy(() => import("@/pages/Import/PurchaseOrderDetailPage").then((m) => ({ default: m.PurchaseOrderDetailPage })));
@@ -42,6 +52,7 @@ const LandedCostVouchersPage = lazy(() => import("@/pages/Purchase/LandedCostVou
 const LandedCostVoucherFormPage = lazy(() => import("@/pages/Purchase/LandedCostVoucherFormPage").then((m) => ({ default: m.LandedCostVoucherFormPage })));
 const LandedCostVoucherDetailPage = lazy(() => import("@/pages/Purchase/LandedCostVoucherDetailPage").then((m) => ({ default: m.LandedCostVoucherDetailPage })));
 const WorkOrdersPage = lazy(() => import("@/pages/Production/WorkOrdersPage").then((m) => ({ default: m.WorkOrdersPage })));
+const SellingSettingsPage = lazy(() => import("@/pages/Selling/SellingSettingsPage").then((m) => ({ default: m.SellingSettingsPage })));
 const SalesOrdersPage = lazy(() => import("@/pages/Selling/SalesOrdersPage").then((m) => ({ default: m.SalesOrdersPage })));
 const SalesOrderFormPage = lazy(() => import("@/pages/Selling/SalesOrderFormPage").then((m) => ({ default: m.SalesOrderFormPage })));
 const SalesOrderDetailPage = lazy(() => import("@/pages/Selling/SalesOrderDetailPage").then((m) => ({ default: m.SalesOrderDetailPage })));
@@ -64,6 +75,7 @@ const CrmDealDetailPage = lazy(() => import("@/pages/CRM/DealDetailPage").then((
 const CrmDealFormPage = lazy(() => import("@/pages/CRM/DealFormPage").then((m) => ({ default: m.DealFormPage })));
 const CrmDashboardPageLazy = lazy(() => import("@/pages/CRM/DashboardPage").then((m) => ({ default: m.CrmDashboardPage })));
 const CrmSettingsPage = lazy(() => import("@/pages/CRM/SettingsPage").then((m) => ({ default: m.CrmSettingsPage })));
+const HRSettingsPage = lazy(() => import("@/pages/HR/HRSettingsPage").then((m) => ({ default: m.HRSettingsPage })));
 const HrEmployeesPage = lazy(() => import("@/pages/HR/EmployeesPage").then((m) => ({ default: m.default })));
 const HrEmployeeDetailPage = lazy(() => import("@/pages/HR/EmployeeDetailPage").then((m) => ({ default: m.default })));
 const HrDepartmentsPage = lazy(() => import("@/pages/HR/DepartmentsPage").then((m) => ({ default: m.default })));
@@ -78,6 +90,7 @@ const HrExpenseClaimsPage = lazy(() => import("@/pages/HR/ExpenseClaimsPage").th
 const HrEmployeeAdvancesPage = lazy(() => import("@/pages/HR/EmployeeAdvancesPage").then((m) => ({ default: m.default })));
 const HrGratuityPage = lazy(() => import("@/pages/HR/GratuityPage").then((m) => ({ default: m.default })));
 const HrShiftAssignmentsPage = lazy(() => import("@/pages/HR/ShiftAssignmentsPage").then((m) => ({ default: m.default })));
+const PayrollSettingsPage = lazy(() => import("@/pages/Payroll/PayrollSettingsPage").then((m) => ({ default: m.PayrollSettingsPage })));
 const PayrollSalaryComponentsPage = lazy(() => import("@/pages/Payroll/SalaryComponentsPage").then((m) => ({ default: m.default })));
 const PayrollSalaryStructuresPage = lazy(() => import("@/pages/Payroll/SalaryStructuresPage").then((m) => ({ default: m.default })));
 const PayrollSalaryStructureAssignmentsPage = lazy(() => import("@/pages/Payroll/SalaryStructureAssignmentsPage").then((m) => ({ default: m.default })));
@@ -111,10 +124,13 @@ const GettingStartedPage = lazy(() => import("@/pages/Accounting/GettingStartedP
 const NotificationsPage = lazy(() => import("@/pages/Settings/NotificationsPage").then((m) => ({ default: m.NotificationsPage })));
 const ChartOfAccountsPage = lazy(() => import("@/pages/Accounting/ChartOfAccountsPage").then((m) => ({ default: m.ChartOfAccountsPage })));
 const CostCentersPage = lazy(() => import("@/pages/Accounting/CostCentersPage").then((m) => ({ default: m.CostCentersPage })));
+const AccountCategoriesPage = lazy(() => import("@/pages/Accounting/AccountCategoriesPage").then((m) => ({ default: m.AccountCategoriesPage })));
 const FiscalYearsPage = lazy(() => import("@/pages/Accounting/FiscalYearsPage").then((m) => ({ default: m.FiscalYearsPage })));
 const PaymentTermsPage = lazy(() => import("@/pages/Accounting/PaymentTermsPage").then((m) => ({ default: m.PaymentTermsPage })));
 const ModeOfPaymentPage = lazy(() => import("@/pages/Accounting/ModeOfPaymentPage").then((m) => ({ default: m.ModeOfPaymentPage })));
 const TaxTemplatesPage = lazy(() => import("@/pages/Accounting/TaxTemplatesPage").then((m) => ({ default: m.TaxTemplatesPage })));
+const TermsAndConditionsPage = lazy(() => import("@/pages/Accounting/TermsAndConditionsPage").then((m) => ({ default: m.TermsAndConditionsPage })));
+const JournalEntryTemplatePage = lazy(() => import("@/pages/Accounting/JournalEntryTemplatePage").then((m) => ({ default: m.JournalEntryTemplatePage })));
 const JournalEntriesPage = lazy(() => import("@/pages/Accounting/JournalEntriesPage").then((m) => ({ default: m.JournalEntriesPage })));
 const JournalEntryFormPage = lazy(() => import("@/pages/Accounting/JournalEntryFormPage").then((m) => ({ default: m.JournalEntryFormPage })));
 const PaymentEntriesPage = lazy(() => import("@/pages/Accounting/PaymentEntriesPage").then((m) => ({ default: m.PaymentEntriesPage })));
@@ -124,6 +140,10 @@ const ReportTrialBalancePage = lazy(() => import("@/pages/Accounting/ReportTrial
 const ReportBalanceSheetPage = lazy(() => import("@/pages/Accounting/ReportBalanceSheetPage").then((m) => ({ default: m.ReportBalanceSheetPage })));
 const ReportProfitAndLossPage = lazy(() => import("@/pages/Accounting/ReportProfitAndLossPage").then((m) => ({ default: m.ReportProfitAndLossPage })));
 const ReportCashFlowPage = lazy(() => import("@/pages/Accounting/ReportCashFlowPage").then((m) => ({ default: m.ReportCashFlowPage })));
+const AccountsSettingsPage = lazy(() => import("@/pages/Accounting/AccountsSettingsPage").then((m) => ({ default: m.AccountsSettingsPage })));
+const AccountingDimensionsPage = lazy(() => import("@/pages/Accounting/AccountingDimensionsPage").then((m) => ({ default: m.AccountingDimensionsPage })));
+const GeneralSettingsPage = lazy(() => import("@/pages/Settings/GeneralSettingsPage").then((m) => ({ default: m.GeneralSettingsPage })));
+const CompanyPage = lazy(() => import("@/pages/Settings/CompanyPage").then((m) => ({ default: m.CompanyPage })));
 
 
 /**
@@ -162,6 +182,7 @@ export function AppRoutes() {
         <Route path="import/rfqs/new" element={<Suspense fallback={<FullPageLoader />}><RequestForQuotationFormPage /></Suspense>} />
         <Route path="import/rfqs/:name" element={<Suspense fallback={<FullPageLoader />}><RequestForQuotationDetailPage /></Suspense>} />
         <Route path="import/rfqs/:name/edit" element={<Suspense fallback={<FullPageLoader />}><RequestForQuotationFormPage /></Suspense>} />
+        <Route path="purchase/settings" element={<Suspense fallback={<FullPageLoader />}><BuyingSettingsPage /></Suspense>} />
         <Route path="import/purchase-orders" element={<Suspense fallback={<FullPageLoader />}><PurchaseOrdersPage /></Suspense>} />
         <Route path="import/purchase-orders/new" element={<Suspense fallback={<FullPageLoader />}><PurchaseOrderFormPage /></Suspense>} />
         <Route path="import/purchase-orders/:name" element={<Suspense fallback={<FullPageLoader />}><PurchaseOrderDetailPage /></Suspense>} />
@@ -219,14 +240,30 @@ export function AppRoutes() {
 
         {/* Masters */}
         <Route path="masters/items" element={<ItemsPage />} />
+        <Route path="masters/items/new" element={<ItemFormPage />} />
+        <Route path="masters/items/:name" element={<ItemFormPage />} />
+        <Route path="masters/item-groups" element={<ItemGroupsPage />} />
+        <Route path="masters/item-groups/new" element={<ItemGroupFormPage />} />
+        <Route path="masters/item-groups/:name" element={<ItemGroupFormPage />} />
         <Route path="masters/customers" element={<CustomersPage />} />
+        <Route path="masters/customers/new" element={<CustomerFormPage />} />
+        <Route path="masters/customers/:name" element={<CustomerFormPage />} />
+        <Route path="masters/customer-groups" element={<CustomerGroupsPage />} />
+        <Route path="masters/customer-groups/new" element={<CustomerGroupFormPage />} />
+        <Route path="masters/customer-groups/:name" element={<CustomerGroupFormPage />} />
         <Route path="masters/suppliers" element={<SuppliersPage />} />
+        <Route path="masters/suppliers/new" element={<SupplierFormPage />} />
+        <Route path="masters/suppliers/:name" element={<SupplierFormPage />} />
+        <Route path="masters/supplier-groups" element={<SupplierGroupsPage />} />
+        <Route path="masters/supplier-groups/new" element={<SupplierGroupFormPage />} />
+        <Route path="masters/supplier-groups/:name" element={<SupplierGroupFormPage />} />
 
         {/* Accounting */}
         <Route path="accounting" element={<Suspense fallback={<FullPageLoader />}><AccountingDashboardPage /></Suspense>} />
         <Route path="accounting/getting-started" element={<Suspense fallback={<FullPageLoader />}><GettingStartedPage /></Suspense>} />
         <Route path="accounting/chart-of-accounts" element={<Suspense fallback={<FullPageLoader />}><ChartOfAccountsPage /></Suspense>} />
         <Route path="accounting/cost-centers" element={<Suspense fallback={<FullPageLoader />}><CostCentersPage /></Suspense>} />
+        <Route path="accounting/account-categories" element={<Suspense fallback={<FullPageLoader />}><AccountCategoriesPage /></Suspense>} />
         <Route path="accounting/fiscal-years" element={<Suspense fallback={<FullPageLoader />}><FiscalYearsPage /></Suspense>} />
         <Route path="accounting/payment-terms" element={<Suspense fallback={<FullPageLoader />}><PaymentTermsPage /></Suspense>} />
         <Route path="accounting/mode-of-payment" element={<Suspense fallback={<FullPageLoader />}><ModeOfPaymentPage /></Suspense>} />
@@ -246,6 +283,8 @@ export function AppRoutes() {
             </Suspense>
           }
         />
+        <Route path="accounting/terms-and-conditions" element={<Suspense fallback={<FullPageLoader />}><TermsAndConditionsPage /></Suspense>} />
+        <Route path="accounting/journal-entry-templates" element={<Suspense fallback={<FullPageLoader />}><JournalEntryTemplatePage /></Suspense>} />
         <Route path="accounting/journal-entries" element={<Suspense fallback={<FullPageLoader />}><JournalEntriesPage /></Suspense>} />
         <Route path="accounting/journal-entries/new" element={<Suspense fallback={<FullPageLoader />}><JournalEntryFormPage /></Suspense>} />
         <Route path="accounting/journal-entries/:name" element={<Suspense fallback={<FullPageLoader />}><JournalEntryFormPage /></Suspense>} />
@@ -257,12 +296,12 @@ export function AppRoutes() {
         <Route path="accounting/reports/profit-and-loss" element={<Suspense fallback={<FullPageLoader />}><ReportProfitAndLossPage /></Suspense>} />
         <Route path="accounting/reports/balance-sheet" element={<Suspense fallback={<FullPageLoader />}><ReportBalanceSheetPage /></Suspense>} />
         <Route path="accounting/reports/cash-flow" element={<Suspense fallback={<FullPageLoader />}><ReportCashFlowPage /></Suspense>} />
-        <Route path="accounting/setup/settings" element={<ComingSoonPage title="Accounts Settings" description="Company-wide accounting policies — rounding, credit limits, stock/GL sync" />} />
-        <Route path="accounting/setup/dimensions" element={<ComingSoonPage title="Accounting Dimensions" description="Custom dimensions (e.g. Territory, Project) for deeper financial reporting" />} />
+        <Route path="accounting/setup/settings" element={<Suspense fallback={<FullPageLoader />}><AccountsSettingsPage /></Suspense>} />
+        <Route path="accounting/setup/dimensions" element={<Suspense fallback={<FullPageLoader />}><AccountingDimensionsPage /></Suspense>} />
 
         {/* Settings */}
-        <Route path="settings" element={<ComingSoonPage title="Settings" description="Company defaults and workspace preferences" />} />
-        <Route path="settings/company" element={<ComingSoonPage title="Company" description="Default company, fiscal year and address" />} />
+        <Route path="settings" element={<Suspense fallback={<FullPageLoader />}><GeneralSettingsPage /></Suspense>} />
+        <Route path="settings/company" element={<Suspense fallback={<FullPageLoader />}><CompanyPage /></Suspense>} />
         <Route path="settings/notifications" element={<Suspense fallback={<FullPageLoader />}><NotificationsPage /></Suspense>} />
 
         {/* My Account */}
@@ -277,6 +316,7 @@ export function AppRoutes() {
         <Route path="account/security" element={<ComingSoonPage title="Security" description="Password and two-factor authentication" />} />
 
         {/* New module previews (Desktop / login only for now) */}
+        <Route path="selling/settings" element={<Suspense fallback={<FullPageLoader />}><SellingSettingsPage /></Suspense>} />
         <Route path="selling/sales-orders" element={<Suspense fallback={<FullPageLoader />}><SalesOrdersPage /></Suspense>} />
         <Route path="selling/sales-orders/new" element={<Suspense fallback={<FullPageLoader />}><SalesOrderFormPage /></Suspense>} />
         <Route path="selling/sales-orders/:name" element={<Suspense fallback={<FullPageLoader />}><SalesOrderDetailPage /></Suspense>} />
@@ -329,8 +369,13 @@ export function AppRoutes() {
         <Route path="subcontracting" element={<ComingSoonPage title="Subcontracting" description="Subcontracting orders and receipts" />} />
         <Route path="assets" element={<ComingSoonPage title="Assets" description="Fixed asset register, depreciation and maintenance" />} />
         <Route path="support" element={<ComingSoonPage title="Support" description="Issues and customer support tickets" />} />
+        <Route path="pos" element={<ComingSoonPage title="Point of Sale" description="Counter billing posting straight into stock and the ledger" />} />
+        <Route path="hospital" element={<ComingSoonPage title="Hospital & Clinic" description="Patient registration, OPD queue, clinical documentation and billing" />} />
+        <Route path="education" element={<ComingSoonPage title="Education" description="Admissions, academics and fee collection for schools and institutes" />} />
+        <Route path="approvals" element={<ComingSoonPage title="Approvals & Alerts" description="Multi-step document approvals, escalation and SLA reminders" />} />
         {/* HR */}
         <Route path="hr" element={<Navigate to="/hr/employees" replace />} />
+        <Route path="hr/settings" element={<Suspense fallback={<FullPageLoader />}><HRSettingsPage /></Suspense>} />
         <Route path="hr/employees" element={<Suspense fallback={<FullPageLoader />}><HrEmployeesPage /></Suspense>} />
         <Route path="hr/employees/:name" element={<Suspense fallback={<FullPageLoader />}><HrEmployeeDetailPage /></Suspense>} />
         <Route path="hr/departments" element={<Suspense fallback={<FullPageLoader />}><HrDepartmentsPage /></Suspense>} />
@@ -348,6 +393,7 @@ export function AppRoutes() {
 
         {/* Payroll */}
         <Route path="payroll" element={<Navigate to="/payroll/salary-slips" replace />} />
+        <Route path="payroll/settings" element={<Suspense fallback={<FullPageLoader />}><PayrollSettingsPage /></Suspense>} />
         <Route path="payroll/salary-components" element={<Suspense fallback={<FullPageLoader />}><PayrollSalaryComponentsPage /></Suspense>} />
         <Route path="payroll/salary-structures" element={<Suspense fallback={<FullPageLoader />}><PayrollSalaryStructuresPage /></Suspense>} />
         <Route path="payroll/salary-structure-assignments" element={<Suspense fallback={<FullPageLoader />}><PayrollSalaryStructureAssignmentsPage /></Suspense>} />

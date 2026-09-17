@@ -10,6 +10,7 @@ import {
   Search,
   Eye,
   EyeOff,
+  Printer,
 } from "lucide-react";
 import { cn, asNumber } from "@/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, type DropdownItem } from "@/components/ui/dropdown-menu";
 import { ErrorState } from "@/components/common/error-state";
 import { EmptyState } from "@/components/common/empty-state";
-import { exportToExcel, exportToCsv } from "@/utils/export";
+import { exportToExcel, exportToCsv, exportToXlsx } from "@/utils/export";
+import { printRows } from "@/utils/print";
 
 export interface ColumnDef<T> {
   key: string;
@@ -57,6 +59,10 @@ export interface FrappeDataTableProps<T> {
   emptyTitle?: string;
   emptyDescription?: string;
   exportFilename?: string;
+  /** Title shown on the printed page / PDF. Defaults to `title`. */
+  printTitle?: string;
+  /** Subtitle line shown under the print/PDF title. Defaults to `subtitle`. */
+  printSubtitle?: string;
   defaultSortKey?: string;
   /** Column keys hidden on first render (still toggleable via the Columns picker). */
   defaultHiddenColumns?: string[];
@@ -98,6 +104,8 @@ export function FrappeDataTable<T extends Record<string, any>>({
   emptyTitle = "No records found",
   emptyDescription,
   exportFilename,
+  printTitle,
+  printSubtitle,
   defaultSortKey,
   defaultHiddenColumns,
   striped,
@@ -282,17 +290,35 @@ export function FrappeDataTable<T extends Record<string, any>>({
               width="w-56"
             />
             {exportFilename && (
-              <DropdownMenu
-                trigger={
-                  <Button variant="ghost" size="sm" className="hover:bg-background hover:shadow-sm">
-                    <Download className="h-4 w-4 text-primary" /> Export
-                  </Button>
-                }
-                items={[
-                  { label: "Export to CSV", onClick: () => exportToCsv(exportColumns, exportRows, exportFilename) },
-                  { label: "Export to Excel", onClick: () => exportToExcel(exportColumns, exportRows, exportFilename) },
-                ]}
-              />
+              <>
+                <DropdownMenu
+                  trigger={
+                    <Button variant="ghost" size="sm" className="hover:bg-background hover:shadow-sm">
+                      <Download className="h-4 w-4 text-primary" /> Export
+                    </Button>
+                  }
+                  items={[
+                    { label: "Export to CSV", onClick: () => exportToCsv(exportColumns, exportRows, exportFilename) },
+                    { label: "Export to Excel (.xlsx)", onClick: () => exportToXlsx(exportColumns, exportRows, exportFilename) },
+                    { label: "Export to Excel (legacy .xls)", onClick: () => exportToExcel(exportColumns, exportRows, exportFilename) },
+                    {
+                      label: "Export to PDF",
+                      onClick: () =>
+                        printRows(printTitle ?? title ?? exportFilename, exportColumns, exportRows, printSubtitle ?? subtitle),
+                    },
+                  ]}
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="hover:bg-background hover:shadow-sm"
+                  onClick={() =>
+                    printRows(printTitle ?? title ?? exportFilename, exportColumns, exportRows, printSubtitle ?? subtitle)
+                  }
+                >
+                  <Printer className="h-4 w-4 text-primary" /> Print
+                </Button>
+              </>
             )}
           </div>
         </div>

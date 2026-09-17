@@ -10,36 +10,38 @@ import { FrappeForm } from "@/components/forms/frappe-form";
 import { type FormFieldMeta } from "@/components/forms/field-primitives";
 import { FrappeDataTable, type ColumnDef } from "@/components/tables/data-table";
 import { ImportDialog } from "@/components/common/import-dialog";
-import { useFiscalYears, useFiscalYearMutations } from "@/hooks/useAccounting";
+import { textPreview } from "@/components/crm/doc-panels";
+import { useTermsAndConditions, useTermsAndConditionsMutations } from "@/hooks/useAccounting";
 import { notifyDataChanged } from "@/hooks/useRealtime";
 import { humanizeError } from "@/services/frappe";
-import { formatDate } from "@/utils/dates";
-import type { FiscalYear } from "@/types/frappe";
+import type { TermsAndConditions } from "@/types/frappe";
 
 const FORM_FIELDS: FormFieldMeta[] = [
-  { fieldname: "year", label: "Year", fieldtype: "Data", reqd: true, placeholder: "e.g. 2026-2027" },
-  { fieldname: "year_start_date", label: "Start Date", fieldtype: "Date", reqd: true },
-  { fieldname: "year_end_date", label: "End Date", fieldtype: "Date", reqd: true },
+  { fieldname: "title", label: "Title", fieldtype: "Data", reqd: true },
+  { fieldname: "terms", label: "Terms", fieldtype: "Text Editor" },
+  { fieldname: "selling", label: "Selling", fieldtype: "Check" },
+  { fieldname: "buying", label: "Buying", fieldtype: "Check" },
   { fieldname: "disabled", label: "Disabled", fieldtype: "Check" },
 ];
 
 const IMPORT_FIELDS = [
-  { fieldname: "year", label: "Year", required: true },
-  { fieldname: "year_start_date", label: "Start Date", required: true },
-  { fieldname: "year_end_date", label: "End Date", required: true },
+  { fieldname: "title", label: "Title", required: true },
+  { fieldname: "terms", label: "Terms" },
+  { fieldname: "selling", label: "Selling (0/1)", boolean: true },
+  { fieldname: "buying", label: "Buying (0/1)", boolean: true },
   { fieldname: "disabled", label: "Disabled (0/1)", boolean: true },
 ];
 
-/** Fiscal Year master — the accounting periods used across all financial reports. */
-export function FiscalYearsPage() {
-  const { data, error, isLoading, mutate } = useFiscalYears();
-  const { createDoc, updateDoc, deleteDoc, loading: saving } = useFiscalYearMutations();
+/** Terms and Conditions master — reusable clauses attached to Sales/Purchase transactions. */
+export function TermsAndConditionsPage() {
+  const { data, error, isLoading, mutate } = useTermsAndConditions();
+  const { createDoc, updateDoc, deleteDoc, loading: saving } = useTermsAndConditionsMutations();
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<FiscalYear | null>(null);
+  const [editing, setEditing] = useState<TermsAndConditions | null>(null);
   const [formValues, setFormValues] = useState<Record<string, any>>({});
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const [deleteTarget, setDeleteTarget] = useState<FiscalYear | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<TermsAndConditions | null>(null);
   const [importOpen, setImportOpen] = useState(false);
 
   const openCreate = () => {
@@ -49,7 +51,7 @@ export function FiscalYearsPage() {
     setDialogOpen(true);
   };
 
-  const openEdit = (row: FiscalYear) => {
+  const openEdit = (row: TermsAndConditions) => {
     setEditing(row);
     setFormValues({ ...row });
     setFormErrors({});
@@ -57,21 +59,17 @@ export function FiscalYearsPage() {
   };
 
   const handleSubmit = async () => {
-    const errors: Record<string, string> = {};
-    if (!formValues.year) errors.year = "Year is required";
-    if (!formValues.year_start_date) errors.year_start_date = "Start Date is required";
-    if (!formValues.year_end_date) errors.year_end_date = "End Date is required";
-    if (Object.keys(errors).length) {
-      setFormErrors(errors);
+    if (!formValues.title) {
+      setFormErrors({ title: "Title is required" });
       return;
     }
     try {
       if (editing) {
         await updateDoc(editing.name, formValues);
-        toast.success("Fiscal Year updated");
+        toast.success("Terms and Conditions updated");
       } else {
         await createDoc(formValues);
-        toast.success("Fiscal Year created");
+        toast.success("Terms and Conditions created");
       }
       setDialogOpen(false);
       await mutate();
@@ -85,7 +83,7 @@ export function FiscalYearsPage() {
     if (!deleteTarget) return;
     try {
       await deleteDoc(deleteTarget.name);
-      toast.success("Fiscal Year deleted");
+      toast.success("Terms and Conditions deleted");
       setDeleteTarget(null);
       await mutate();
       notifyDataChanged();
@@ -94,10 +92,21 @@ export function FiscalYearsPage() {
     }
   };
 
-  const columns: ColumnDef<FiscalYear>[] = [
-    { key: "name", label: "Fiscal Year", render: (r) => <span className="font-medium">{r.name}</span> },
-    { key: "year_start_date", label: "Start Date", render: (r) => formatDate(r.year_start_date) },
-    { key: "year_end_date", label: "End Date", render: (r) => formatDate(r.year_end_date) },
+  const columns: ColumnDef<TermsAndConditions>[] = [
+    { key: "title", label: "Title", render: (r) => <span className="font-medium">{r.title || r.name}</span> },
+    { key: "terms", label: "Preview", render: (r) => <span className="line-clamp-1 text-xs text-muted-foreground">{r.terms ? textPreview(r.terms, 120) : "—"}</span> },
+    {
+      key: "applies_to",
+      label: "Applies To",
+      sortable: false,
+      render: (r) => (
+        <div className="flex gap-1">
+          {r.selling && <Badge variant="info">Selling</Badge>}
+          {r.buying && <Badge variant="secondary">Buying</Badge>}
+          {!r.selling && !r.buying && "—"}
+        </div>
+      ),
+    },
     { key: "disabled", label: "Status", render: (r) => (r.disabled ? <Badge variant="destructive">Disabled</Badge> : <Badge variant="success">Active</Badge>) },
     {
       key: "__actions",
@@ -120,15 +129,15 @@ export function FiscalYearsPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Fiscal Years"
-        subtitle="Accounting periods used across all financial reports"
+        title="Terms and Conditions"
+        subtitle="Reusable clauses attached to Sales/Purchase transactions and print formats"
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
               <Upload className="h-3.5 w-3.5" /> Import
             </Button>
             <Button size="sm" onClick={openCreate}>
-              <Plus className="h-3.5 w-3.5" /> New Fiscal Year
+              <Plus className="h-3.5 w-3.5" /> New Terms and Conditions
             </Button>
           </div>
         }
@@ -143,12 +152,13 @@ export function FiscalYearsPage() {
         onRetry={() => void mutate()}
         onRowClick={openEdit}
         striped
-        title="Fiscal Years"
-        exportFilename="fiscal-years"
-        emptyTitle="No fiscal years found"
+        title="Terms and Conditions"
+        exportFilename="terms-and-conditions"
+        emptyTitle="No terms and conditions found"
+        emptyDescription="Create one, or import a list, to start attaching terms to transactions."
       />
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} size="md" title={editing ? "Edit Fiscal Year" : "New Fiscal Year"}>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} size="lg" title={editing ? "Edit Terms and Conditions" : "New Terms and Conditions"}>
         <div className="space-y-5">
           <FrappeForm
             fields={FORM_FIELDS}
@@ -169,7 +179,7 @@ export function FiscalYearsPage() {
 
       <ConfirmDialog
         open={!!deleteTarget}
-        title={`Delete "${deleteTarget?.name}"?`}
+        title={`Delete "${deleteTarget?.title || deleteTarget?.name}"?`}
         description="This action cannot be undone."
         confirmLabel="Delete"
         destructive
@@ -181,9 +191,9 @@ export function FiscalYearsPage() {
       <ImportDialog
         open={importOpen}
         onClose={() => setImportOpen(false)}
-        title="Import Fiscal Years"
+        title="Import Terms and Conditions"
         fields={IMPORT_FIELDS}
-        sampleRow={{ year: "2027-2028", year_start_date: "2027-07-01", year_end_date: "2028-06-30", disabled: "0" }}
+        sampleRow={{ title: "Standard Delivery Terms", terms: "<p>Delivery within 7 business days.</p>", selling: "1", buying: "0", disabled: "0" }}
         onImportRow={(row) => createDoc(row)}
         onImported={() => void mutate()}
       />

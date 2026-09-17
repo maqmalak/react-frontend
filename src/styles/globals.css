@@ -135,4 +135,65 @@
   .tabular-nums {
     font-variant-numeric: tabular-nums;
   }
+
+  /* Quill (RichTextEditor) — theme-matched "snow" toolbar/editor. */
+  .rich-text-editor .ql-toolbar.ql-snow {
+    border-color: hsl(var(--input));
+    border-top-left-radius: calc(var(--radius) - 2px);
+    border-top-right-radius: calc(var(--radius) - 2px);
+    background: hsl(var(--muted) / 0.4);
+  }
+  .rich-text-editor .ql-container.ql-snow {
+    border-color: hsl(var(--input));
+    border-bottom-left-radius: calc(var(--radius) - 2px);
+    border-bottom-right-radius: calc(var(--radius) - 2px);
+    font-family: inherit;
+    font-size: 0.875rem;
+  }
+  .rich-text-editor .ql-editor {
+    min-height: 140px;
+    color: hsl(var(--foreground));
+  }
+  .rich-text-editor .ql-editor.ql-blank::before {
+    color: hsl(var(--muted-foreground));
+    font-style: normal;
+  }
+  .rich-text-editor .ql-snow .ql-stroke {
+    stroke: hsl(var(--muted-foreground));
+  }
+  .rich-text-editor .ql-snow .ql-fill {
+    fill: hsl(var(--muted-foreground));
+  }
+  .rich-text-editor .ql-snow .ql-picker {
+    color: hsl(var(--muted-foreground));
+  }
+  .rich-text-editor .ql-snow.ql-toolbar button:hover .ql-stroke,
+  .rich-text-editor .ql-snow.ql-toolbar button.ql-active .ql-stroke {
+    stroke: hsl(var(--primary));
+  }
+  .rich-text-editor .ql-snow.ql-toolbar button:hover .ql-fill,
+  .rich-text-editor .ql-snow.ql-toolbar button.ql-active .ql-fill {
+    fill: hsl(var(--primary));
+  }
+  .rich-text-editor .ql-snow .ql-picker-options {
+    background: hsl(var(--popover));
+    border-color: hsl(var(--border));
+    color: hsl(var(--popover-foreground));
+  }
+
+  /* Frosted-glass inputs inside the elegant Dialog card — scoped to dialogs
+     only, so ordinary page inputs (tables, filters, ...) keep their look. */
+  [role="dialog"] input:not([type="checkbox"]):not([type="radio"]),
+  [role="dialog"] select,
+  [role="dialog"] textarea,
+  [role="dialog"] .rich-text-editor .ql-toolbar.ql-snow,
+  [role="dialog"] .rich-text-editor .ql-container.ql-snow {
+    background-color: hsl(var(--background) / 0.55);
+    backdrop-filter: blur(6px);
+  }
+  [role="dialog"] input:not([type="checkbox"]):not([type="radio"]):focus-visible,
+  [role="dialog"] select:focus-visible,
+  [role="dialog"] textarea:focus-visible {
+    background-color: hsl(var(--background) / 0.85);
+  }
 }

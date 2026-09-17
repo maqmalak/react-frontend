@@ -1,5 +1,5 @@
 import { useFrappeGetDocList, useSearch } from "frappe-react-sdk";
-import type { Item } from "@/types/frappe";
+import type { Item, ItemGroup } from "@/types/frappe";
 
 /** Reusable query args for the Item master. */
 const ITEM_FIELDS = [
@@ -43,4 +43,17 @@ export function useItemSearch(text: string, limit = 20) {
 /** Simple label for rendering a list of item options. */
 export function itemLabel(item: Item): string {
   return item.item_name ?? item.name;
+}
+
+/** Item Group tree — nested-set, ordered by `lft` for a valid pre-order walk. */
+export function useItemGroups(enabled = true) {
+  return useFrappeGetDocList<ItemGroup>(
+    "Item Group",
+    {
+      fields: ["name", "item_group_name", "parent_item_group", "is_group", "lft"],
+      limit: 0,
+      orderBy: { field: "lft", order: "asc" },
+    },
+    enabled ? "micromax.item-groups" : null,
+  );
 }

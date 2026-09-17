@@ -174,8 +174,11 @@ export function FrappeLinkField({
   }
   // Group accounts are Chart-of-Accounts summary nodes — ERPNext rejects any
   // transaction posted against one, so never offer them where a Link field
-  // picks a posting account (every "Account" Link in this app is exactly that).
-  if (doctype === "Account") {
+  // picks a posting account (every "Account" Link in this app defaults to
+  // exactly that). A caller that explicitly needs group accounts instead
+  // (e.g. a "parent account" picker) passes its own `is_group` filter via
+  // `meta.filters`, which this default must not clobber.
+  if (doctype === "Account" && !filters.some((f) => Array.isArray(f) && f[0] === "is_group")) {
     filters.push(["is_group", "=", 0]);
   }
 

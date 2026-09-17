@@ -419,16 +419,13 @@ export function CrmManagementPage<T extends Record<string, any>>({ config }: { c
       )}
 
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} size="lg">
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        size="lg"
+        title={editing ? `Edit ${config.title.replace(/s$/, "")}` : config.newLabel}
+      >
         <div className="space-y-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold">
-              {editing ? `Edit ${config.title.replace(/s$/, "")}` : config.newLabel}
-            </h2>
-            <button onClick={() => setDialogOpen(false)} className="text-muted-foreground hover:text-foreground">
-              <X className="h-4 w-4" />
-            </button>
-          </div>
           <FrappeForm
             fields={config.formFields}
             values={formValues}

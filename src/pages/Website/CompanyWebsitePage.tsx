@@ -5,7 +5,6 @@ import {
   Bell,
   Building2,
   Check,
-  ChevronRight,
   Clock,
   Globe,
   Mail,
@@ -473,27 +472,28 @@ function ModulesSection() {
           {MODULES.map((module) => {
             const Icon = module.icon;
             return (
-              <Card key={module.id} className="hover-lift flex flex-col p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <span className={cn("flex h-10 w-10 items-center justify-center rounded-lg", module.tone)}>
-                    <Icon className="h-5 w-5" />
+              <Card key={module.id} className="flex flex-col overflow-hidden">
+                <div className={cn("flex items-center gap-3 border-b border-border/60 px-5 py-3 dark:border-white/10", module.tone)}>
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-background/60">
+                    <Icon className="h-5 w-5" aria-hidden="true" />
                   </span>
-                  <ChevronRight className="mt-2 h-4 w-4 text-muted-foreground" />
+                  <h3 className="min-w-0 break-words text-sm font-semibold">{module.label}</h3>
                 </div>
 
-                <h3 className="mt-4 text-sm font-semibold">{module.label}</h3>
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  {module.description}
-                </p>
+                <CardContent className="flex-1 p-5">
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    {module.description}
+                  </p>
 
-                <ul className="mt-4 space-y-1.5 border-t border-dashed border-border/60 pt-3 dark:border-white/10">
-                  {module.features.map((feature) => (
-                    <li key={feature} className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-                      <span className="leading-relaxed">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
+                  <ul className="mt-4 space-y-1.5 border-t border-dashed border-border/60 pt-3 dark:border-white/10">
+                    {module.features.map((feature) => (
+                      <li key={feature} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                        <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                        <span className="leading-relaxed">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
               </Card>
             );
           })}

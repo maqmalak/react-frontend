@@ -30,6 +30,8 @@ import {
   Bell,
   Lock,
   ListTree,
+  Tags,
+  LayoutTemplate,
   CalendarRange,
   ScrollText,
   Wallet,
@@ -106,6 +108,10 @@ const BUYING_NAV: NavGroup[] = [
       { label: "Landed Cost Vouchers", to: "/purchase/landed-costs", icon: Coins },
     ],
   },
+  {
+    title: "Setup",
+    items: [{ label: "Buying Settings", to: "/purchase/settings", icon: Sliders }],
+  },
 ];
 
 // Same idea for "Selling" — merges the old standalone Export app in as a
@@ -127,6 +133,10 @@ const SELLING_NAV: NavGroup[] = [
       { label: "Export Packing", to: "/export/packing", icon: Boxes },
       { label: "Export Shipments", to: "/export/shipments", icon: Ship },
     ],
+  },
+  {
+    title: "Setup",
+    items: [{ label: "Selling Settings", to: "/selling/settings", icon: Sliders }],
   },
 ];
 
@@ -178,8 +188,11 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
       title: "Masters",
       items: [
         { label: "Items", to: "/masters/items", icon: Boxes },
+        { label: "Item Groups", to: "/masters/item-groups", icon: ListTree },
         { label: "Customers", to: "/masters/customers", icon: Users },
+        { label: "Customer Groups", to: "/masters/customer-groups", icon: ListTree },
         { label: "Suppliers", to: "/masters/suppliers", icon: Users },
+        { label: "Supplier Groups", to: "/masters/supplier-groups", icon: ListTree },
       ],
     },
   ],
@@ -196,9 +209,17 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
       items: [
         { label: "Chart of Accounts", to: "/accounting/chart-of-accounts", icon: ListTree },
         { label: "Cost Centers", to: "/accounting/cost-centers", icon: Scale },
+        { label: "Account Categories", to: "/accounting/account-categories", icon: Tags },
         { label: "Fiscal Years", to: "/accounting/fiscal-years", icon: CalendarRange },
-        { label: "Payment Terms", to: "/accounting/payment-terms", icon: ScrollText },
+      ],
+    },
+    {
+      title: "Templates",
+      items: [
         { label: "Mode of Payment", to: "/accounting/mode-of-payment", icon: Wallet },
+        { label: "Payment Terms", to: "/accounting/payment-terms", icon: ScrollText },
+        { label: "Terms and Conditions", to: "/accounting/terms-and-conditions", icon: FileSignature },
+        { label: "Journal Entry Templates", to: "/accounting/journal-entry-templates", icon: LayoutTemplate },
         { label: "Sales Tax Templates", to: "/accounting/tax-templates/sales", icon: Receipt },
         { label: "Purchase Tax Templates", to: "/accounting/tax-templates/purchase", icon: Receipt },
       ],
@@ -321,6 +342,10 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
         { label: "Shift Assignments", to: "/hr/shift-assignments", icon: Clock3 },
       ],
     },
+    {
+      title: "Setup",
+      items: [{ label: "HR Settings", to: "/hr/settings", icon: Sliders }],
+    },
   ],
   payroll: [
     {
@@ -332,6 +357,10 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
         { label: "Salary Slips", to: "/payroll/salary-slips", icon: Banknote },
         { label: "Payroll Entries", to: "/payroll/entries", icon: PlayCircle },
       ],
+    },
+    {
+      title: "Setup",
+      items: [{ label: "Payroll Settings", to: "/payroll/settings", icon: Sliders }],
     },
   ],
   settings: [
@@ -405,9 +434,12 @@ export const ROUTE_TITLES: Record<string, string> = {
   "getting-started": "Getting Started",
   "chart-of-accounts": "Chart of Accounts",
   "cost-centers": "Cost Centers",
+  "account-categories": "Account Categories",
   "fiscal-years": "Fiscal Years",
   "payment-terms": "Payment Terms",
   "mode-of-payment": "Mode of Payment",
+  "terms-and-conditions": "Terms and Conditions",
+  "journal-entry-templates": "Journal Entry Templates",
   "tax-templates": "Tax Templates",
   sales: "Sales",
   "journal-entries": "Journal Entries",

@@ -661,11 +661,176 @@ export interface Supplier {
   disabled?: boolean;
 }
 
+export interface ItemGroup {
+  name: string;
+  item_group_name?: string;
+  parent_item_group?: string;
+  is_group?: 0 | 1 | boolean;
+  lft?: number;
+}
+
+export interface CustomerGroup {
+  name: string;
+  customer_group_name?: string;
+  parent_customer_group?: string;
+  is_group?: 0 | 1 | boolean;
+  default_price_list?: string;
+  payment_terms?: string;
+  lft?: number;
+}
+
+export interface SupplierGroup {
+  name: string;
+  supplier_group_name?: string;
+  parent_supplier_group?: string;
+  is_group?: 0 | 1 | boolean;
+  payment_terms?: string;
+  lft?: number;
+}
+
 export interface Company {
   name: string;
   company_name?: string;
-  default_currency?: string;
   abbr?: string;
+  is_group?: 0 | 1 | boolean;
+  parent_company?: string;
+  domain?: string;
+  tax_id?: string;
+  country?: string;
+  default_currency?: string;
+  phone_no?: string;
+  email?: string;
+  website?: string;
+  default_bank_account?: string;
+  default_cash_account?: string;
+  default_receivable_account?: string;
+  default_payable_account?: string;
+  default_income_account?: string;
+  default_expense_account?: string;
+  round_off_account?: string;
+  round_off_cost_center?: string;
+  write_off_account?: string;
+  cost_center?: string;
+  credit_limit?: number;
+  payment_terms?: string;
+  default_selling_terms?: string;
+  default_buying_terms?: string;
+  enable_perpetual_inventory?: 0 | 1 | boolean;
+  default_inventory_account?: string;
+  stock_adjustment_account?: string;
+  default_warehouse?: string;
+  valuation_method?: "FIFO" | "Moving Average" | "LIFO";
+}
+
+export interface AccountsSettings {
+  name: string;
+  determine_address_tax_category_from?: string;
+  credit_controller?: string;
+  check_supplier_invoice_uniqueness?: 0 | 1 | boolean;
+  make_payment_via_journal_entry?: 0 | 1 | boolean;
+  unlink_payment_on_cancellation_of_invoice?: 0 | 1 | boolean;
+  unlink_advance_payment_on_cancelation_of_order?: 0 | 1 | boolean;
+  book_asset_depreciation_entry_automatically?: 0 | 1 | boolean;
+  show_inclusive_tax_in_print?: 0 | 1 | boolean;
+  show_payment_schedule_in_print?: 0 | 1 | boolean;
+  allow_stale?: 0 | 1 | boolean;
+  stale_days?: number;
+  automatically_fetch_payment_terms?: 0 | 1 | boolean;
+  over_billing_allowance?: number;
+  role_allowed_to_over_bill?: string;
+  enable_common_party_accounting?: 0 | 1 | boolean;
+  show_balance_in_coa?: 0 | 1 | boolean;
+  merge_similar_account_heads?: 0 | 1 | boolean;
+  general_ledger_remarks_length?: number;
+  enable_immutable_ledger?: 0 | 1 | boolean;
+  default_ageing_range?: string;
+  enable_discounts_and_margin?: 0 | 1 | boolean;
+  enable_accounting_dimensions?: 0 | 1 | boolean;
+}
+
+export interface GlobalDefaults {
+  name: string;
+  default_company?: string;
+  country?: string;
+  default_distance_unit?: string;
+  default_currency?: string;
+  hide_currency_symbol?: 0 | 1 | boolean;
+  disable_rounded_total?: 0 | 1 | boolean;
+  disable_in_words?: 0 | 1 | boolean;
+  use_posting_datetime_for_naming_documents?: 0 | 1 | boolean;
+}
+
+export interface AccountingDimension {
+  name: string;
+  label?: string;
+  fieldname?: string;
+  document_type?: string;
+  disabled?: 0 | 1 | boolean;
+}
+
+export interface SellingSettings {
+  name: string;
+  cust_master_name?: string;
+  customer_group?: string;
+  territory?: string;
+  selling_price_list?: string;
+  so_required?: "No" | "Yes";
+  dn_required?: "No" | "Yes";
+  maintain_same_sales_rate?: 0 | 1 | boolean;
+  editable_price_list_rate?: 0 | 1 | boolean;
+  allow_multiple_items?: 0 | 1 | boolean;
+  validate_selling_price?: 0 | 1 | boolean;
+  hide_tax_id?: 0 | 1 | boolean;
+  allow_negative_rates_for_items?: 0 | 1 | boolean;
+  enable_discount_accounting?: 0 | 1 | boolean;
+}
+
+export interface BuyingSettings {
+  name: string;
+  supp_master_name?: string;
+  supplier_group?: string;
+  buying_price_list?: string;
+  po_required?: "No" | "Yes";
+  pr_required?: "No" | "Yes";
+  maintain_same_rate?: 0 | 1 | boolean;
+  allow_multiple_items?: 0 | 1 | boolean;
+  bill_for_rejected_quantity_in_purchase_invoice?: 0 | 1 | boolean;
+  disable_last_purchase_rate?: 0 | 1 | boolean;
+  allow_negative_rates_for_items?: 0 | 1 | boolean;
+  over_transfer_allowance?: number;
+  blanket_order_allowance?: number;
+}
+
+export interface HRSettings {
+  name: string;
+  retirement_age?: string;
+  emp_created_by?: string;
+  standard_working_hours?: number;
+  expense_approver_mandatory_in_expense_claim?: 0 | 1 | boolean;
+  leave_approver_mandatory_in_leave_application?: 0 | 1 | boolean;
+  send_leave_notification?: 0 | 1 | boolean;
+  send_holiday_reminders?: 0 | 1 | boolean;
+  send_birthday_reminders?: 0 | 1 | boolean;
+  send_work_anniversary_reminders?: 0 | 1 | boolean;
+  allow_employee_checkin_from_mobile_app?: 0 | 1 | boolean;
+  allow_geolocation_tracking?: 0 | 1 | boolean;
+  restrict_backdated_leave_application?: 0 | 1 | boolean;
+  prevent_self_leave_approval?: 0 | 1 | boolean;
+  prevent_self_expense_approval?: 0 | 1 | boolean;
+}
+
+export interface PayrollSettings {
+  name: string;
+  payroll_based_on?: "Leave" | "Attendance";
+  consider_unmarked_attendance_as?: "Present" | "Absent";
+  max_working_hours_against_timesheet?: number;
+  include_holidays_in_total_working_days?: 0 | 1 | boolean;
+  daily_wages_fraction_for_half_day?: number;
+  email_salary_slip_to_employee?: 0 | 1 | boolean;
+  encrypt_salary_slips_in_emails?: 0 | 1 | boolean;
+  show_leave_balances_in_salary_slip?: 0 | 1 | boolean;
+  process_payroll_accounting_entry_based_on_employee?: 0 | 1 | boolean;
+  create_overtime_slip?: 0 | 1 | boolean;
 }
 
 // ------------------------------------------------------------- Misc / users
@@ -1029,10 +1194,49 @@ export interface Account {
 export interface CostCenter {
   name: string;
   cost_center_name?: string;
+  cost_center_number?: string;
   parent_cost_center?: string;
   is_group?: 0 | 1 | boolean;
   company?: string;
   disabled?: 0 | 1 | boolean;
+  lft?: number;
+  rgt?: number;
+}
+
+export interface AccountCategory {
+  name: string;
+  account_category_name?: string;
+  root_type?: "Asset" | "Liability" | "Equity" | "Income" | "Expense";
+  description?: string;
+}
+
+export interface TermsAndConditions {
+  name: string;
+  title?: string;
+  terms?: string;
+  selling?: 0 | 1 | boolean;
+  buying?: 0 | 1 | boolean;
+  disabled?: 0 | 1 | boolean;
+}
+
+export interface JournalEntryTemplateAccount {
+  name?: string;
+  account?: string;
+  party_type?: string;
+  party?: string;
+  cost_center?: string;
+  project?: string;
+}
+
+export interface JournalEntryTemplate {
+  name: string;
+  template_title?: string;
+  voucher_type?: string;
+  company?: string;
+  is_opening?: "No" | "Yes";
+  multi_currency?: 0 | 1 | boolean;
+  naming_series?: string;
+  accounts?: JournalEntryTemplateAccount[];
 }
 
 export interface FiscalYear {
@@ -1047,10 +1251,21 @@ export interface PaymentTerm {
   name: string;
   payment_term_name?: string;
   invoice_portion?: number;
+  mode_of_payment?: string;
   due_date_based_on?: string;
   credit_days?: number;
   credit_months?: number;
+  description?: string;
+  discount_type?: "Percentage" | "Amount";
   discount?: number;
+  discount_validity_based_on?: string;
+  discount_validity?: number;
+}
+
+export interface ModeOfPaymentAccount {
+  name?: string;
+  company?: string;
+  default_account?: string;
 }
 
 export interface ModeOfPayment {
@@ -1058,6 +1273,22 @@ export interface ModeOfPayment {
   mode_of_payment?: string;
   type?: string;
   enabled?: 0 | 1 | boolean;
+  accounts?: ModeOfPaymentAccount[];
+}
+
+export interface TaxTemplateRow {
+  name?: string;
+  charge_type?: string;
+  row_id?: string;
+  account_head?: string;
+  cost_center?: string;
+  description?: string;
+  rate?: number;
+  included_in_print_rate?: 0 | 1 | boolean;
+  /** Purchase Taxes and Charges only. */
+  category?: string;
+  /** Purchase Taxes and Charges only. */
+  add_deduct_tax?: "Add" | "Deduct";
 }
 
 /** Sales/Purchase Taxes and Charges Template — same shape for both doctypes. */
@@ -1068,6 +1299,7 @@ export interface TaxTemplate {
   is_default?: 0 | 1 | boolean;
   disabled?: 0 | 1 | boolean;
   tax_category?: string;
+  taxes?: TaxTemplateRow[];
 }
 
 export interface JournalEntryAccountRow {

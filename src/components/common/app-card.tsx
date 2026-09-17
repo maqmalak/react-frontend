@@ -64,20 +64,24 @@ export function AppCard({ app, features }: { app: AppTile; features?: string[] }
       </span>
 
       {/* Title bar — icon, name, arrow, on its own tinted band */}
-      <div className="relative z-10 flex items-center gap-3 border-b border-border/60 bg-muted/40 px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]">
+      <div
+        className={cn(
+          "relative z-10 flex items-center gap-3 border-b border-border/60 px-4 py-3 dark:border-white/10",
+          app.colorClass,
+        )}
+      >
         <span
           className={cn(
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-all duration-300 ease-out",
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-background/60 transition-all duration-300 ease-out",
             "group-hover:scale-110 group-hover:rotate-6 group-hover:shadow-[0_0_18px_2px_hsl(var(--primary)/0.35)]",
-            app.colorClass,
           )}
         >
-          <Icon className="h-4 w-4" />
+          <Icon className="h-5 w-5" aria-hidden="true" />
         </span>
-        <h3 className="flex-1 truncate text-sm font-semibold tracking-tight transition-colors duration-200 group-hover:text-primary">
+        <h3 className="min-w-0 flex-1 break-words text-sm font-semibold tracking-tight">
           {app.label}
         </h3>
-        <ArrowRight className="h-4 w-4 shrink-0 -translate-x-2 text-muted-foreground opacity-0 transition-all duration-300 ease-out group-hover:translate-x-0 group-hover:text-primary group-hover:opacity-100" />
+        <ArrowRight className="h-4 w-4 shrink-0 -translate-x-2 opacity-0 transition-all duration-300 ease-out group-hover:translate-x-0 group-hover:opacity-100" aria-hidden="true" />
       </div>
 
       <div className="relative z-10 flex-1 px-4 py-3.5">

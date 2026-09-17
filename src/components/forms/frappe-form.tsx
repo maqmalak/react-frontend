@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RichTextEditor } from "./rich-text-editor";
 import {
   type FormFieldMeta,
   type FormValues,
@@ -117,15 +118,19 @@ export function FieldRenderer({
         <Checkbox checked={Boolean(value)} disabled={disabled} onChange={(e) => onChange(fieldname, e.target.checked ? 1 : 0)} label={label} />
       );
       break;
-    case "Text":
     case "Text Editor":
+      input = (
+        <RichTextEditor value={value ?? ""} onChange={(html) => onChange(fieldname, html)} placeholder={meta.placeholder} readOnly={disabled} />
+      );
+      break;
+    case "Text":
       input = (
         <Textarea
           value={value ?? ""}
           disabled={disabled}
           onChange={(e) => onChange(fieldname, e.target.value)}
           placeholder={meta.placeholder}
-          className={cn("w-full", error && "border-destructive focus-visible:ring-destructive", fieldtype === "Text Editor" && "min-h-[120px] font-mono")}
+          className={cn("w-full", error && "border-destructive focus-visible:ring-destructive")}
         />
       );
       break;

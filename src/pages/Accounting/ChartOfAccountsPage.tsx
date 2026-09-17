@@ -1,14 +1,27 @@
 import { useMemo, useState } from "react";
-import { ChevronRight, ChevronDown, Folder, FileText } from "lucide-react";
+import toast from "react-hot-toast";
+import { List, ListTree, Plus, Upload, Download, Printer } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/common/error-state";
 import { EmptyState } from "@/components/common/empty-state";
-import { useChartOfAccounts } from "@/hooks/useAccounting";
+import { Dialog } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { DropdownMenu } from "@/components/ui/dropdown-menu";
+import { FrappeForm } from "@/components/forms/frappe-form";
+import { type FormFieldMeta } from "@/components/forms/field-primitives";
+import { FrappeDataTable, type ColumnDef } from "@/components/tables/data-table";
+import { TreeExplorer, flattenWithDepth } from "@/components/common/tree-explorer";
+import { ImportDialog } from "@/components/common/import-dialog";
+import { useChartOfAccounts, useAccountMutations } from "@/hooks/useAccounting";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
-import { cn } from "@/utils/cn";
+import { notifyDataChanged } from "@/hooks/useRealtime";
+import { humanizeError } from "@/services/frappe";
+import { exportToCsv, exportToXlsx } from "@/utils/export";
+import { printTree, type PrintTreeRow } from "@/utils/print";
 import type { Account } from "@/types/frappe";
 
 const ROOT_TYPE_BADGE: Record<string, "success" | "destructive" | "info" | "warning" | "default"> = {
@@ -19,86 +32,210 @@ const ROOT_TYPE_BADGE: Record<string, "success" | "destructive" | "info" | "warn
   Expense: "warning",
 };
 
-interface TreeNode extends Account {
-  children: TreeNode[];
+const ACCOUNT_TYPE_OPTIONS = [
+  "Accumulated Depreciation",
+  "Asset Received But Not Billed",
+  "Bank",
+  "Cash",
+  "Chargeable",
+  "Capital Work in Progress",
+  "Cost of Goods Sold",
+  "Current Asset",
+  "Current Liability",
+  "Depreciation",
+  "Direct Expense",
+  "Direct Income",
+  "Equity",
+  "Expense Account",
+  "Expenses Included In Asset Valuation",
+  "Expenses Included In Valuation",
+  "Fixed Asset",
+  "Income Account",
+  "Indirect Expense",
+  "Indirect Income",
+  "Liability",
+  "Payable",
+  "Receivable",
+  "Round Off",
+  "Round Off for Opening",
+  "Stock",
+  "Stock Adjustment",
+  "Stock Received But Not Billed",
+  "Stock Delivered But Not Billed",
+  "Service Received But Not Billed",
+  "Tax",
+  "Temporary",
+];
+
+function accountFormFields(company?: string): FormFieldMeta[] {
+  return [
+    { fieldname: "account_name", label: "Account Name", fieldtype: "Data", reqd: true },
+    { fieldname: "account_number", label: "Account Number", fieldtype: "Data" },
+    {
+      fieldname: "parent_account",
+      label: "Parent Account (Group)",
+      fieldtype: "Link",
+      options: "Account",
+      reqd: true,
+      filters: [["company", "=", company], ["is_group", "=", 1]],
+    },
+    { fieldname: "is_group", label: "Group Account (can have child accounts)", fieldtype: "Check" },
+    {
+      fieldname: "root_type",
+      label: "Root Type",
+      fieldtype: "Select",
+      options: ["", "Asset", "Liability", "Equity", "Income", "Expense"].join("\n"),
+      description: "Leave blank for a child account — it inherits this from its parent.",
+    },
+    { fieldname: "account_type", label: "Account Type", fieldtype: "Select", options: ["", ...ACCOUNT_TYPE_OPTIONS].join("\n") },
+    { fieldname: "account_category", label: "Account Category", fieldtype: "Link", options: "Account Category" },
+    { fieldname: "disabled", label: "Disabled", fieldtype: "Check" },
+  ];
 }
 
-function buildTree(accounts: Account[]): TreeNode[] {
-  const byName = new Map<string, TreeNode>(accounts.map((a) => [a.name, { ...a, children: [] }]));
-  const roots: TreeNode[] = [];
-  for (const node of byName.values()) {
-    const parent = node.parent_account ? byName.get(node.parent_account) : undefined;
-    if (parent) parent.children.push(node);
-    else roots.push(node);
-  }
-  return roots;
-}
+const COLUMNS: ColumnDef<Account>[] = [
+  { key: "account_name", label: "Account Name", render: (r) => <span className="font-medium">{r.account_name || r.name}</span> },
+  { key: "account_number", label: "Number" },
+  { key: "parent_account", label: "Parent" },
+  { key: "root_type", label: "Root Type", render: (r) => (r.root_type ? <Badge variant={ROOT_TYPE_BADGE[r.root_type] ?? "default"}>{r.root_type}</Badge> : "—") },
+  { key: "account_type", label: "Account Type" },
+  { key: "is_group", label: "Type", render: (r) => (r.is_group ? <Badge variant="secondary">Group</Badge> : <Badge variant="outline">Leaf</Badge>) },
+  { key: "disabled", label: "Status", render: (r) => (r.disabled ? <Badge variant="destructive">Disabled</Badge> : <Badge variant="success">Active</Badge>) },
+];
 
-function TreeRow({ node, depth, expanded, onToggle }: { node: TreeNode; depth: number; expanded: Set<string>; onToggle: (name: string) => void }) {
-  const isGroup = Boolean(node.is_group) && node.children.length > 0;
-  const isOpen = expanded.has(node.name);
+const IMPORT_FIELDS = [
+  { fieldname: "account_name", label: "Account Name", required: true },
+  { fieldname: "account_number", label: "Account Number" },
+  { fieldname: "parent_account", label: "Parent Account", required: true },
+  { fieldname: "is_group", label: "Is Group (0/1)", boolean: true },
+  { fieldname: "root_type", label: "Root Type" },
+  { fieldname: "account_type", label: "Account Type" },
+  { fieldname: "disabled", label: "Disabled (0/1)", boolean: true },
+];
 
-  return (
-    <div>
-      <button
-        type="button"
-        onClick={() => isGroup && onToggle(node.name)}
-        className={cn(
-          "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent",
-          !isGroup && "cursor-default",
-        )}
-        style={{ paddingLeft: `${depth * 20 + 8}px` }}
-      >
-        {isGroup ? (
-          isOpen ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        ) : (
-          <span className="w-3.5 shrink-0" />
-        )}
-        {isGroup ? (
-          <Folder className="h-4 w-4 shrink-0 text-muted-foreground" />
-        ) : (
-          <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-        )}
-        <span className={cn("truncate", isGroup && "font-medium")}>{node.account_name || node.name}</span>
-        {node.account_number && <span className="shrink-0 text-xs text-muted-foreground">#{node.account_number}</span>}
-        {depth === 0 && node.root_type && (
-          <Badge variant={ROOT_TYPE_BADGE[node.root_type] ?? "default"} className="ml-auto shrink-0">
-            {node.root_type}
-          </Badge>
-        )}
-        {node.disabled ? <Badge variant="destructive" className="shrink-0">Disabled</Badge> : null}
-      </button>
-      {isGroup && isOpen && (
-        <div>
-          {node.children
-            .slice()
-            .sort((a, b) => (a.is_group === b.is_group ? 0 : a.is_group ? -1 : 1))
-            .map((child) => (
-              <TreeRow key={child.name} node={child} depth={depth + 1} expanded={expanded} onToggle={onToggle} />
-            ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** Chart of Accounts — the Account doctype's tree, built client-side from `parent_account`. */
+/** Chart of Accounts — full tree + list management for the Account doctype. */
 export function ChartOfAccountsPage() {
   const { company, companies } = useCompanyContext();
   const { data, error, isLoading, mutate } = useChartOfAccounts(company);
-  const tree = useMemo(() => buildTree(data ?? []), [data]);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const { createDoc, updateDoc, deleteDoc, loading: saving } = useAccountMutations();
 
-  const toggle = (name: string) =>
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
+  const [view, setView] = useState<"tree" | "list">("tree");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<Account | null>(null);
+  const [formValues, setFormValues] = useState<Record<string, any>>({});
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [deleteTarget, setDeleteTarget] = useState<Account | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
-  const expandAll = () => setExpanded(new Set((data ?? []).filter((a) => a.is_group).map((a) => a.name)));
-  const collapseAll = () => setExpanded(new Set());
+  const treeNodes = useMemo(
+    () =>
+      (data ?? []).map((a) => ({
+        name: a.name,
+        label: a.account_name || a.name,
+        code: a.account_number,
+        parent: a.parent_account,
+        isGroup: Boolean(a.is_group),
+        disabled: Boolean(a.disabled),
+        raw: a,
+      })),
+    [data],
+  );
+
+  /** Prints the tree with a company-root row and the same group-first hierarchy shown on screen. */
+  const printChartTree = () => {
+    const rows: PrintTreeRow[] = [
+      { depth: 0, label: company ?? "Company", isGroup: true },
+      ...flattenWithDepth(treeNodes).map(({ node, depth }) => ({
+        depth: depth + 1,
+        code: node.code,
+        label: node.label,
+        isGroup: node.isGroup,
+      })),
+    ];
+    printTree("Chart of Accounts", rows, company ? `Company: ${company}` : undefined);
+  };
+
+  const openCreate = (parent?: Account) => {
+    setEditing(null);
+    setFormValues({ company, parent_account: parent?.name, root_type: parent?.root_type });
+    setFormErrors({});
+    setDialogOpen(true);
+  };
+
+  const openEdit = (account: Account) => {
+    setEditing(account);
+    setFormValues({ ...account });
+    setFormErrors({});
+    setDialogOpen(true);
+  };
+
+  const handleSubmit = async () => {
+    const errors: Record<string, string> = {};
+    if (!formValues.account_name) errors.account_name = "Account Name is required";
+    if (!formValues.parent_account) errors.parent_account = "Parent Account is required";
+    if (Object.keys(errors).length) {
+      setFormErrors(errors);
+      return;
+    }
+    try {
+      if (editing) {
+        await updateDoc(editing.name, formValues);
+        toast.success("Account updated");
+      } else {
+        await createDoc({ ...formValues, company });
+        toast.success("Account created");
+      }
+      setDialogOpen(false);
+      await mutate();
+      notifyDataChanged();
+    } catch (e) {
+      toast.error(humanizeError(e));
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteDoc(deleteTarget.name);
+      toast.success("Account deleted");
+      setDeleteTarget(null);
+      await mutate();
+      notifyDataChanged();
+    } catch (e) {
+      toast.error(humanizeError(e));
+    }
+  };
+
+  const exportColumns = COLUMNS.map((c) => ({ key: c.key, label: c.label }));
+  const exportRows = (data ?? []).map((r) => ({
+    account_name: r.account_name,
+    account_number: r.account_number ?? "",
+    parent_account: r.parent_account ?? "",
+    root_type: r.root_type ?? "",
+    account_type: r.account_type ?? "",
+    is_group: r.is_group ? "Group" : "Leaf",
+    disabled: r.disabled ? "Disabled" : "Active",
+  }));
+
+  const listColumns: ColumnDef<Account>[] = [
+    ...COLUMNS,
+    {
+      key: "__actions",
+      label: "",
+      sortable: false,
+      align: "right",
+      render: (r) => (
+        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          <Button variant="ghost" size="sm" onClick={() => openEdit(r)}>
+            Edit
+          </Button>
+          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteTarget(r)}>
+            Delete
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-4">
@@ -106,13 +243,46 @@ export function ChartOfAccountsPage() {
         title="Chart of Accounts"
         subtitle={company ? `Company: ${company}` : "Select a company"}
         actions={
-          <div className="flex gap-2 text-xs">
-            <button onClick={expandAll} className="rounded-md border border-input px-2.5 py-1.5 hover:bg-accent">
-              Expand All
-            </button>
-            <button onClick={collapseAll} className="rounded-md border border-input px-2.5 py-1.5 hover:bg-accent">
-              Collapse All
-            </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex rounded-lg border border-input bg-popover p-0.5 shadow-sm">
+              <button
+                onClick={() => setView("tree")}
+                className={`flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors ${view === "tree" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                <ListTree className="h-3.5 w-3.5" /> Tree
+              </button>
+              <button
+                onClick={() => setView("list")}
+                className={`flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors ${view === "list" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                <List className="h-3.5 w-3.5" /> List
+              </button>
+            </div>
+            {view === "tree" && (
+              <>
+                <DropdownMenu
+                  trigger={
+                    <Button variant="outline" size="sm">
+                      <Download className="h-3.5 w-3.5" /> Export
+                    </Button>
+                  }
+                  items={[
+                    { label: "Export to CSV", onClick: () => exportToCsv(exportColumns, exportRows, "chart-of-accounts") },
+                    { label: "Export to Excel (.xlsx)", onClick: () => exportToXlsx(exportColumns, exportRows, "chart-of-accounts") },
+                    { label: "Export to PDF", onClick: printChartTree },
+                  ]}
+                />
+                <Button variant="outline" size="sm" onClick={printChartTree}>
+                  <Printer className="h-3.5 w-3.5" /> Print
+                </Button>
+              </>
+            )}
+            <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+              <Upload className="h-3.5 w-3.5" /> Import
+            </Button>
+            <Button size="sm" onClick={() => openCreate()}>
+              <Plus className="h-3.5 w-3.5" /> New Account
+            </Button>
           </div>
         }
       />
@@ -129,20 +299,82 @@ export function ChartOfAccountsPage() {
             <ErrorState error={error} onRetry={() => void mutate()} />
           ) : !company ? (
             <EmptyState title="No company selected" description={`Choose a company to view its Chart of Accounts.${companies.length === 0 ? "" : ""}`} />
-          ) : tree.length === 0 ? (
+          ) : (data ?? []).length === 0 ? (
             <EmptyState title="No accounts found" description="This company has no Chart of Accounts set up yet." />
+          ) : view === "tree" ? (
+            <TreeExplorer
+              nodes={treeNodes}
+              renderBadges={(node, depth) =>
+                depth === 0 && node.raw.root_type ? <Badge variant={ROOT_TYPE_BADGE[node.raw.root_type] ?? "default"}>{node.raw.root_type}</Badge> : null
+              }
+              onAddChild={(node) => openCreate(node.raw)}
+              onEdit={(node) => openEdit(node.raw)}
+              onDelete={(node) => setDeleteTarget(node.raw)}
+            />
           ) : (
-            <div className="scrollbar-thin max-h-[70vh] overflow-y-auto">
-              {tree
-                .slice()
-                .sort((a, b) => (a.lft ?? 0) - (b.lft ?? 0))
-                .map((root) => (
-                  <TreeRow key={root.name} node={root} depth={0} expanded={expanded} onToggle={toggle} />
-                ))}
-            </div>
+            <FrappeDataTable
+              columns={listColumns}
+              rows={data ?? []}
+              rowKey={(r) => r.name}
+              striped
+              title="Chart of Accounts"
+              exportFilename="chart-of-accounts"
+              printTitle="Chart of Accounts"
+              printSubtitle={company ? `Company: ${company}` : undefined}
+              emptyTitle="No accounts found"
+            />
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} size="lg" title={editing ? "Edit Account" : "New Account"}>
+        <div className="space-y-5">
+          <FrappeForm
+            fields={accountFormFields(company)}
+            values={formValues}
+            onChange={(fieldname, value) => setFormValues((v) => ({ ...v, [fieldname]: value }))}
+            errors={formErrors}
+          />
+          <div className="flex justify-end gap-2 border-t pt-4">
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmit} loading={saving}>
+              {editing ? "Save Changes" : "Create"}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title={`Delete "${deleteTarget?.account_name || deleteTarget?.name}"?`}
+        description="This account will be permanently deleted. Accounts with postings or child accounts cannot be deleted."
+        confirmLabel="Delete"
+        destructive
+        loading={saving}
+        onConfirm={handleDelete}
+        onClose={() => setDeleteTarget(null)}
+      />
+
+      <ImportDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        title="Import Accounts"
+        fields={IMPORT_FIELDS}
+        sampleRow={{
+          account_name: "Office Supplies",
+          account_number: "",
+          parent_account: "Indirect Expenses",
+          is_group: "0",
+          root_type: "",
+          account_type: "Indirect Expense",
+          disabled: "0",
+        }}
+        hierarchy={{ keyField: "account_name", parentField: "parent_account" }}
+        onImportRow={(row) => createDoc({ ...row, company })}
+        onImported={() => void mutate()}
+      />
     </div>
   );
 }

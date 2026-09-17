@@ -1,8 +1,10 @@
 /**
- * Client-side data export to CSV and Excel-compatible (.xls) files.
- * Uses no external libraries — produces standard delimited files that Excel,
- * Google Sheets and LibreOffice open directly.
+ * Client-side data export to CSV and Excel files.
+ * CSV/.xls stay dependency-free (standard delimited / HTML-table files that
+ * Excel, Google Sheets and LibreOffice open directly); `.xlsx` uses SheetJS
+ * (`xlsx`) to produce a real Excel workbook.
  */
+import * as XLSX from "xlsx";
 
 function escapeCell(value: unknown): string {
   const s = value === null || value === undefined ? "" : String(value);
@@ -56,4 +58,18 @@ export function exportToExcel(
     .join("");
   const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body><table>${head}${body}</table></body></html>`;
   triggerDownload(html, `${filename}.xls`, "application/vnd.ms-excel");
+}
+
+/** Export rows to a real .xlsx workbook (SheetJS). */
+export function exportToXlsx(
+  columns: { key: string; label: string }[],
+  rows: Record<string, unknown>[],
+  filename: string,
+  sheetName = "Sheet1",
+) {
+  const aoa = [columns.map((c) => c.label), ...rows.map((r) => columns.map((c) => r[c.key] ?? ""))];
+  const sheet = XLSX.utils.aoa_to_sheet(aoa);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, sheet, sheetName.slice(0, 31));
+  XLSX.writeFile(workbook, `${filename}.xlsx`);
 }

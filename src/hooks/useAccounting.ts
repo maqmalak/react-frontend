@@ -14,6 +14,9 @@ import { APP_TIME_ZONE } from "@/utils/dates";
 import type {
   Account,
   CostCenter,
+  AccountCategory,
+  TermsAndConditions,
+  JournalEntryTemplate,
   FiscalYear,
   PaymentTerm,
   ModeOfPayment,
@@ -61,19 +64,168 @@ export function usePostableAccounts(company?: string) {
   return { data: (data ?? []).filter((a) => !a.is_group), isLoading };
 }
 
+/** Create / update / delete for the Account doctype — Chart of Accounts management. */
+export function useAccountMutations() {
+  const create = useFrappeCreateDoc<Account>();
+  const update = useFrappeUpdateDoc<Account>();
+  const del = useFrappeDeleteDoc();
+
+  return {
+    createDoc: (values: Partial<Account>) => create.createDoc("Account", values as Account),
+    updateDoc: (name: string, values: Partial<Account>) => update.updateDoc("Account", name, values),
+    deleteDoc: (name: string) => del.deleteDoc("Account", name),
+    loading: create.loading || update.loading || del.loading,
+  };
+}
+
 // ------------------------------------------------------------------- Cost Center
+
+const COST_CENTER_FIELDS = [
+  "name",
+  "cost_center_name",
+  "cost_center_number",
+  "parent_cost_center",
+  "is_group",
+  "company",
+  "disabled",
+  "lft",
+] as const;
 
 export function useCostCenters(company?: string, enabled = true) {
   return useFrappeGetDocList<CostCenter>(
     "Cost Center",
     {
-      fields: ["name", "cost_center_name", "parent_cost_center", "is_group", "company", "disabled"],
+      fields: COST_CENTER_FIELDS as unknown as (keyof CostCenter)[],
       filters: (company ? [["company", "=", company]] : []) as any,
       limit: 0,
-      orderBy: { field: "name", order: "asc" },
+      orderBy: { field: "lft", order: "asc" },
     },
     enabled ? `micromax.cost-centers.${company ?? "all"}` : null,
   );
+}
+
+/** Create / update / delete for the Cost Center doctype. */
+export function useCostCenterMutations() {
+  const create = useFrappeCreateDoc<CostCenter>();
+  const update = useFrappeUpdateDoc<CostCenter>();
+  const del = useFrappeDeleteDoc();
+
+  return {
+    createDoc: (values: Partial<CostCenter>) => create.createDoc("Cost Center", values as CostCenter),
+    updateDoc: (name: string, values: Partial<CostCenter>) => update.updateDoc("Cost Center", name, values),
+    deleteDoc: (name: string) => del.deleteDoc("Cost Center", name),
+    loading: create.loading || update.loading || del.loading,
+  };
+}
+
+// -------------------------------------------------------------- Account Category
+
+export function useAccountCategories(enabled = true) {
+  return useFrappeGetDocList<AccountCategory>(
+    "Account Category",
+    {
+      fields: ["name", "account_category_name", "root_type", "description"],
+      limit: 0,
+      orderBy: { field: "account_category_name", order: "asc" },
+    },
+    enabled ? "micromax.account-categories" : null,
+  );
+}
+
+/** Create / update / delete for the Account Category doctype. */
+export function useAccountCategoryMutations() {
+  const create = useFrappeCreateDoc<AccountCategory>();
+  const update = useFrappeUpdateDoc<AccountCategory>();
+  const del = useFrappeDeleteDoc();
+
+  return {
+    createDoc: (values: Partial<AccountCategory>) => create.createDoc("Account Category", values as AccountCategory),
+    updateDoc: (name: string, values: Partial<AccountCategory>) => update.updateDoc("Account Category", name, values),
+    deleteDoc: (name: string) => del.deleteDoc("Account Category", name),
+    loading: create.loading || update.loading || del.loading,
+  };
+}
+
+// ---------------------------------------------------------- Terms and Conditions
+
+export function useTermsAndConditions(enabled = true) {
+  return useFrappeGetDocList<TermsAndConditions>(
+    "Terms and Conditions",
+    {
+      fields: ["name", "title", "terms", "selling", "buying", "disabled"],
+      limit: 0,
+      orderBy: { field: "title", order: "asc" },
+    },
+    enabled ? "micromax.terms-and-conditions" : null,
+  );
+}
+
+/** Create / update / delete for the Terms and Conditions doctype. */
+export function useTermsAndConditionsMutations() {
+  const create = useFrappeCreateDoc<TermsAndConditions>();
+  const update = useFrappeUpdateDoc<TermsAndConditions>();
+  const del = useFrappeDeleteDoc();
+
+  return {
+    createDoc: (values: Partial<TermsAndConditions>) => create.createDoc("Terms and Conditions", values as TermsAndConditions),
+    updateDoc: (name: string, values: Partial<TermsAndConditions>) => update.updateDoc("Terms and Conditions", name, values),
+    deleteDoc: (name: string) => del.deleteDoc("Terms and Conditions", name),
+    loading: create.loading || update.loading || del.loading,
+  };
+}
+
+// ------------------------------------------------------------ Journal Entry Template
+
+export function useJournalEntryTemplates(enabled = true) {
+  return useFrappeGetDocList<JournalEntryTemplate>(
+    "Journal Entry Template",
+    {
+      fields: ["name", "template_title", "voucher_type", "company", "is_opening", "multi_currency"],
+      limit: 0,
+      orderBy: { field: "template_title", order: "asc" },
+    },
+    enabled ? "micromax.journal-entry-templates" : null,
+  );
+}
+
+/** Full doc (incl. the `accounts` child table) for editing one Journal Entry Template. */
+export function useJournalEntryTemplate(name?: string) {
+  return useFrappeGetDoc<JournalEntryTemplate>(
+    "Journal Entry Template",
+    name ?? undefined,
+    name ? `micromax.journal-entry-template.${name}` : null,
+  );
+}
+
+/** Create / update / delete for the Journal Entry Template doctype. */
+export function useJournalEntryTemplateMutations() {
+  const create = useFrappeCreateDoc<JournalEntryTemplate>();
+  const update = useFrappeUpdateDoc<JournalEntryTemplate>();
+  const del = useFrappeDeleteDoc();
+
+  return {
+    createDoc: (values: Partial<JournalEntryTemplate>) => create.createDoc("Journal Entry Template", values as JournalEntryTemplate),
+    updateDoc: (name: string, values: Partial<JournalEntryTemplate>) => update.updateDoc("Journal Entry Template", name, values),
+    deleteDoc: (name: string) => del.deleteDoc("Journal Entry Template", name),
+    loading: create.loading || update.loading || del.loading,
+  };
+}
+
+/** Journal Entry's own naming series options — Journal Entry Template reuses them (see its `get_naming_series` whitelisted method). */
+export function useJournalEntryNamingSeries(enabled = true) {
+  const { data } = useFrappeGetCall<{ message: string }>(
+    "erpnext.accounts.doctype.journal_entry_template.journal_entry_template.get_naming_series",
+    {},
+    enabled ? "micromax.je-template.naming-series" : null,
+  );
+  return useMemo(() => splitNamingSeries(data?.message), [data]);
+}
+
+function splitNamingSeries(options?: string): string[] {
+  return (options ?? "")
+    .split("\n")
+    .map((o) => o.trim())
+    .filter(Boolean);
 }
 
 // ------------------------------------------------------------------- Fiscal Year
@@ -90,18 +242,61 @@ export function useFiscalYears(enabled = true) {
   );
 }
 
+/** Create / update / delete for the Fiscal Year doctype. */
+export function useFiscalYearMutations() {
+  const create = useFrappeCreateDoc<FiscalYear>();
+  const update = useFrappeUpdateDoc<FiscalYear>();
+  const del = useFrappeDeleteDoc();
+
+  return {
+    createDoc: (values: Partial<FiscalYear>) => create.createDoc("Fiscal Year", values as FiscalYear),
+    updateDoc: (name: string, values: Partial<FiscalYear>) => update.updateDoc("Fiscal Year", name, values),
+    deleteDoc: (name: string) => del.deleteDoc("Fiscal Year", name),
+    loading: create.loading || update.loading || del.loading,
+  };
+}
+
 // ----------------------------------------------------------------- Payment Term
+
+const PAYMENT_TERM_FIELDS = [
+  "name",
+  "payment_term_name",
+  "invoice_portion",
+  "mode_of_payment",
+  "due_date_based_on",
+  "credit_days",
+  "credit_months",
+  "description",
+  "discount_type",
+  "discount",
+  "discount_validity_based_on",
+  "discount_validity",
+] as const;
 
 export function usePaymentTerms(enabled = true) {
   return useFrappeGetDocList<PaymentTerm>(
     "Payment Term",
     {
-      fields: ["name", "payment_term_name", "invoice_portion", "due_date_based_on", "credit_days", "discount"],
+      fields: PAYMENT_TERM_FIELDS as unknown as (keyof PaymentTerm)[],
       limit: 0,
       orderBy: { field: "name", order: "asc" },
     },
     enabled ? "micromax.payment-terms" : null,
   );
+}
+
+/** Create / update / delete for the Payment Term doctype. */
+export function usePaymentTermMutations() {
+  const create = useFrappeCreateDoc<PaymentTerm>();
+  const update = useFrappeUpdateDoc<PaymentTerm>();
+  const del = useFrappeDeleteDoc();
+
+  return {
+    createDoc: (values: Partial<PaymentTerm>) => create.createDoc("Payment Term", values as PaymentTerm),
+    updateDoc: (name: string, values: Partial<PaymentTerm>) => update.updateDoc("Payment Term", name, values),
+    deleteDoc: (name: string) => del.deleteDoc("Payment Term", name),
+    loading: create.loading || update.loading || del.loading,
+  };
 }
 
 // ------------------------------------------------------------- Mode of Payment
@@ -110,12 +305,26 @@ export function useModesOfPayment(enabled = true) {
   return useFrappeGetDocList<ModeOfPayment>(
     "Mode of Payment",
     {
-      fields: ["name", "type", "enabled"],
+      fields: ["name", "mode_of_payment", "type", "enabled"],
       limit: 0,
       orderBy: { field: "name", order: "asc" },
     },
     enabled ? "micromax.modes-of-payment" : null,
   );
+}
+
+/** Create / update / delete for the Mode of Payment doctype. */
+export function useModeOfPaymentMutations() {
+  const create = useFrappeCreateDoc<ModeOfPayment>();
+  const update = useFrappeUpdateDoc<ModeOfPayment>();
+  const del = useFrappeDeleteDoc();
+
+  return {
+    createDoc: (values: Partial<ModeOfPayment>) => create.createDoc("Mode of Payment", values as ModeOfPayment),
+    updateDoc: (name: string, values: Partial<ModeOfPayment>) => update.updateDoc("Mode of Payment", name, values),
+    deleteDoc: (name: string) => del.deleteDoc("Mode of Payment", name),
+    loading: create.loading || update.loading || del.loading,
+  };
 }
 
 // ------------------------------------------------------------------ Tax Templates
@@ -129,13 +338,27 @@ export function useTaxTemplates(
   return useFrappeGetDocList<TaxTemplate>(
     doctype,
     {
-      fields: ["name", "title", "company", "is_default", "disabled"],
+      fields: ["name", "title", "company", "is_default", "disabled", "tax_category"],
       filters: (company ? [["company", "=", company]] : []) as any,
       limit: 0,
       orderBy: { field: "modified", order: "desc" },
     },
     enabled ? `micromax.tax-templates.${doctype}.${company ?? "all"}` : null,
   );
+}
+
+/** Create / update / delete for a Sales/Purchase Taxes and Charges Template doctype. */
+export function useTaxTemplateMutations(doctype: "Sales Taxes and Charges Template" | "Purchase Taxes and Charges Template") {
+  const create = useFrappeCreateDoc<TaxTemplate>();
+  const update = useFrappeUpdateDoc<TaxTemplate>();
+  const del = useFrappeDeleteDoc();
+
+  return {
+    createDoc: (values: Partial<TaxTemplate>) => create.createDoc(doctype, values as TaxTemplate),
+    updateDoc: (name: string, values: Partial<TaxTemplate>) => update.updateDoc(doctype, name, values),
+    deleteDoc: (name: string) => del.deleteDoc(doctype, name),
+    loading: create.loading || update.loading || del.loading,
+  };
 }
 
 // ------------------------------------------------------------------- Journal Entry
@@ -226,7 +449,7 @@ function sortedEntries(obj: Record<string, unknown>): [string, unknown][] {
  * particular call actually is, so this always has to be ready to enqueue and
  * poll a background job rather than assume a small request stays inline.
  */
-async function fetchReportResult(reportName: string, filters: Record<string, unknown>): Promise<QueryReportResult> {
+export async function fetchReportResult(reportName: string, filters: Record<string, unknown>): Promise<QueryReportResult> {
   const initial = await getCall<{ message?: RawQueryReportResponse } & RawQueryReportResponse>("frappe.desk.query_report.run", {
     report_name: reportName,
     filters: JSON.stringify(filters),
