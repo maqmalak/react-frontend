@@ -1,6 +1,7 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Pencil, Plus, Settings2, Star, Trash2 } from "lucide-react";
+import { FileText, ImageIcon, Pencil, Plus, Settings2, Star, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,8 +23,9 @@ import {
   useWhatsAppDefaults,
   type CrmGeneralSettings,
   type CrmWhatsAppAccount,
+  type CrmWhatsAppSettings,
 } from "@/hooks/useCrmSettings";
-import { humanizeError } from "@/services/frappe";
+import { humanizeError, uploadFile, fileURL } from "@/services/frappe";
 
 function SettingsGroup({ icon, title, subtitle, actions, children }: {
   icon: ReactNode;
@@ -71,19 +73,67 @@ function ToggleRow({
   );
 }
 
+/** Upload widget for a FCRM Settings image field (brand_logo/favicon — both plain "Attach" fields with no dedicated FrappeForm case yet). */
+function LogoField({ label, value, docname, onUploaded }: {
+  label: string;
+  value?: string;
+  docname: string;
+  onUploaded: (fileUrl: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFile = async (file: File) => {
+    setUploading(true);
+    try {
+      const uploaded = await uploadFile(file, { doctype: "FCRM Settings", docname, isPrivate: false });
+      onUploaded(uploaded.file_url);
+      toast.success(`${label} updated`);
+    } catch (err) {
+      toast.error(humanizeError(err));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-3 py-2">
+      {value ? (
+        <img src={fileURL(value)} alt={label} className="h-12 w-12 shrink-0 rounded border border-border bg-white object-contain" />
+      ) : (
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded border border-dashed border-border text-muted-foreground">
+          <ImageIcon className="h-4 w-4" />
+        </div>
+      )}
+      <div className="min-w-0">
+        <p className="text-sm font-medium">{label}</p>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void handleFile(file);
+            e.target.value = "";
+          }}
+        />
+        <Button type="button" variant="outline" size="sm" className="mt-1" onClick={() => inputRef.current?.click()} disabled={uploading}>
+          {uploading ? "Uploading…" : value ? "Change" : "Upload"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 const emptyAccountForm = {
   account_name: "",
   status: "Active" as "Active" | "Inactive",
   phone_id: "",
   business_id: "",
   app_id: "",
-  url: "",
-  version: "",
-  webhook_verify_token: "",
-  token: "",
-  is_default_incoming: false,
-  is_default_outgoing: false,
-  allow_auto_read_receipt: false,
+  access_token: "",
+  auto_read_receipts: false,
 };
 
 type AccountForm = typeof emptyAccountForm;
@@ -95,13 +145,8 @@ function accountToForm(account: CrmWhatsAppAccount): AccountForm {
     phone_id: account.phone_id ?? "",
     business_id: account.business_id ?? "",
     app_id: account.app_id ?? "",
-    url: account.url ?? "",
-    version: account.version ?? "",
-    webhook_verify_token: account.webhook_verify_token ?? "",
-    token: "",
-    is_default_incoming: Boolean(account.is_default_incoming),
-    is_default_outgoing: Boolean(account.is_default_outgoing),
-    allow_auto_read_receipt: Boolean(account.allow_auto_read_receipt),
+    access_token: "",
+    auto_read_receipts: Boolean(account.auto_read_receipts),
   };
 }
 
@@ -140,16 +185,11 @@ function WhatsAppAccountDialog({
       phone_id: form.phone_id.trim(),
       business_id: form.business_id.trim(),
       app_id: form.app_id.trim(),
-      url: form.url.trim(),
-      version: form.version.trim(),
-      webhook_verify_token: form.webhook_verify_token.trim(),
-      is_default_incoming: form.is_default_incoming ? 1 : 0,
-      is_default_outgoing: form.is_default_outgoing ? 1 : 0,
-      allow_auto_read_receipt: form.allow_auto_read_receipt ? 1 : 0,
+      auto_read_receipts: form.auto_read_receipts ? 1 : 0,
     };
     // Password field: only send it when the user actually typed a new one —
     // an empty string here means "leave the stored token alone", not "clear it".
-    if (form.token.trim()) payload.token = form.token.trim();
+    if (form.access_token.trim()) payload.access_token = form.access_token.trim();
 
     try {
       if (editing) {
@@ -204,58 +244,27 @@ function WhatsAppAccountDialog({
             <Label htmlFor="app_id">Meta App ID</Label>
             <Input id="app_id" value={form.app_id} onChange={(e) => set("app_id", e.target.value)} />
           </div>
-          <div>
-            <Label htmlFor="version">Graph API version</Label>
-            <Input id="version" value={form.version} onChange={(e) => set("version", e.target.value)} placeholder="v20.0" />
-          </div>
           <div className="sm:col-span-2">
-            <Label htmlFor="url">API URL</Label>
-            <Input
-              id="url"
-              value={form.url}
-              onChange={(e) => set("url", e.target.value)}
-              placeholder="https://graph.facebook.com"
-            />
-          </div>
-          <div>
-            <Label htmlFor="token">
+            <Label htmlFor="access_token">
               Access token{editing && <span className="ml-1 font-normal normal-case text-muted-foreground">(leave blank to keep current)</span>}
             </Label>
             <Input
-              id="token"
+              id="access_token"
               type="password"
-              value={form.token}
-              onChange={(e) => set("token", e.target.value)}
+              value={form.access_token}
+              onChange={(e) => set("access_token", e.target.value)}
               placeholder={editing ? "••••••••" : ""}
               autoComplete="new-password"
               required={!editing}
-            />
-          </div>
-          <div>
-            <Label htmlFor="webhook_verify_token">Webhook verify token</Label>
-            <Input
-              id="webhook_verify_token"
-              value={form.webhook_verify_token}
-              onChange={(e) => set("webhook_verify_token", e.target.value)}
             />
           </div>
         </div>
 
         <div className="space-y-1 rounded-md border border-border p-3">
           <Checkbox
-            label="Default incoming account"
-            checked={form.is_default_incoming}
-            onChange={(e) => set("is_default_incoming", e.target.checked)}
-          />
-          <Checkbox
-            label="Default outgoing account"
-            checked={form.is_default_outgoing}
-            onChange={(e) => set("is_default_outgoing", e.target.checked)}
-          />
-          <Checkbox
             label="Auto-mark incoming messages as read"
-            checked={form.allow_auto_read_receipt}
-            onChange={(e) => set("allow_auto_read_receipt", e.target.checked)}
+            checked={form.auto_read_receipts}
+            onChange={(e) => set("auto_read_receipts", e.target.checked)}
           />
         </div>
 
@@ -309,10 +318,10 @@ function WhatsAppSection() {
     }
   };
 
-  const onDefaultChange = async (field: "default_incoming_account" | "default_outgoing_account", value: string) => {
+  const onDefaultsChange = async (values: Partial<CrmWhatsAppSettings>) => {
     try {
-      await saveDefaults({ [field]: value || undefined });
-      toast.success("Default updated");
+      await saveDefaults(values);
+      toast.success("Updated");
     } catch (err) {
       toast.error(humanizeError(err));
     }
@@ -345,11 +354,8 @@ function WhatsAppSection() {
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="truncate text-sm font-medium">{account.account_name || account.name}</p>
                   <Badge variant={account.status === "Active" ? "success" : "secondary"}>{account.status ?? "Active"}</Badge>
-                  {Boolean(account.is_default_incoming) && (
-                    <Badge variant="outline"><Star className="h-3 w-3" /> Incoming default</Badge>
-                  )}
-                  {Boolean(account.is_default_outgoing) && (
-                    <Badge variant="outline"><Star className="h-3 w-3" /> Outgoing default</Badge>
+                  {defaults?.default_account === account.name && (
+                    <Badge variant="outline"><Star className="h-3 w-3" /> Default</Badge>
                   )}
                 </div>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">Phone ID: {account.phone_id || "—"}</p>
@@ -367,33 +373,60 @@ function WhatsAppSection() {
         </div>
       )}
 
-      {!defaultsLoading && defaults && accounts.length > 0 && (
-        <div className="mt-4 grid grid-cols-1 gap-4 border-t border-border pt-4 sm:grid-cols-2">
-          <div>
-            <Label htmlFor="default_incoming">Default incoming account</Label>
-            <Select
-              id="default_incoming"
-              value={defaults.default_incoming_account ?? ""}
-              onChange={(e) => void onDefaultChange("default_incoming_account", e.target.value)}
-            >
-              <option value="">— None —</option>
-              {accounts.map((a) => (
-                <option key={a.name} value={a.name}>{a.account_name || a.name}</option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="default_outgoing">Default outgoing account</Label>
-            <Select
-              id="default_outgoing"
-              value={defaults.default_outgoing_account ?? ""}
-              onChange={(e) => void onDefaultChange("default_outgoing_account", e.target.value)}
-            >
-              <option value="">— None —</option>
-              {accounts.map((a) => (
-                <option key={a.name} value={a.name}>{a.account_name || a.name}</option>
-              ))}
-            </Select>
+      {!defaultsLoading && defaults && (
+        <div className="mt-4 space-y-4 border-t border-border pt-4">
+          {accounts.length > 0 && (
+            <div>
+              <Label htmlFor="default_account">Default account</Label>
+              <Select
+                id="default_account"
+                value={defaults.default_account ?? ""}
+                onChange={(e) => void onDefaultsChange({ default_account: e.target.value || undefined })}
+              >
+                <option value="">— None —</option>
+                {accounts.map((a) => (
+                  <option key={a.name} value={a.name}>{a.account_name || a.name}</option>
+                ))}
+              </Select>
+            </div>
+          )}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="whatsapp_api_url">API URL</Label>
+              <Input
+                id="whatsapp_api_url"
+                value={defaults.whatsapp_api_url ?? ""}
+                onChange={(e) => void onDefaultsChange({ whatsapp_api_url: e.target.value })}
+                placeholder="https://graph.facebook.com"
+              />
+            </div>
+            <div>
+              <Label htmlFor="whatsapp_api_version">API version</Label>
+              <Input
+                id="whatsapp_api_version"
+                value={defaults.whatsapp_api_version ?? ""}
+                onChange={(e) => void onDefaultsChange({ whatsapp_api_version: e.target.value })}
+                placeholder="v20.0"
+              />
+            </div>
+            <div>
+              <Label htmlFor="webhook_verify_token">Webhook verify token</Label>
+              <Input
+                id="webhook_verify_token"
+                value={defaults.webhook_verify_token ?? ""}
+                onChange={(e) => void onDefaultsChange({ webhook_verify_token: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="webhook_secret">Webhook secret</Label>
+              <Input
+                id="webhook_secret"
+                type="password"
+                value={defaults.webhook_secret ?? ""}
+                onChange={(e) => void onDefaultsChange({ webhook_secret: e.target.value })}
+                autoComplete="new-password"
+              />
+            </div>
           </div>
         </div>
       )}
@@ -429,15 +462,6 @@ function GeneralSection() {
 
   return (
     <SettingsGroup icon={<Settings2 className="h-4 w-4" />} title="General" subtitle="Defaults that apply across the CRM app">
-      <div className="py-3">
-        <Label htmlFor="crm_currency">Currency</Label>
-        <FrappeLinkField
-          meta={{ fieldname: "currency", fieldtype: "Link", options: "Currency", label: "Currency" }}
-          value={settings.currency ?? ""}
-          onChange={(v) => void set({ currency: v })}
-        />
-      </div>
-
       <div className="divide-y divide-border">
         <ToggleRow
           label="Enable forecasting"
@@ -505,6 +529,114 @@ function GeneralSection() {
   );
 }
 
+function BrandingSection() {
+  const { settings, isLoading, error, mutate, save } = useCrmGeneralSettings();
+
+  const set = async (values: Partial<CrmGeneralSettings>) => {
+    try {
+      await save(values);
+    } catch (err) {
+      toast.error(humanizeError(err));
+    }
+  };
+
+  if (isLoading) return <Skeleton className="h-32 w-full" />;
+  if (error || !settings) return <ErrorState error={error} onRetry={() => void mutate()} />;
+
+  return (
+    <SettingsGroup icon={<ImageIcon className="h-4 w-4" />} title="Branding" subtitle="Shown in the CRM's own header/tab, separate from the wider app's branding">
+      <div className="py-2">
+        <Label htmlFor="brand_name">Brand name</Label>
+        <Input
+          id="brand_name"
+          value={settings.brand_name ?? ""}
+          onChange={(e) => void set({ brand_name: e.target.value })}
+          placeholder="e.g. MicroMax CRM"
+        />
+      </div>
+      <div className="grid grid-cols-1 gap-2 border-t border-border pt-2 sm:grid-cols-2">
+        <LogoField label="Logo" value={settings.brand_logo} docname={settings.name} onUploaded={(url) => void set({ brand_logo: url })} />
+        <LogoField label="Favicon" value={settings.favicon} docname={settings.name} onUploaded={(url) => void set({ favicon: url })} />
+      </div>
+    </SettingsGroup>
+  );
+}
+
+function CurrencySection() {
+  const { settings, isLoading, error, mutate, save } = useCrmGeneralSettings();
+
+  const set = async (values: Partial<CrmGeneralSettings>) => {
+    try {
+      await save(values);
+    } catch (err) {
+      toast.error(humanizeError(err));
+    }
+  };
+
+  if (isLoading) return <Skeleton className="h-32 w-full" />;
+  if (error || !settings) return <ErrorState error={error} onRetry={() => void mutate()} />;
+
+  return (
+    <SettingsGroup icon={<Settings2 className="h-4 w-4" />} title="Currency" subtitle="Default currency and the exchange-rate provider used for multi-currency deals">
+      <div className="grid grid-cols-1 gap-4 py-2 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="crm_currency">Currency</Label>
+          <FrappeLinkField
+            meta={{ fieldname: "currency", fieldtype: "Link", options: "Currency", label: "Currency" }}
+            value={settings.currency ?? ""}
+            onChange={(v) => void set({ currency: v })}
+          />
+        </div>
+        <div>
+          <Label htmlFor="service_provider">Exchange rate provider</Label>
+          <Select
+            id="service_provider"
+            value={settings.service_provider ?? "frankfurter.app"}
+            onChange={(e) => void set({ service_provider: e.target.value as CrmGeneralSettings["service_provider"] })}
+          >
+            <option value="frankfurter.app">frankfurter.app</option>
+            <option value="fawazahmed-exchange-api">fawazahmed-exchange-api</option>
+            <option value="exchangerate.host">exchangerate.host</option>
+            <option value="exchangerate-api">exchangerate-api</option>
+          </Select>
+        </div>
+      </div>
+      <div className="border-t border-border pt-3">
+        <Label htmlFor="access_key">Access key</Label>
+        <Input
+          id="access_key"
+          type="password"
+          value={settings.access_key ?? ""}
+          onChange={(e) => void set({ access_key: e.target.value })}
+          placeholder="Required by some providers, e.g. exchangerate-api"
+          autoComplete="new-password"
+        />
+      </div>
+    </SettingsGroup>
+  );
+}
+
+function TemplatesSection() {
+  return (
+    <SettingsGroup icon={<FileText className="h-4 w-4" />} title="Templates" subtitle="Reusable boilerplate for mail and contracts">
+      <div className="divide-y divide-border">
+        <Link to="/crm/email-templates" className="flex items-center justify-between gap-4 py-3 hover:text-primary">
+          <div className="min-w-0">
+            <p className="text-sm font-medium">Email Templates</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Subject/body pairs available from the Lead/Deal compose box</p>
+          </div>
+        </Link>
+        <Link to="/crm/contract-templates" className="flex items-center justify-between gap-4 py-3 hover:text-primary">
+          <div className="min-w-0">
+            <p className="text-sm font-medium">Contract Templates</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Terms &amp; conditions boilerplate available from the Contracts "Load from Template" picker</p>
+          </div>
+        </Link>
+      </div>
+    </SettingsGroup>
+  );
+}
+
 export function CrmSettingsPage() {
   return (
     <div className="space-y-4">
@@ -516,6 +648,9 @@ export function CrmSettingsPage() {
       <div className="grid grid-cols-1 gap-4 max-w-3xl">
         <WhatsAppSection />
         <GeneralSection />
+        <CurrencySection />
+        <BrandingSection />
+        <TemplatesSection />
       </div>
     </div>
   );

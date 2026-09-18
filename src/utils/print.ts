@@ -75,6 +75,70 @@ function printPage(title: string, subtitle: string | undefined, tableHtml: strin
   openPrintDialog(html);
 }
 
+const DOCUMENT_STYLES = `
+  * { box-sizing: border-box; }
+  body { font-family: Georgia, "Times New Roman", Times, serif; color: #111; margin: 18px; line-height: 1.35; font-size: 10px; }
+  .doc-header { text-align: center; margin-bottom: 12px; }
+  h1 { font-size: 14px; margin: 0 0 2px; letter-spacing: 0.02em; text-transform: uppercase; }
+  .subtitle { font-size: 9px; color: #555; margin: 0; font-style: italic; }
+  .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px 20px; font-size: 9px; margin-bottom: 12px; padding: 8px 0; border-top: 1px solid #999; border-bottom: 1px solid #999; }
+  .info-grid dt { color: #555; display: inline; }
+  .info-grid dt::after { content: ": "; }
+  .info-grid dd { display: inline; margin: 0; font-weight: 600; }
+  .info-grid > div { margin: 0; }
+  .body-content { font-size: 9.5px; text-align: justify; }
+  .body-content h2 { font-size: 11px; margin: 10px 0 4px; text-align: center; }
+  .body-content h3 { font-size: 9.5px; margin: 8px 0 3px; font-weight: 700; }
+  .body-content p, .body-content li { margin: 0 0 4px; }
+  .body-content ol, .body-content ul { margin: 0 0 4px; padding-left: 18px; }
+  .signature-block { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 32px; margin-top: 28px; font-size: 9px; }
+  .signature-line { border-top: 1px solid #111; margin-top: 28px; padding-top: 3px; }
+  .meta-row { margin-top: 12px; font-size: 8px; color: #888; text-align: center; }
+  @page { size: auto; margin: 10mm; }
+`;
+
+/**
+ * Print preview for a single formatted document (e.g. a Contract) — a
+ * centered letterhead-style header, an info block of key/value pairs,
+ * arbitrary trusted HTML body content (e.g. Quill-authored terms), and a
+ * signature block. Sized to fit as much as possible on one page. Distinct
+ * from `printRows`, which renders a tabular list of many records instead of
+ * one document.
+ */
+export function printDocument(
+  title: string,
+  subtitle: string | undefined,
+  info: { label: string; value: string }[],
+  bodyHtml: string,
+  signees?: { label: string; name?: string }[],
+) {
+  const infoHtml = info.length
+    ? `<dl class="info-grid">${info.map((i) => `<div><dt>${escapeHtml(i.label)}</dt><dd>${escapeHtml(i.value)}</dd></div>`).join("")}</dl>`
+    : "";
+  const signatureHtml = (signees ?? [{ label: "Participant" }, { label: "For the Company" }])
+    .map((s) => `<div><p class="signature-line">${escapeHtml(s.label)}${s.name ? ` — ${escapeHtml(s.name)}` : ""}</p></div>`)
+    .join("");
+  const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(title)}</title>
+<style>${DOCUMENT_STYLES}</style>
+</head>
+<body>
+  <div class="doc-header">
+    <h1>${escapeHtml(title)}</h1>
+    ${subtitle ? `<p class="subtitle">${escapeHtml(subtitle)}</p>` : ""}
+  </div>
+  ${infoHtml}
+  <div class="body-content">${bodyHtml}</div>
+  <div class="signature-block">${signatureHtml}</div>
+  <p class="meta-row">Printed ${new Date().toLocaleString()}</p>
+</body>
+</html>`;
+  openPrintDialog(html);
+}
+
 export interface PrintColumn {
   key: string;
   label: string;

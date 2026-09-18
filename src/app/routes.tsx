@@ -111,6 +111,8 @@ const CrmLeadStatusesPage = lazy(() => import("@/pages/CRM/LeadStatusesPage").th
 const CrmTerritoriesPage = lazy(() => import("@/pages/CRM/TerritoriesPage").then((m) => ({ default: m.default })));
 const CrmIndustriesPage = lazy(() => import("@/pages/CRM/IndustriesPage").then((m) => ({ default: m.default })));
 const CrmSalutationsPage = lazy(() => import("@/pages/CRM/SalutationsPage").then((m) => ({ default: m.default })));
+const CrmEmailTemplatesPage = lazy(() => import("@/pages/CRM/EmailTemplatesPage").then((m) => ({ default: m.default })));
+const CrmContractTemplatesPage = lazy(() => import("@/pages/CRM/ContractTemplatesPage").then((m) => ({ default: m.default })));
 const UsersPage = lazy(() => import("@/pages/Admin/UsersPage").then((m) => ({ default: m.UsersPage })));
 const UserFormPage = lazy(() => import("@/pages/Admin/UserFormPage").then((m) => ({ default: m.UserFormPage })));
 const UserDetailPage = lazy(() => import("@/pages/Admin/UserDetailPage").then((m) => ({ default: m.UserDetailPage })));
@@ -354,11 +356,13 @@ export function AppRoutes() {
         <Route path="crm/masters/territories" element={<Suspense fallback={<FullPageLoader />}><CrmTerritoriesPage /></Suspense>} />
         <Route path="crm/masters/industries" element={<Suspense fallback={<FullPageLoader />}><CrmIndustriesPage /></Suspense>} />
         <Route path="crm/masters/salutations" element={<Suspense fallback={<FullPageLoader />}><CrmSalutationsPage /></Suspense>} />
+        <Route path="crm/email-templates" element={<Suspense fallback={<FullPageLoader />}><CrmEmailTemplatesPage /></Suspense>} />
+        <Route path="crm/contract-templates" element={<Suspense fallback={<FullPageLoader />}><CrmContractTemplatesPage /></Suspense>} />
         <Route path="crm/dashboard" element={<Suspense fallback={<FullPageLoader />}><CrmDashboardPageLazy /></Suspense>} />
         <Route
           path="crm/settings"
           element={
-            <RequireRole roles={["System Manager"]}>
+            <RequireRole roles={["System Manager", "CRM"]}>
               <Suspense fallback={<FullPageLoader />}>
                 <CrmSettingsPage />
               </Suspense>

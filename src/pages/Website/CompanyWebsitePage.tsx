@@ -5,8 +5,10 @@ import {
   Bell,
   Building2,
   Check,
+  ChevronDown,
   Clock,
   Globe,
+  HelpCircle,
   Mail,
   MapPin,
   Phone,
@@ -28,10 +30,12 @@ import {
   BI_PLATFORMS,
   COMPANY,
   DASHBOARDS,
+  FAQS,
   HERO_KPIS,
   HERO_TREND,
   INDUSTRIES,
   MODULES,
+  PRICING,
 } from "./website-data";
 
 /** Anchor targets used by the sticky header. Kept at module scope so the
@@ -42,6 +46,8 @@ const SECTIONS = [
   { id: "modules", label: "Modules" },
   { id: "dashboards", label: "Dashboards" },
   { id: "bi", label: "Business Intelligence" },
+  { id: "pricing", label: "Pricing" },
+  { id: "faq", label: "FAQ" },
   { id: "contact", label: "Contact" },
 ];
 const SECTION_IDS = SECTIONS.map((s) => s.id);
@@ -800,6 +806,122 @@ function BiSection() {
   );
 }
 
+/**
+ * Pricing — two real paths: free self-hosting under ERPNext's GPLv3 licence,
+ * or a scoped, custom-quoted implementation managed by MicroMax end to end.
+ * No invented list prices; the managed tier is honestly a "talk to us".
+ */
+function PricingSection() {
+  return (
+    <section
+      id="pricing"
+      className={cn(
+        "border-t border-border/70 bg-muted/30 dark:border-white/10 dark:bg-white/[0.02]",
+        SECTION_CLASS,
+      )}
+    >
+      <div className="mx-auto w-full max-w-6xl px-4 py-16 lg:py-20">
+        <SectionHeading
+          eyebrow="Pricing"
+          title="Two paths. Run it yourself, or let us run it for you."
+          description="ERPNext's core is open source, so self-hosting never costs a licence fee. When you want us to implement, host and support it, the quote is scoped to your modules, users and hosting choice — not a one-size list price."
+          align="center"
+        />
+
+        <div className="mx-auto mt-10 grid max-w-4xl gap-6 sm:grid-cols-2">
+          {PRICING.map((tier) => {
+            const Icon = tier.icon;
+            return (
+              <Card
+                key={tier.id}
+                className={cn(
+                  "relative flex flex-col overflow-hidden p-6",
+                  tier.highlighted && "border-primary/40 shadow-lg dark:border-primary/40",
+                )}
+              >
+                {tier.highlighted && (
+                  <Badge variant="primary" className="absolute right-5 top-5 w-fit">
+                    Recommended
+                  </Badge>
+                )}
+
+                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Icon className="h-5 w-5" />
+                </span>
+
+                <h3 className="mt-4 text-lg font-semibold tracking-tight">{tier.name}</h3>
+                <div className="mt-1 flex items-baseline gap-1.5">
+                  <span className="text-3xl font-semibold tracking-tight">{tier.price}</span>
+                  <span className="text-xs text-muted-foreground">{tier.period}</span>
+                </div>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                  {tier.description}
+                </p>
+
+                <ul className="mt-5 flex-1 space-y-2.5">
+                  {tier.features.map((feature) => (
+                    <li key={feature} className="flex items-start gap-2 text-sm">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                      <span className="leading-relaxed text-muted-foreground">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <a
+                  href="#contact"
+                  className={cn(
+                    "mt-6 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md px-6 text-sm font-medium transition-colors",
+                    tier.highlighted
+                      ? "bg-primary text-primary-foreground hover:brightness-110"
+                      : "border border-input hover:bg-accent hover:text-accent-foreground",
+                  )}
+                >
+                  {tier.cta}
+                </a>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** FAQ — an accordion of the questions a prospect asks before a demo call. */
+function FaqSection() {
+  return (
+    <section id="faq" className={cn("border-t border-border/70 dark:border-white/10", SECTION_CLASS)}>
+      <div className="mx-auto w-full max-w-3xl px-4 py-16 lg:py-20">
+        <SectionHeading
+          eyebrow="FAQ"
+          title="Questions we get before the first call"
+          align="center"
+        />
+
+        <div className="mt-10 space-y-3">
+          {FAQS.map((item) => (
+            <details
+              key={item.question}
+              className="group rounded-lg border border-border/70 bg-card/60 open:bg-card px-5 py-4 dark:border-white/10 dark:bg-white/5 dark:open:bg-white/[0.07]"
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium marker:content-none">
+                <span className="flex items-center gap-2.5">
+                  <HelpCircle className="h-4 w-4 shrink-0 text-primary" />
+                  {item.question}
+                </span>
+                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+              </summary>
+              <p className="mt-3 pl-[26px] text-sm leading-relaxed text-muted-foreground">
+                {item.answer}
+              </p>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /** Contact / closing CTA — the conversion block at the end of the page. */
 function ContactSection() {
   const navigate = useNavigate();
@@ -927,6 +1049,8 @@ export function CompanyWebsitePage() {
         <ModulesSection />
         <DashboardsSection />
         <BiSection />
+        <PricingSection />
+        <FaqSection />
         <ContactSection />
       </main>
       <SiteFooter />

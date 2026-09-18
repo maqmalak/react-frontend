@@ -307,7 +307,11 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
     },
     {
       title: "Configuration",
-      items: [{ label: "Settings", to: "/crm/settings", icon: SettingsIcon }],
+      items: [
+        { label: "Email Templates", to: "/crm/email-templates", icon: FileText },
+        { label: "Contract Templates", to: "/crm/contract-templates", icon: FileText },
+        { label: "Settings", to: "/crm/settings", icon: SettingsIcon },
+      ],
     },
   ],
   subcontracting: [{ items: [{ label: "Subcontracting", to: "/subcontracting", icon: Cog }] }],

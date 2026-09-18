@@ -929,3 +929,112 @@ export const DASHBOARDS: Dashboard[] = [
     tone: "bg-slate-500/10 text-slate-600 dark:text-slate-400",
   },
 ];
+
+/* ------------------------------------------------------------------ *
+ * Pricing — two real paths, not invented numbers. Self-hosting is free
+ * because ERPNext's GPLv3 licence makes it so; the managed path is a
+ * scoped quote because implementation cost genuinely depends on modules,
+ * users and hosting choice, not a one-size list price.
+ * ------------------------------------------------------------------ */
+
+export interface PricingTier {
+  id: string;
+  name: string;
+  icon: LucideIcon;
+  price: string;
+  period: string;
+  description: string;
+  features: string[];
+  cta: string;
+  highlighted?: boolean;
+}
+
+export const PRICING: PricingTier[] = [
+  {
+    id: "self-hosted",
+    name: "Self-Hosted",
+    icon: Server,
+    price: "Free",
+    period: "forever, GNU GPLv3",
+    description:
+      "Run ERPNext yourself. Install it on your own server or datacenter with every module unlocked and no per-user licence fee.",
+    features: [
+      "All modules, unlimited users",
+      "Full source code (GNU GPLv3)",
+      "Your data, your infrastructure",
+      "Community forum support",
+      "Upgrade on your own schedule",
+    ],
+    cta: "Talk to us about self-hosting",
+  },
+  {
+    id: "managed",
+    name: "Managed by MicroMax",
+    icon: Handshake,
+    price: "Custom",
+    period: "scoped to your modules & users",
+    description:
+      "We implement, host and support ERPNext end-to-end — on our datacenter or yours — with the Power BI and Grafana layer built in from day one.",
+    features: [
+      "Implementation, data migration & training",
+      "Datacenter hosting or virtualized deployment",
+      "Power BI + Grafana analytics included",
+      "Annual Maintenance Contract (AMC)",
+      "Direct line to the team that built it",
+    ],
+    cta: "Talk to sales",
+    highlighted: true,
+  },
+];
+
+/* ------------------------------------------------------------------ *
+ * FAQ — the questions a prospect actually asks before a demo call.
+ * ------------------------------------------------------------------ */
+
+export interface FaqItem {
+  question: string;
+  answer: string;
+}
+
+export const FAQS: FaqItem[] = [
+  {
+    question: "Is MicroMax ERP open source?",
+    answer:
+      "Yes. The platform is built on ERPNext, licensed under the GNU GPLv3. You can read the source, self-host it, and you are never locked into a proprietary data format.",
+  },
+  {
+    question: "Can I host it myself, or does it have to run on your servers?",
+    answer:
+      "Either. Run it on your own hardware or datacenter with zero licence fees, or let us host and manage it on our infrastructure — the software is identical either way.",
+  },
+  {
+    question: "What modules are included?",
+    answer:
+      "All of them: Import & Export, Buying, Selling, Production, Inventory, Accounting, CRM, HR & Payroll, POS, Hospital & Clinic, Education and more — switched on per company and per role, so each business unit sees only what concerns it.",
+  },
+  {
+    question: "Do you help with implementation and training?",
+    answer:
+      "Yes. Implementation, data migration and user training are delivered by our own team — the same people who build and maintain the platform — followed by an Annual Maintenance Contract (AMC).",
+  },
+  {
+    question: "How does the Power BI / Grafana analytics layer work?",
+    answer:
+      "We publish read-only views from ERPNext — never writing into production tables — into a governed Power BI model for executive reporting, and Grafana panels for real-time operational monitoring and alerts.",
+  },
+  {
+    question: "Who owns the data?",
+    answer:
+      "You do. Deploy on your own infrastructure, keep your own read replicas for analytics, and export everything at any time — nothing is locked behind a proprietary export format.",
+  },
+  {
+    question: "Can I migrate from Excel, Tally, QuickBooks or another ERP?",
+    answer:
+      "Yes — data migration is part of the standard implementation. We map your existing masters, ledgers and open transactions into ERPNext before go-live.",
+  },
+  {
+    question: "What if I only need one or two modules, like Accounting or POS?",
+    answer:
+      "Modules are switched on per company, so you can start with just what you need — Accounting and POS, for instance — and turn on Production, CRM or Hospital later without a re-implementation.",
+  },
+];

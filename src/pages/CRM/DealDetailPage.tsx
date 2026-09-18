@@ -24,11 +24,13 @@ import { whatsappUrl } from "@/utils/whatsapp";
 import { WhatsAppIcon } from "@/components/common/whatsapp-icon";
 import { useWhatsAppCall } from "@/hooks/useWhatsAppCall";
 import { notifyDataChanged } from "@/hooks/useRealtime";
+import { useAuth } from "@/hooks/useAuth";
 import type { CrmTask } from "@/types/frappe";
 
 export function DealDetailPage() {
   const { name } = useParams<{ name: string }>();
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const { data: deal, error, isLoading, mutate } = useCrmDeal(name);
   const { activities, isLoading: activitiesLoading, addComment } = useCrmActivities(name);
   const { data: notes } = useCrmNotes("CRM Deal", name);
@@ -65,7 +67,7 @@ export function DealDetailPage() {
   const { call } = useWhatsAppCall();
   const [comment, setComment] = useState("");
   const [taskModalOpen, setTaskModalOpen] = useState(false);
-  const [taskValues, setTaskValues] = useState<Partial<CrmTask>>({ status: "Todo", priority: "Medium" });
+  const [taskValues, setTaskValues] = useState<Partial<CrmTask>>({ status: "Todo", priority: "Medium", assigned_to: currentUser ?? undefined });
 
   if (isLoading) {
     return (
@@ -113,7 +115,7 @@ export function DealDetailPage() {
       toast.success("Follow-up task created");
       notifyDataChanged();
       setTaskModalOpen(false);
-      setTaskValues({ status: "Todo", priority: "Medium" });
+      setTaskValues({ status: "Todo", priority: "Medium", assigned_to: currentUser ?? undefined });
       void mutateTasks();
     } catch (err) {
       toast.error(humanizeError(err));
@@ -227,6 +229,7 @@ export function DealDetailPage() {
           <EmailPanel
             referenceDoctype="CRM Deal"
             referenceDocname={name}
+            referenceDoc={deal}
             defaultRecipient={deal.email}
           />
 

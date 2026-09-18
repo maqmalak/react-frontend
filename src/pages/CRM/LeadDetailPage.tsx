@@ -24,10 +24,12 @@ import { WhatsAppIcon } from "@/components/common/whatsapp-icon";
 import { useWhatsAppCall } from "@/hooks/useWhatsAppCall";
 import { formatDateTime } from "@/utils/dates";
 import { notifyDataChanged } from "@/hooks/useRealtime";
+import { useAuth } from "@/hooks/useAuth";
 import type { CrmTask, CrmNote } from "@/types/frappe";
 
 export function LeadDetailPage() {
   const { name } = useParams<{ name: string }>();
+  const { currentUser } = useAuth();
   const navigate = useNavigate();
   const { data: lead, error, isLoading, mutate } = useCrmLead(name);
   const { activities, isLoading: activitiesLoading, addComment } = useCrmActivities(name);
@@ -100,7 +102,7 @@ export function LeadDetailPage() {
 
   const [comment, setComment] = useState("");
   const [taskModalOpen, setTaskModalOpen] = useState(false);
-  const [taskValues, setTaskValues] = useState<Partial<CrmTask>>({ status: "Todo", priority: "Medium" });
+  const [taskValues, setTaskValues] = useState<Partial<CrmTask>>({ status: "Todo", priority: "Medium", assigned_to: currentUser ?? undefined });
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [noteValues, setNoteValues] = useState<Partial<CrmNote>>({});
   const [converting, setConverting] = useState(false);
@@ -167,7 +169,7 @@ export function LeadDetailPage() {
       toast.success("Follow-up task created");
       notifyDataChanged();
       setTaskModalOpen(false);
-      setTaskValues({ status: "Todo", priority: "Medium" });
+      setTaskValues({ status: "Todo", priority: "Medium", assigned_to: currentUser ?? undefined });
       void mutateTasks();
     } catch (err) {
       toast.error(humanizeError(err));
@@ -305,6 +307,7 @@ export function LeadDetailPage() {
           <EmailPanel
             referenceDoctype="CRM Lead"
             referenceDocname={name}
+            referenceDoc={lead}
             defaultRecipient={lead.email}
           />
 

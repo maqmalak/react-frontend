@@ -162,12 +162,18 @@ export interface FrappeFormProps {
   /**
    * Escape hatch for a field that needs logic FieldRenderer's fieldtype
    * switch can't express — e.g. a top-level "Dynamic Link" whose target
-   * doctype comes from another field's current value (FieldRenderer's
-   * default case renders it as a plain text input). Return `undefined` to
-   * fall back to the normal renderer. Mirrors EditableChildTable's
-   * `renderCell` escape hatch.
+   * doctype comes from another field's current value, or a Link whose
+   * selection should also populate a different field (FieldRenderer's
+   * default case renders a Dynamic Link as a plain text input, with no way
+   * to see other fields' values or write to them). Gets the form's current
+   * `values`/`onChange` so it can read sibling fields and trigger side
+   * effects. Return `undefined` to fall back to the normal renderer. Mirrors
+   * EditableChildTable's `renderCell` escape hatch.
    */
-  renderField?: (meta: FormFieldMeta) => React.ReactNode | undefined;
+  renderField?: (
+    meta: FormFieldMeta,
+    ctx: { values: FormValues; onChange: (fieldname: string, value: any) => void },
+  ) => React.ReactNode | undefined;
   children?: React.ReactNode;
 }
 
@@ -206,7 +212,7 @@ export function FrappeForm({
             >
               {col.flatMap((meta) => {
                 if (meta.hidden || meta.depends_on) return [];
-                const custom = renderField?.(meta);
+                const custom = renderField?.(meta, { values, onChange });
                 if (custom !== undefined) {
                   return [
                     <div key={meta.fieldname} className="space-y-1">

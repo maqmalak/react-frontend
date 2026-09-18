@@ -3,15 +3,18 @@ import { Link } from "react-router-dom";
 import useSWR from "swr";
 import { useFrappeGetDocList, useFrappeCreateDoc } from "frappe-react-sdk";
 import toast from "react-hot-toast";
-import { ChevronDown, ChevronRight, Mail, Send, Link2, CalendarDays, ListTodo, Inbox, Paperclip, FileText, Download, MessageCircle } from "lucide-react";
+import { ChevronDown, ChevronRight, Mail, Send, Link2, CalendarDays, ListTodo, Inbox, Paperclip, FileText, Download, MessageCircle, RefreshCw, AlertTriangle } from "lucide-react";
 import { SectionCard } from "@/components/common/section-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select } from "@/components/ui/select";
+import { RichTextEditor } from "@/components/forms/rich-text-editor";
 import { postCall, humanizeError, uploadFile, fileURL, type FrappeFile } from "@/services/frappe";
 import { getWhatsAppMessages, sendWhatsAppMessage } from "@/services/api";
+import { useEmailTemplates } from "@/hooks/useEmailTemplates";
 import { formatDateTime } from "@/utils/dates";
 import { cn } from "@/utils/cn";
 
@@ -89,11 +92,16 @@ export const CONNECTION_ICONS = { mail: Mail, calendar: CalendarDays, task: List
 export function EmailPanel({
   referenceDoctype,
   referenceDocname,
+  referenceDoc,
   defaultRecipient,
   className,
 }: {
   referenceDoctype: string;
   referenceDocname?: string;
+  /** The full current record (Lead/Deal, all fields) — used as the Jinja
+   * context so a selected template's `{{ field }}` placeholders render
+   * against real data instead of being sent out as literal `{{ ... }}` text. */
+  referenceDoc?: Record<string, any>;
   defaultRecipient?: string;
   className?: string;
 }) {
@@ -104,6 +112,25 @@ export function EmailPanel({
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const { createDoc: logCommunication } = useFrappeCreateDoc();
+  const { templates } = useEmailTemplates();
+
+  const applyTemplate = async (templateName: string) => {
+    if (!templateName) return;
+    try {
+      // Render server-side (frappe.render_template against `referenceDoc`)
+      // rather than copying the template's raw `{{ field }}` source — a
+      // client-side copy would send those placeholders out verbatim instead
+      // of the lead/deal's actual field values.
+      const rendered = await postCall<{ subject: string; message: string }>(
+        "frappe.email.doctype.email_template.email_template.get_email_template",
+        { template_name: templateName, doc: referenceDoc ?? { doctype: referenceDoctype, name: referenceDocname } },
+      );
+      setSubject(rendered.subject ?? "");
+      setMessage(rendered.message ?? "");
+    } catch (err) {
+      toast.error(humanizeError(err));
+    }
+  };
 
   const { data: emails, isLoading, mutate } = useFrappeGetDocList<DocEmail>("Communication", {
     fields: [...EMAIL_FIELDS],
@@ -119,6 +146,40 @@ export function EmailPanel({
     orderBy: { field: "creation", order: "desc" },
     limit: 50,
   }, referenceDocname ? `micromax.doc.emails.${referenceDocname}` : null);
+
+  // Delivery status per email — a "sent" toast only means the Communication
+  // was created/queued, not that it was actually delivered (Frappe queues
+  // outgoing mail via Email Queue and the scheduler sends it after; SMTP
+  // rejections land here as status "Error" with the server's reason). This
+  // surfaces that directly on the record instead of it being a silent gap.
+  const sentEmailNames = useMemo(
+    () => (emails ?? []).filter((e) => e.sent_or_received === "Sent").map((e) => e.name),
+    [emails],
+  );
+  const { data: queueRows, mutate: mutateQueue } = useFrappeGetDocList<{
+    communication: string;
+    status: string;
+    error?: string;
+  }>(
+    "Email Queue",
+    {
+      fields: ["communication", "status", "error"],
+      filters: [["communication", "in", sentEmailNames]],
+      limit: 0,
+    },
+    sentEmailNames.length ? `micromax.doc.email-queue.${sentEmailNames.join(",")}` : null,
+  );
+  const queueByCommunication = useMemo(() => {
+    const map = new Map<string, { status: string; error?: string }>();
+    (queueRows ?? []).forEach((q) => map.set(q.communication, q));
+    return map;
+  }, [queueRows]);
+  const queueBadgeVariant = (status?: string): "success" | "warning" | "destructive" | "outline" => {
+    if (status === "Sent") return "success";
+    if (status === "Error") return "destructive";
+    if (status === "Not Sent" || status === "Sending" || status === "Partially Sent") return "warning";
+    return "outline";
+  };
 
   const send = async () => {
     if (!to.trim() || !subject.trim() || !message.trim()) {
@@ -164,6 +225,7 @@ export function EmailPanel({
       setSubject("");
       setMessage("");
       void mutate();
+      void mutateQueue();
     }
   };
 
@@ -172,9 +234,22 @@ export function EmailPanel({
       title="Emails"
       className={className}
       actions={
-        <Button size="sm" variant="outline" onClick={() => setComposeOpen(true)}>
-          <Mail className="h-3.5 w-3.5" /> Compose
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            title="Refresh delivery status"
+            onClick={() => {
+              void mutate();
+              void mutateQueue();
+            }}
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setComposeOpen(true)}>
+            <Mail className="h-3.5 w-3.5" /> Compose
+          </Button>
+        </div>
       }
     >
       {composeOpen && (
@@ -189,9 +264,25 @@ export function EmailPanel({
               <Input id="email-subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" />
             </div>
           </div>
+          {templates.length > 0 && (
+            <div className="space-y-1">
+              <Label htmlFor="email-template" className="text-xs">Template</Label>
+              <Select id="email-template" defaultValue="" onChange={(e) => void applyTemplate(e.target.value)}>
+                <option value="" disabled>Insert a template…</option>
+                {templates.map((t) => (
+                  <option key={t.name} value={t.name}>{t.name}</option>
+                ))}
+              </Select>
+            </div>
+          )}
           <div className="space-y-1">
             <Label htmlFor="email-body" className="text-xs">Message</Label>
-            <Textarea id="email-body" rows={5} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Write your email…" />
+            <RichTextEditor
+              value={message}
+              onChange={setMessage}
+              placeholder="Write your email…"
+              className="[&_.ql-editor]:min-h-[220px]"
+            />
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" size="sm" onClick={() => setComposeOpen(false)}>Cancel</Button>
@@ -213,6 +304,7 @@ export function EmailPanel({
         <ul className="space-y-2">
           {(emails ?? []).map((e) => {
             const isOpen = expanded === e.name;
+            const queue = e.sent_or_received === "Sent" ? queueByCommunication.get(e.name) : undefined;
             return (
               <li key={e.name} className="rounded-lg border border-border transition-colors hover:bg-accent/40">
                 <button
@@ -233,6 +325,12 @@ export function EmailPanel({
                     )}
                     <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
                       <Badge variant="outline" className="px-1.5 py-0 text-[10px]">{e.sent_or_received}</Badge>
+                      {queue && (
+                        <Badge variant={queueBadgeVariant(queue.status)} className="px-1.5 py-0 text-[10px]">
+                          {queue.status === "Error" && <AlertTriangle className="h-2.5 w-2.5" />}
+                          {queue.status}
+                        </Badge>
+                      )}
                       <span className="truncate">{e.sent_or_received === "Sent" ? `to ${e.recipients}` : `from ${e.sender}`}</span>
                       <span>· {formatDateTime(e.creation)}</span>
                     </span>
@@ -241,6 +339,12 @@ export function EmailPanel({
                 {isOpen && (
                   <div className="border-t border-border px-3 py-2 text-sm text-foreground/90">
                     <div dangerouslySetInnerHTML={{ __html: e.content }} />
+                    {queue?.status === "Error" && queue.error && (
+                      <div className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
+                        <p className="mb-1 flex items-center gap-1 font-medium"><AlertTriangle className="h-3 w-3" /> Delivery failed</p>
+                        <pre className="max-h-40 overflow-auto whitespace-pre-wrap font-mono text-[11px]">{queue.error}</pre>
+                      </div>
+                    )}
                   </div>
                 )}
               </li>

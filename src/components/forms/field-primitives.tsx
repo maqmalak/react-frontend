@@ -84,9 +84,16 @@ const LINK_TITLE_FIELDS: Record<string, string> = {
   Warehouse: "warehouse_name",
   "Sales Order": "name",
   "Purchase Order": "name",
+  "CRM Lead": "lead_name",
+  "CRM Deal": "organization",
+  "CRM Organization": "organization_name",
 };
 
-function linkTitleField(doctype: string): string {
+/** Title/search field for a Link doctype — exported so callers needing the
+ * actual display value (not just the id) for a Dynamic Link selection, e.g.
+ * to pre-populate a "full name" field a controller would otherwise guess
+ * wrong for a multi-word doctype, can fetch the right field themselves. */
+export function linkTitleField(doctype: string): string {
   return LINK_TITLE_FIELDS[doctype] ?? "name";
 }
 

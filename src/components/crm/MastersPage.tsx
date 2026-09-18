@@ -36,6 +36,9 @@ export interface MastersPageConfig<T extends Record<string, any>> {
   extraStats?: (rows: T[]) => { label: string; value: number | string; tone?: "sky" | "emerald" | "amber" | "indigo" }[];
   orderBy?: { field: string; order: "asc" | "desc" };
   defaults?: Partial<T>;
+  filters?: unknown[][];
+  /** Create/edit dialog width — "md" (default) is cramped for a rich-text (Quill) field. */
+  dialogSize?: "sm" | "md" | "lg" | "xl";
 }
 
 export function MastersPage<T extends Record<string, any>>({ config }: { config: MastersPageConfig<T> }) {
@@ -43,6 +46,7 @@ export function MastersPage<T extends Record<string, any>>({ config }: { config:
     doctype: config.doctype,
     fields: [...config.fields, "creation", "modified"] as (keyof T)[],
     orderBy: config.orderBy ?? { field: String(config.primaryField), order: "asc" },
+    filters: config.filters,
   });
 
   const [query, setQuery] = useState("");
@@ -217,6 +221,7 @@ export function MastersPage<T extends Record<string, any>>({ config }: { config:
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
         title={editing ? `Edit ${config.primaryLabel}` : `New ${config.title.replace(/s$/, "")}`}
+        size={config.dialogSize ?? "md"}
       >
         <div className="space-y-4">
           <FrappeForm

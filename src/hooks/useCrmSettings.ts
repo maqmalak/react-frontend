@@ -7,40 +7,34 @@ import {
 } from "frappe-react-sdk";
 
 /**
- * `WhatsApp Account` (frappe_whatsapp app) — one row per Meta WhatsApp Business
- * number. `token` is a Password field: the server never returns its value on
- * read, so forms must treat a blank token input as "leave unchanged" rather
- * than clearing it.
+ * `WhatsApp Account` (frappe/whatsapp app) — one row per Meta WhatsApp
+ * Business number. `access_token` is a Password field: the server never
+ * returns its value on read, so forms must treat a blank input as "leave
+ * unchanged" rather than clearing it. The API URL/version and webhook
+ * verify token/secret are NOT per-account — they live on the site-wide
+ * `WhatsApp Settings` single (see `CrmWhatsAppSettings` below), and there is
+ * a single `default_account` on that single rather than separate
+ * incoming/outgoing defaults.
  */
 export interface CrmWhatsAppAccount {
   name: string;
   account_name?: string;
-  token?: string;
-  url?: string;
-  version?: string;
+  access_token?: string;
   phone_id?: string;
   business_id?: string;
   app_id?: string;
-  webhook_verify_token?: string;
   status?: "Active" | "Inactive";
-  is_default_incoming?: 0 | 1;
-  is_default_outgoing?: 0 | 1;
-  allow_auto_read_receipt?: 0 | 1;
+  auto_read_receipts?: 0 | 1;
 }
 
 const WHATSAPP_ACCOUNT_FIELDS: (keyof CrmWhatsAppAccount)[] = [
   "name",
   "account_name",
-  "url",
-  "version",
   "phone_id",
   "business_id",
   "app_id",
-  "webhook_verify_token",
   "status",
-  "is_default_incoming",
-  "is_default_outgoing",
-  "allow_auto_read_receipt",
+  "auto_read_receipts",
 ];
 
 export function useWhatsAppAccounts() {
@@ -70,22 +64,25 @@ export function useWhatsAppAccountMutations() {
   return { create, update, remove, saving: creating || updating, deleting };
 }
 
-/** `WhatsApp Settings` (frappe_whatsapp) — single doc picking the account used when no other is specified. */
-export interface CrmWhatsAppDefaults {
+/** `WhatsApp Settings` (single) — site-wide API connection config, one default account. */
+export interface CrmWhatsAppSettings {
   name: string;
-  default_incoming_account?: string;
-  default_outgoing_account?: string;
+  whatsapp_api_url?: string;
+  whatsapp_api_version?: string;
+  webhook_verify_token?: string;
+  webhook_secret?: string;
+  default_account?: string;
 }
 
 export function useWhatsAppDefaults() {
-  const { data, error, isLoading, mutate } = useFrappeGetDoc<CrmWhatsAppDefaults>(
+  const { data, error, isLoading, mutate } = useFrappeGetDoc<CrmWhatsAppSettings>(
     "WhatsApp Settings",
     "WhatsApp Settings",
     "micromax.crm.whatsapp-settings",
   );
-  const { updateDoc, loading: saving } = useFrappeUpdateDoc<CrmWhatsAppDefaults>();
+  const { updateDoc, loading: saving } = useFrappeUpdateDoc<CrmWhatsAppSettings>();
 
-  const save = async (values: Partial<CrmWhatsAppDefaults>) => {
+  const save = async (values: Partial<CrmWhatsAppSettings>) => {
     const doc = await updateDoc("WhatsApp Settings", "WhatsApp Settings", values);
     void mutate();
     return doc;
@@ -106,6 +103,11 @@ export interface CrmGeneralSettings {
   auto_reopen_on_new_communication?: 0 | 1;
   crm_timeline_timestamp_format?: "Relative" | "Exact";
   crm_timeline_sort_order?: "Oldest First" | "Newest First";
+  brand_name?: string;
+  brand_logo?: string;
+  favicon?: string;
+  service_provider?: "frankfurter.app" | "fawazahmed-exchange-api" | "exchangerate.host" | "exchangerate-api";
+  access_key?: string;
 }
 
 export function useCrmGeneralSettings() {

@@ -6,7 +6,7 @@ import type { ColumnDef } from "@/components/tables/data-table";
 import { StatusBadge } from "@/components/common/status-badge";
 import { Avatar } from "@/components/ui/avatar";
 import { avatarTone } from "@/components/common/avatar-tone";
-import { formatDate, relativeDays } from "@/utils/dates";
+import { formatDateTime, relativeDays } from "@/utils/dates";
 import { useCrmReferenceLabels } from "@/hooks/useCrmReferenceLabels";
 import type { CrmTask } from "@/types/frappe";
 
@@ -44,7 +44,7 @@ export default function TasksPage() {
       {
         key: "due_date",
         label: "Due Date",
-        render: (r) => <span className="text-sm text-muted-foreground">{r.due_date ? formatDate(r.due_date) : "—"}</span>,
+        render: (r) => <span className="text-sm text-muted-foreground">{r.due_date ? formatDateTime(r.due_date) : "—"}</span>,
         getValue: (r) => r.due_date,
       },
       {
@@ -82,7 +82,7 @@ export default function TasksPage() {
         { fieldname: "title", label: "Title", fieldtype: "Data", reqd: true },
         { fieldname: "priority", label: "Priority", fieldtype: "Select", options: PRIORITIES.join("\n"), default: "Medium" },
         { fieldname: "status", label: "Status", fieldtype: "Select", options: STATUSES.join("\n"), default: "Todo" },
-        { fieldname: "due_date", label: "Due Date", fieldtype: "Date" },
+        { fieldname: "due_date", label: "Due Date & Time", fieldtype: "Datetime" },
         { fieldname: "assigned_to", label: "Assigned To", fieldtype: "Link", options: "User" },
         { fieldname: "description", label: "Description", fieldtype: "Text" },
       ],
@@ -101,7 +101,7 @@ export default function TasksPage() {
         { label: "Done", value: rows.filter((r) => r.status === "Done").length, icon: <CheckSquare className="h-4 w-4" />, tone: "emerald" },
       ],
       rowName: (r) => r.title,
-      rowSubtitle: (r) => (r.due_date ? `Due ${formatDate(r.due_date)}` : undefined),
+      rowSubtitle: (r) => (r.due_date ? `Due ${formatDateTime(r.due_date)}` : undefined),
       renderCard: (r) => (
         <div className="space-y-2">
           <p className="truncate text-sm font-medium">{r.title}</p>

@@ -8,6 +8,7 @@ import {
   Eye,
   Pencil,
   Trash2,
+  Printer,
   Search,
   X,
 
@@ -47,6 +48,13 @@ export interface CrmManagementConfig<T extends Record<string, any>> {
   formFields: FormFieldMeta[];
   /** Defaults applied when creating. */
   defaults?: Partial<T>;
+  /** Escape hatch forwarded to the create/edit form's FrappeForm — see FrappeFormProps.renderField. */
+  renderField?: (
+    meta: FormFieldMeta,
+    ctx: { values: Record<string, any>; onChange: (fieldname: string, value: any) => void },
+  ) => ReactNode | undefined;
+  /** Create/edit dialog width — "lg" (default) is cramped for a rich-text (Quill) field. */
+  dialogSize?: "sm" | "md" | "lg" | "xl";
   /** Field rows are grouped by on the Pipeline (kanban) view. */
   kanbanField: keyof T;
   /** Ordered pipeline column defs; if omitted, columns are derived from data. */
@@ -59,6 +67,8 @@ export interface CrmManagementConfig<T extends Record<string, any>> {
   statusOptions?: string[];
   /** List table columns. */
   columns: ColumnDef<T>[];
+  /** Enables the list view's Export (CSV/Excel) and Print-preview (→ browser "Save as PDF") actions — filename base, no extension. Omit to hide both. */
+  exportFilename?: string;
   /** Optional KPI strip; defaults to a single Total card. */
   stats?: (rows: T[]) => CrmStatSpec[];
   /** Display name (used for avatar initials + titles). */
@@ -67,6 +77,8 @@ export interface CrmManagementConfig<T extends Record<string, any>> {
   rowSubtitle?: (r: T) => string | undefined;
   /** Navigate to a detail page on row click / eye action. */
   onOpen?: (r: T) => void;
+  /** Adds a per-row Print action (formatted single-document print preview → browser "Save as PDF"), distinct from the list-level table export/print. */
+  onPrintRow?: (r: T) => void;
   renderCard?: (r: T) => ReactNode;
   emptyTitle: string;
   emptyDescription: string;
@@ -195,6 +207,11 @@ export function CrmManagementPage<T extends Record<string, any>>({ config }: { c
             {config.onOpen && (
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => config.onOpen!(r)}>
                 <Eye className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {config.onPrintRow && (
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => config.onPrintRow!(r)}>
+                <Printer className="h-3.5 w-3.5" />
               </Button>
             )}
             <Button
@@ -382,6 +399,9 @@ export function CrmManagementPage<T extends Record<string, any>>({ config }: { c
           onRowClick={config.onOpen}
           emptyTitle={config.emptyTitle}
           emptyDescription={config.emptyDescription}
+          printTitle={config.title}
+          printSubtitle={config.subtitle}
+          exportFilename={config.exportFilename}
         />
       ) : (
         <KanbanBoard
@@ -422,7 +442,7 @@ export function CrmManagementPage<T extends Record<string, any>>({ config }: { c
       <Dialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
-        size="lg"
+        size={config.dialogSize ?? "lg"}
         title={editing ? `Edit ${config.title.replace(/s$/, "")}` : config.newLabel}
       >
         <div className="space-y-5">
@@ -431,6 +451,7 @@ export function CrmManagementPage<T extends Record<string, any>>({ config }: { c
             values={formValues}
             onChange={(fieldname, value) => setFormValues((v) => ({ ...v, [fieldname]: value }))}
             errors={formErrors}
+            renderField={config.renderField}
           />
           <div className="flex justify-end gap-2 border-t pt-4">
             <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>

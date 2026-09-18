@@ -1016,6 +1016,13 @@ export const CRM_TASK_FIELDS: FormFieldMeta[] = [
   { fieldname: "column_break_task", fieldtype: "Column Break" },
   { fieldname: "priority", label: "Priority", fieldtype: "Select", options: "Low\nMedium\nHigh", default: "Medium" },
   { fieldname: "due_date", label: "Due Date & Reminder Time", fieldtype: "Datetime", reqd: true },
+  {
+    fieldname: "assigned_to",
+    label: "Assigned To",
+    fieldtype: "Link",
+    options: "User",
+    description: "The automatic overdue/due-soon reminder only fires for an assigned follow-up.",
+  },
   { fieldname: "section_break_task_desc", label: "Description", fieldtype: "Section Break" },
   { fieldname: "description", label: "Description", fieldtype: "Text Editor" },
 ];

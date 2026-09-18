@@ -191,6 +191,27 @@
     background-color: hsl(var(--background) / 0.55);
     backdrop-filter: blur(6px);
   }
+  /* A dialog's Quill body defaults to Quill's own ~100px min-height, cramped
+     for composing an actual email/template body — give every in-dialog
+     editor (Terms and Conditions, Notes, Email Template, ...) more room. */
+  [role="dialog"] .rich-text-editor .ql-editor {
+    min-height: 260px;
+  }
+  /* `backdrop-filter` promotes `.ql-container` to its own stacking context,
+     which (since it comes after `.ql-toolbar` in DOM order) then paints over
+     the toolbar's heading/format dropdown (`.ql-picker-options`) regardless
+     of Quill's own z-index on it — that z-index only wins within a shared
+     stacking context, and backdrop-filter just took the container out of
+     the one it shared with the toolbar. Giving both an explicit z-index,
+     toolbar higher, restores normal stacking order. */
+  [role="dialog"] .rich-text-editor .ql-toolbar.ql-snow {
+    position: relative;
+    z-index: 2;
+  }
+  [role="dialog"] .rich-text-editor .ql-container.ql-snow {
+    position: relative;
+    z-index: 1;
+  }
   [role="dialog"] input:not([type="checkbox"]):not([type="radio"]):focus-visible,
   [role="dialog"] select:focus-visible,
   [role="dialog"] textarea:focus-visible {
