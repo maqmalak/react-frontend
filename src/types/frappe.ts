@@ -1500,6 +1500,11 @@ export interface CrmDeal {
 export interface CrmTask {
   name?: string;
   title: string;
+  /** Distinguishes the generic Tasks list from the Lead/Deal Follow-ups
+   * mechanism — both live on the same CRM Task doctype. Blank/legacy rows
+   * (created before this field existed) are treated as belonging to both
+   * lists rather than silently dropped from either. */
+  task_category?: "Task" | "Follow-up";
   priority?: "Low" | "Medium" | "High";
   status?: "Backlog" | "Todo" | "In Progress" | "Done" | "Cancelled";
   start_date?: string;

@@ -77,7 +77,13 @@ export default function TasksPage() {
       subtitle: "Track and manage your team's CRM tasks",
       icon: <CheckSquare className="h-5 w-5" />,
       doctype: "CRM Task",
-      fields: ["name", "title", "priority", "status", "start_date", "due_date", "assigned_to", "description", "modified", "reference_doctype", "reference_docname"],
+      // Follow-ups live on this same doctype (task_category = "Follow-up") —
+      // excluded here so a follow-up created on a Lead/Deal doesn't also
+      // show up as a duplicate row on this generic Tasks list. A blank/
+      // legacy task_category (rows from before this field existed) still
+      // passes this filter, so no pre-existing task disappears.
+      filters: [["task_category", "!=", "Follow-up"]],
+      fields: ["name", "title", "task_category", "priority", "status", "start_date", "due_date", "assigned_to", "description", "modified", "reference_doctype", "reference_docname"],
       formFields: [
         { fieldname: "title", label: "Title", fieldtype: "Data", reqd: true },
         { fieldname: "priority", label: "Priority", fieldtype: "Select", options: PRIORITIES.join("\n"), default: "Medium" },
@@ -86,7 +92,7 @@ export default function TasksPage() {
         { fieldname: "assigned_to", label: "Assigned To", fieldtype: "Link", options: "User" },
         { fieldname: "description", label: "Description", fieldtype: "Text" },
       ],
-      defaults: { status: "Todo", priority: "Medium" },
+      defaults: { status: "Todo", priority: "Medium", task_category: "Task" },
       kanbanField: "status",
       kanbanColumns: STATUSES.map((s) => ({ value: s })),
       searchField: "title",

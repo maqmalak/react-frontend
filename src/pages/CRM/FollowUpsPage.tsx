@@ -40,7 +40,13 @@ export default function FollowUpsPage() {
     subtitle: "Reminders to reconnect with leads and deals at the right time",
     icon: <Repeat className="h-5 w-5" />,
     doctype: "CRM Task",
-    fields: ["name", "title", "priority", "status", "start_date", "due_date", "description", "assigned_to", "modified"],
+    // Plain Tasks live on this same doctype (task_category = "Task" or
+    // blank/legacy default from the Tasks page) — excluded here so a task
+    // created there doesn't also show up as a duplicate row on this list.
+    // A blank/legacy task_category still passes this filter, so no
+    // pre-existing follow-up disappears.
+    filters: [["task_category", "!=", "Task"]],
+    fields: ["name", "title", "task_category", "priority", "status", "start_date", "due_date", "description", "assigned_to", "modified"],
     formFields: [
       { fieldname: "title", label: "Subject", fieldtype: "Data", reqd: true },
       { fieldname: "status", label: "Status", fieldtype: "Select", options: STATUSES.join("\n"), default: "Todo" },
@@ -60,7 +66,7 @@ export default function FollowUpsPage() {
       },
       { fieldname: "description", label: "Notes", fieldtype: "Text" },
     ],
-    defaults: { status: "Todo", priority: "Medium", assigned_to: currentUser ?? undefined },
+    defaults: { status: "Todo", priority: "Medium", assigned_to: currentUser ?? undefined, task_category: "Follow-up" },
     kanbanField: "status",
     kanbanColumns: STATUSES.map((s) => ({ value: s })),
     searchField: "title",

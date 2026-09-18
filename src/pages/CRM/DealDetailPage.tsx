@@ -34,7 +34,7 @@ export function DealDetailPage() {
   const { data: deal, error, isLoading, mutate } = useCrmDeal(name);
   const { activities, isLoading: activitiesLoading, addComment } = useCrmActivities(name);
   const { data: notes } = useCrmNotes("CRM Deal", name);
-  const { data: tasks, mutate: mutateTasks } = useCrmTasks({ referenceDoctype: "CRM Deal", referenceDocname: name });
+  const { data: tasks, mutate: mutateTasks } = useCrmTasks({ referenceDoctype: "CRM Deal", referenceDocname: name, category: "Follow-up" });
   const { createDoc: createTask, setStatus, loading: taskSaving } = useCrmTaskMutations();
   const { data: leadDocs, isLoading: leadLoading } = useFrappeGetDocList<{ name: string; lead_name: string; status: string; email: string }>("CRM Lead", {
     fields: ["name", "lead_name", "status", "email"],
@@ -109,6 +109,7 @@ export function DealDetailPage() {
     try {
       await createTask({
         ...taskValues,
+        task_category: "Follow-up",
         reference_doctype: "CRM Deal",
         reference_docname: name,
       });

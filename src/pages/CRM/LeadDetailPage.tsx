@@ -35,7 +35,12 @@ export function LeadDetailPage() {
   const { activities, isLoading: activitiesLoading, addComment } = useCrmActivities(name);
   const { data: notes, isLoading: notesLoading, mutate: mutateNotes } = useCrmNotes("CRM Lead", name);
   const { data: callLogs, isLoading: callLogsLoading } = useCrmCallLogs("CRM Lead", name);
-  const { data: tasks, mutate: mutateTasks } = useCrmTasks({ referenceDoctype: "CRM Lead", referenceDocname: name });
+  // Task and Follow-up both live on CRM Task, distinguished by task_category
+  // — fetched separately so the "Tasks" connections item and the
+  // "Follow-ups" card each show their own bucket instead of the exact same
+  // rows twice on this page.
+  const { data: tasks } = useCrmTasks({ referenceDoctype: "CRM Lead", referenceDocname: name, category: "Task" });
+  const { data: followUps, mutate: mutateFollowUps } = useCrmTasks({ referenceDoctype: "CRM Lead", referenceDocname: name, category: "Follow-up" });
   const { createDoc: createTask, setStatus, loading: taskSaving } = useCrmTaskMutations();
   const { createDoc: createNote, loading: noteSaving } = useCrmNoteMutations();
   const { data: linkedDeals, isLoading: dealsLoading } = useFrappeGetDocList<{ name: string; organization: string; status: string; deal_value: number }>("CRM Deal", {
@@ -163,6 +168,7 @@ export function LeadDetailPage() {
     try {
       await createTask({
         ...taskValues,
+        task_category: "Follow-up",
         reference_doctype: "CRM Lead",
         reference_docname: name,
       });
@@ -170,7 +176,7 @@ export function LeadDetailPage() {
       notifyDataChanged();
       setTaskModalOpen(false);
       setTaskValues({ status: "Todo", priority: "Medium", assigned_to: currentUser ?? undefined });
-      void mutateTasks();
+      void mutateFollowUps();
     } catch (err) {
       toast.error(humanizeError(err));
     }
@@ -179,7 +185,7 @@ export function LeadDetailPage() {
   const markTaskDone = async (task: CrmTask) => {
     try {
       await setStatus(task.name!, "Done");
-      void mutateTasks();
+      void mutateFollowUps();
     } catch (err) {
       toast.error(humanizeError(err));
     }
@@ -333,11 +339,11 @@ export function LeadDetailPage() {
               </Button>
             }
           >
-            {(tasks ?? []).length === 0 ? (
+            {(followUps ?? []).length === 0 ? (
               <p className="text-sm text-muted-foreground">No follow-ups scheduled.</p>
             ) : (
               <ul className="space-y-2">
-                {(tasks ?? []).map((t) => (
+                {(followUps ?? []).map((t) => (
                   <li key={t.name} className="flex items-start justify-between gap-2 rounded-md border border-border p-2">
                     <div>
                       <p className="text-sm font-medium">{t.title}</p>

@@ -10,6 +10,7 @@ import type { CrmTask } from "@/types/frappe";
 const CRM_TASK_FIELDS = [
   "name",
   "title",
+  "task_category",
   "description",
   "status",
   "priority",
@@ -34,13 +35,22 @@ export function useCrmTasks(args?: {
   dueBefore?: string;
   limit?: number;
   enabled?: boolean;
+  /**
+   * "Task" and "Follow-up" both live on this same doctype, distinguished by
+   * task_category. A blank/legacy value (rows created before that field
+   * existed) is excluded from neither bucket — it still shows up under both
+   * — so old data never silently disappears from a list it used to be on.
+   */
+  category?: "Task" | "Follow-up";
 }) {
-  const { referenceDoctype, referenceDocname, status, dueBefore, limit = 200, enabled = true } = args ?? {};
+  const { referenceDoctype, referenceDocname, status, dueBefore, limit = 200, enabled = true, category } = args ?? {};
   const filters: unknown[][] = [];
   if (referenceDoctype) filters.push(["reference_doctype", "=", referenceDoctype]);
   if (referenceDocname) filters.push(["reference_docname", "=", referenceDocname]);
   if (status && status.length > 0) filters.push(["status", "in", status]);
   if (dueBefore) filters.push(["due_date", "<=", dueBefore]);
+  if (category === "Task") filters.push(["task_category", "!=", "Follow-up"]);
+  if (category === "Follow-up") filters.push(["task_category", "!=", "Task"]);
 
   return useFrappeGetDocList<CrmTask>(
     "CRM Task",
@@ -50,7 +60,7 @@ export function useCrmTasks(args?: {
       limit,
       orderBy: { field: "due_date", order: "asc" },
     },
-    enabled ? `micromax.crm.tasks.${JSON.stringify({ referenceDoctype, referenceDocname, status, dueBefore, limit })}` : null,
+    enabled ? `micromax.crm.tasks.${JSON.stringify({ referenceDoctype, referenceDocname, status, dueBefore, limit, category })}` : null,
   );
 }
 
