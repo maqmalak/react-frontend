@@ -228,6 +228,18 @@ CRM_APP_DOCTYPES = [
 # don't belong to the crm app itself.
 MAIL_WHATSAPP_NOTIFICATION_DOCTYPES = [
     "Communication", "Email Template", "Contact", "Address", "Event",
+    # Event Participants is a child table (istable=1) — Frappe's permission
+    # model for child tables ignores the child doctype's own DocPerm rows
+    # entirely and checks access against the PARENT doctype instead (Event,
+    # already granted above). This grant is therefore a harmless no-op, kept
+    # only so a future reader isn't left wondering why it's missing; the
+    # actual fix for the Lead/Deal detail page's "Scheduled Activities"
+    # widget 403'ing (and retrying every 3s via the frontend's SWR config,
+    # visible as the page "flickering") was on the frontend side —
+    # useLinkedEvents (doc-panels.tsx) wasn't telling Frappe which parent
+    # doctype to check against, so has_child_permission() denied
+    # unconditionally for every non-Administrator user.
+    "Event Participants",
     "Notification Settings", "Notification Log",
     "WhatsApp Message", "WhatsApp Log", "WhatsApp Template",
     "WhatsApp Language", "WhatsApp Profile",
@@ -247,8 +259,13 @@ CONFIG_DOCTYPES_NO_DELETE = ["Email Account", "WhatsApp Account", "WhatsApp Sett
 # status/error for every outgoing email, System Manager only by default.
 # Read access lets the CRM UI show real delivery status (Sent/Error, with
 # the SMTP rejection reason) on each Lead/Deal instead of a "sent" toast
-# that only means "queued", not "delivered".
-READ_ONLY_DOCTYPES = ["Email Queue"]
+# that only means "queued", not "delivered". Global Defaults (a Single) is
+# read on EVERY authenticated page load (useAuth.tsx fetches default_company
+# from it) — missing this means every single page, not just Lead/Deal
+# detail, 403s on load and gets retried every 3s by the frontend's SWR
+# error-retry config, i.e. the whole app "flickers" for anyone without
+# System Manager.
+READ_ONLY_DOCTYPES = ["Email Queue", "Global Defaults"]
 
 FULL_ACCESS_PTYPES = ["write", "create", "delete", "print", "email", "report", "export", "share", "import"]
 NO_DELETE_PTYPES = [p for p in FULL_ACCESS_PTYPES if p != "delete"]

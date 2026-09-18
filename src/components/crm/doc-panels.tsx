@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import useSWR from "swr";
-import { useFrappeGetDocList, useFrappeCreateDoc } from "frappe-react-sdk";
+import { useFrappeGetDocList, useFrappeGetCall, useFrappeCreateDoc } from "frappe-react-sdk";
 import toast from "react-hot-toast";
 import { ChevronDown, ChevronRight, Mail, Send, Link2, CalendarDays, ListTodo, Inbox, Paperclip, FileText, Download, MessageCircle, RefreshCw, AlertTriangle } from "lucide-react";
 import { SectionCard } from "@/components/common/section-card";
@@ -534,14 +534,32 @@ export function ConnectionsPanel({
 
 /** Events linked to a document via the Event Participants child table. */
 export function useLinkedEvents(referenceDoctype: string, referenceDocname?: string) {
-  const participants = useFrappeGetDocList<{ parent: string }>("Event Participants", {
-    fields: ["parent"],
-    filters: [
-      ["reference_doctype", "=", referenceDoctype],
-      ["reference_docname", "=", referenceDocname ?? ""],
-    ],
-    limit: 50,
-  }, referenceDocname ? `micromax.doc.eventparticipants.${referenceDocname}` : null);
+  // Event Participants is a child table (istable=1) — Frappe's permission
+  // model for child tables (has_child_permission) checks access against the
+  // PARENT doctype, but only if the caller tells it which parent via a
+  // `parent` kwarg; without it, the check has nothing to resolve and denies
+  // unconditionally for every non-Administrator user (regardless of any
+  // DocPerm granted on Event Participants itself — that grant is simply
+  // never consulted). useFrappeGetDocList's REST-based query has no way to
+  // send that extra kwarg, so this goes through the RPC method call instead
+  // (frappe.client.get_list), same as useAuth.tsx's "Has Role" query, which
+  // hits this identical child-table gotcha and passes `parent: "User"`.
+  const participantsKey = referenceDocname ? `micromax.doc.eventparticipants.${referenceDocname}` : null;
+  const { data: participantsResponse, isLoading: participantsLoading, mutate: mutateParticipants } = useFrappeGetCall<{ message: { parent: string }[] }>(
+    "frappe.client.get_list",
+    {
+      doctype: "Event Participants",
+      parent: "Event",
+      filters: JSON.stringify([
+        ["reference_doctype", "=", referenceDoctype],
+        ["reference_docname", "=", referenceDocname ?? ""],
+      ]),
+      fields: JSON.stringify(["parent"]),
+      limit_page_length: 50,
+    },
+    participantsKey,
+  );
+  const participants = { data: participantsResponse?.message, isLoading: participantsLoading, mutate: mutateParticipants };
 
   const eventNames = useMemo(
     () => Array.from(new Set((participants.data ?? []).map((p) => p.parent))),
