@@ -2,8 +2,7 @@ import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
-  Radar, Search, Upload, Pencil, Trash2, UserPlus, X, AlertTriangle, CheckCircle2, Clock, List, LayoutGrid, MoreVertical,
-  Building2, MapPin, HeartHandshake, User, ClipboardCheck,
+  Radar, Search, Upload, Pencil, Trash2, UserPlus, X, AlertTriangle, CheckCircle2, Clock, List, LayoutGrid, MoreVertical, Eye, Copy,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
@@ -12,16 +11,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
-import { Label } from "@/components/ui/label";
 import { StatCard } from "@/components/common/stat-card";
 import { StatusBadge } from "@/components/common/status-badge";
-import { FieldRenderer, transformLayout, formatReadonly } from "@/components/forms/frappe-form";
-import { CRM_PROSPECT_SCRAPE_FIELDS } from "@/components/forms/form-configs";
 import { FrappeDataTable, type ColumnDef } from "@/components/tables/data-table";
 import { KanbanBoard, type KanbanColumnDef } from "@/components/crm/KanbanBoard";
+import { ProspectScrapeForm } from "@/components/crm/ProspectScrapeForm";
 import { useCrmManagement } from "@/hooks/useCrmManagement";
 import { notifyDataChanged } from "@/hooks/useRealtime";
-import { scrapeCrmProspectUrls, convertCrmProspectScrapeToLead } from "@/services/api";
+import { scrapeCrmProspectUrls, convertCrmProspectScrapeToLead, duplicateCrmProspectScrape } from "@/services/api";
 import { humanizeError } from "@/services/frappe";
 import type { CrmProspectScrape } from "@/types/frappe";
 
@@ -38,16 +35,6 @@ const STATUS_COLUMNS: KanbanColumnDef[] = [
   { value: "Converted", title: "Converted" },
   { value: "Rejected", title: "Rejected" },
 ];
-
-/** Section-per-card edit layout — split once from the static field list. */
-const PROSPECT_SCRAPE_SECTIONS = transformLayout(CRM_PROSPECT_SCRAPE_FIELDS);
-const SECTION_ICONS: Record<string, typeof Building2> = {
-  Identity: Building2,
-  Location: MapPin,
-  Fundraising: HeartHandshake,
-  Contact: User,
-  Review: ClipboardCheck,
-};
 
 /** Parse one URL per line (or comma-separated) from the paste box / uploaded file. */
 function parseUrls(text: string): string[] {
@@ -106,6 +93,11 @@ export default function ProspectScraperPage() {
     });
   };
 
+  /** Row / card click: the full-page view of this prospect (the quick-edit dialog is in the row menu). */
+  const openDetail = (row: CrmProspectScrape) => {
+    if (row.name) navigate(`/crm/prospect-scraper/${encodeURIComponent(row.name)}`);
+  };
+
   const openEdit = (row: CrmProspectScrape) => {
     setEditing(row);
     setFormValues({ ...row });
@@ -139,6 +131,20 @@ export default function ProspectScraperPage() {
       toast.error(humanizeError(e));
     } finally {
       setConverting(null);
+    }
+  };
+
+  /** Copy this company's row so another contact person there can become a second lead; opens it ready to edit. */
+  const handleDuplicate = async (row: CrmProspectScrape) => {
+    if (!row.name) return;
+    try {
+      const newName = await duplicateCrmProspectScrape(row.name);
+      toast.success("Duplicated — enter the next contact person");
+      notifyDataChanged();
+      await mutate?.();
+      navigate(`/crm/prospect-scraper/${encodeURIComponent(newName)}?edit=1`);
+    } catch (e) {
+      toast.error(humanizeError(e));
     }
   };
 
@@ -184,7 +190,9 @@ export default function ProspectScraperPage() {
   };
 
   const rowMenuItems = (r: CrmProspectScrape) => [
-    { label: "Edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => openEdit(r) },
+    { label: "Open full page", icon: <Eye className="h-3.5 w-3.5" />, onClick: () => openDetail(r) },
+    { label: "Quick edit", icon: <Pencil className="h-3.5 w-3.5" />, onClick: () => openEdit(r) },
+    { label: "Duplicate (another contact)", icon: <Copy className="h-3.5 w-3.5" />, onClick: () => void handleDuplicate(r) },
     {
       label: r.status === "Converted" ? "Already converted" : "Convert to Lead",
       icon: <UserPlus className="h-3.5 w-3.5" />,
@@ -338,7 +346,7 @@ export default function ProspectScraperPage() {
           loading={isLoading}
           error={error}
           onRetry={() => mutate?.()}
-          onRowClick={openEdit}
+          onRowClick={openDetail}
           exportFilename="prospect-scrape-queue"
           selectable
           selectedKeys={selectedKeys}
@@ -363,7 +371,7 @@ export default function ProspectScraperPage() {
           rowKey={(r) => String(r.name)}
           loading={isLoading}
           onCardMove={(row, newStatus) => void handleStatusMove(row, newStatus)}
-          onCardClick={openEdit}
+          onCardClick={openDetail}
           emptyDescription="Paste company/NGO names or website URLs above and click Scrape to start building the review queue."
           renderCard={(r) => (
             <div className="space-y-2">
@@ -403,49 +411,11 @@ export default function ProspectScraperPage() {
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="grid max-h-[65vh] grid-cols-1 gap-4 overflow-y-auto pr-1">
-            {PROSPECT_SCRAPE_SECTIONS.map((section, si) => {
-              const Icon = (section.title && SECTION_ICONS[section.title]) || Building2;
-              const fields = section.columns.flat();
-              return (
-                // A plain solid-ish box, not the shared glass `Card` — nesting
-                // Card's translucent/blurred background inside the already-
-                // translucent Dialog panel washed out the Input borders to
-                // near-invisible (double glass-on-glass).
-                <div key={si} className="rounded-lg border border-border bg-background/60 p-4">
-                  {section.title && (
-                    <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
-                        <Icon className="h-3.5 w-3.5" />
-                      </span>
-                      {section.title}
-                    </h3>
-                  )}
-                  {/* Single column so every field gets the section's full
-                      width — this dialog only ever shows one record's worth
-                      of short values, no need to cram two per row. */}
-                  <div className="grid grid-cols-1 gap-y-3">
-                    {fields.map((meta) =>
-                      meta.read_only ? (
-                        <div key={meta.fieldname} className="space-y-1">
-                          <Label>{meta.label}</Label>
-                          <div className="min-h-9 whitespace-pre-wrap rounded-md border border-dashed border-border px-3 py-2 text-sm leading-relaxed text-muted-foreground">
-                            {formatReadonly(meta, formValues[meta.fieldname])}
-                          </div>
-                        </div>
-                      ) : (
-                        <FieldRenderer
-                          key={meta.fieldname}
-                          meta={meta}
-                          values={formValues}
-                          onChange={(fieldname, value) => setFormValues((v) => ({ ...v, [fieldname]: value }))}
-                        />
-                      ),
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+          <div className="max-h-[65vh] overflow-y-auto pr-1">
+            <ProspectScrapeForm
+              values={formValues}
+              onChange={(fieldname, value) => setFormValues((v) => ({ ...v, [fieldname]: value }))}
+            />
           </div>
           <div className="flex justify-end gap-2 border-t pt-4">
             <Button variant="outline" onClick={() => setEditing(null)} disabled={saving}>

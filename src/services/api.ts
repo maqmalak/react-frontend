@@ -487,6 +487,15 @@ export function convertCrmProspectScrapeToLead(name: string): Promise<string> {
 }
 
 /**
+ * A fresh copy of a scraped prospect for the SAME company — to add another contact person there and
+ * convert it to a second lead (a row converts once; the Organization / Territory / Lead Source already
+ * exist by then, so only the new lead is created). Returns the new row's name.
+ */
+export function duplicateCrmProspectScrape(name: string): Promise<string> {
+  return callDocMethod<string>("duplicate", "CRM Prospect Scrape", name);
+}
+
+/**
  * Convert a `CRM Lead` to a `CRM Deal` — the vendored crm app's own
  * whitelisted function (`crm.fcrm.doctype.crm_lead.crm_lead.convert_to_deal`,
  * the same one the official Frappe CRM app's "Convert to Deal" button

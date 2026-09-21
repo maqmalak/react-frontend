@@ -107,6 +107,7 @@ const CrmContactsPage = lazy(() => import("@/pages/CRM/ContactsPage").then((m) =
 const CrmOrganizationsPage = lazy(() => import("@/pages/CRM/OrganizationsPage").then((m) => ({ default: m.default })));
 const CrmFollowUpsPage = lazy(() => import("@/pages/CRM/FollowUpsPage").then((m) => ({ default: m.default })));
 const CrmProspectScraperPage = lazy(() => import("@/pages/CRM/ProspectScraperPage").then((m) => ({ default: m.default })));
+const CrmProspectScrapeDetailPage = lazy(() => import("@/pages/CRM/ProspectScrapeDetailPage").then((m) => ({ default: m.default })));
 const CrmCalendarPage = lazy(() => import("@/pages/CRM/CalendarPage").then((m) => ({ default: m.default })));
 const CrmLeadSourcesPage = lazy(() => import("@/pages/CRM/LeadSourcesPage").then((m) => ({ default: m.default })));
 const CrmLeadStatusesPage = lazy(() => import("@/pages/CRM/LeadStatusesPage").then((m) => ({ default: m.default })));
@@ -351,6 +352,7 @@ export function AppRoutes() {
         <Route path="crm/call-logs" element={<Suspense fallback={<FullPageLoader />}><CrmCallLogsPage /></Suspense>} />
         <Route path="crm/follow-ups" element={<Suspense fallback={<FullPageLoader />}><CrmFollowUpsPage /></Suspense>} />
         <Route path="crm/prospect-scraper" element={<Suspense fallback={<FullPageLoader />}><CrmProspectScraperPage /></Suspense>} />
+        <Route path="crm/prospect-scraper/:name" element={<Suspense fallback={<FullPageLoader />}><CrmProspectScrapeDetailPage /></Suspense>} />
         <Route path="crm/calendar" element={<Suspense fallback={<FullPageLoader />}><CrmCalendarPage /></Suspense>} />
         <Route path="crm/masters/lead-sources" element={<Suspense fallback={<FullPageLoader />}><CrmLeadSourcesPage /></Suspense>} />
         <Route path="crm/masters/lead-statuses" element={<Suspense fallback={<FullPageLoader />}><CrmLeadStatusesPage /></Suspense>} />
