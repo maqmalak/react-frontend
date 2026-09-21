@@ -1,40 +1,43 @@
 import {
-  ArrowLeftRight,
   Award,
-  Box,
+  Building2,
+  Calculator,
   ChartColumn,
   ClipboardCheck,
-  ClipboardList,
   Code,
-  Copy,
-  Crosshair,
-  FileSignature,
-  GanttChart,
-  LayoutGrid,
-  Leaf,
-  List,
-  NotebookPen,
-  Package,
-  Receipt,
-  ShieldCheck,
+  Cog,
+  Factory,
+  Globe,
+  Hammer,
+  Landmark,
+  ListTree,
+  PackageOpen,
+  PackagePlus,
+  PiggyBank,
+  ReceiptText,
+  ScanBarcode,
+  Scale,
+  Ship,
+  ShoppingCart,
   SlidersHorizontal,
   SquarePlus,
-  Tag,
-  TriangleAlert,
+  Store,
   Truck,
-  User,
+  UserCheck,
+  UserCog,
   Users,
+  Warehouse,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ *
- * Hero honeycomb — data for the hex module ring, plug cells and role
- * faces. Ported from the hero of website-micromax.html; positions
- * (`pos`, `slot`) refer to lattice rules in hero-honeycomb.css.
+ * Hero honeycomb — data for the hex module ring, plug cells and aura.
+ * Layout and slot positions come from the hero of website-micromax.html
+ * (`pos` refers to lattice rules in hero-honeycomb.css); the modules
+ * shown are this ERP's own. Hover-card features live in
+ * hero-honeycomb-tips.ts, keyed by `title`.
  * ------------------------------------------------------------------ */
-
-/** Modules the platform ships in total; the ring draws HEX_CELLS of them. */
-export const HEX_MODULE_TOTAL = 190;
 
 export interface HexCell {
   /** Lattice slot, e.g. "a1" -> `.hc-pos-a1`. */
@@ -42,37 +45,42 @@ export interface HexCell {
   icon: LucideIcon;
   title: string;
   sub: string;
-  /** The two short lines shown on the flipped face. */
-  back: [string, string];
+  /** One or two short lines shown on the flipped face. */
+  back: string[];
 }
 
 export const HEX_CELLS: HexCell[] = [
-  // Cluster A — planning
-  { pos: "a1", icon: LayoutGrid, title: "Projects", sub: "portfolio", back: ["Portfolio", "& teams"] },
-  { pos: "a2", icon: List, title: "BOQ", sub: "assemblies", back: ["Live", "totals"] },
-  { pos: "a3", icon: GanttChart, title: "Schedules", sub: "4D gantt", back: ["Gantt", "& BOQ"] },
+  // Cluster A — shop floor and production planning
+  { pos: "a1", icon: Hammer, title: "Job Cards", sub: "", back: ["Shop", "Floor"] },
+  { pos: "a2", icon: ListTree, title: "BOM", sub: "", back: ["Multi-level", "BOM"] },
+  { pos: "a3", icon: Cog, title: "WO", sub: "", back: ["Work", "Orders"] },
   { pos: "a4", icon: Users, title: "CRM", sub: "pipeline", back: ["Leads", "& deals"] },
-  // Cluster B — measurement and cost
-  { pos: "b1", icon: Crosshair, title: "Takeoff", sub: "auto", back: ["AI suggests", "you confirm"] },
-  { pos: "b2", icon: Box, title: "CAD / BIM", sub: "DWG · IFC", back: ["DWG · IFC", "RVT · DGN"] },
-  { pos: "b3", icon: Tag, title: "Costs", sub: "120k items", back: ["120k items", "vector search"] },
-  { pos: "b4", icon: ShieldCheck, title: "Validation", sub: "compliance", back: ["Traffic-light", "report"] },
-  { pos: "b5", icon: ClipboardCheck, title: "Tenders", sub: "bid packs", back: ["Compare", "bids"] },
-  { pos: "b6", icon: Leaf, title: "Carbon", sub: "5D LCA", back: ["Embodied", "CO₂"] },
-  { pos: "b8", icon: ArrowLeftRight, title: "Variations", sub: "change orders", back: ["Scope & cost", "changes"] },
-  // Cluster C — site
-  { pos: "c1", icon: FileSignature, title: "Contracts", sub: "awards", back: ["One", "audit trail"] },
-  { pos: "c2", icon: Package, title: "Inventory", sub: "materials", back: ["Stock", "& orders"] },
-  { pos: "c3", icon: TriangleAlert, title: "Safety", sub: "HSE", back: ["Incidents", "& toolbox"] },
-  { pos: "c4", icon: Copy, title: "Documents", sub: "revisions", back: ["Revisions", "& diffs"] },
-  { pos: "c5", icon: ClipboardList, title: "Site tasks", sub: "daily", back: ["Snags", "& photos"] },
-  // Cluster D — operations and finance
-  { pos: "d1", icon: NotebookPen, title: "Daily log", sub: "site diary", back: ["Diary", "& weather"] },
-  { pos: "d6", icon: Truck, title: "Equipment", sub: "fleet", back: ["Fleet", "& plant"] },
+  { pos: "ppc", icon: Factory, title: "PPC", sub: "", back: ["Production", "Planning"] },
+  { pos: "mrq", icon: PackagePlus, title: "MRQ", sub: "", back: ["Material", "Request"] },
+  // Cluster B — trade, buying, selling and costing
+  { pos: "b1", icon: Ship, title: "LCV", sub: "", back: ["Landed Cost", "Voucher"] },
+  { pos: "b2", icon: ReceiptText, title: "Invoicing", sub: "", back: ["Supplier", "Ledger"] },
+  { pos: "b3", icon: Calculator, title: "Costing", sub: "", back: ["Import", "Cost Sheet"] },
+  { pos: "b4", icon: Workflow, title: "Approvals", sub: "", back: ["Workflow &", "Alerts"] },
+  { pos: "b5", icon: ClipboardCheck, title: "RFQ", sub: "", back: ["Compare", "Quotes"] },
+  { pos: "b6", icon: ShoppingCart, title: "Selling", sub: "", back: ["Customer", "Ledger"] },
+  { pos: "b8", icon: ClipboardCheck, title: "PO", sub: "", back: ["Purchase", "Order"] },
+  { pos: "stocks", icon: Globe, title: "Import", sub: "", back: ["LC", "Proforma"] },
+  // Cluster C — stock, delivery and people
+  { pos: "c1", icon: Truck, title: "Delivery", sub: "", back: ["Delivery", "Notes"] },
+  { pos: "c2", icon: ScanBarcode, title: "Batches", sub: "", back: ["Batch &", "Serial"] },
+  { pos: "c3", icon: UserCheck, title: "HR", sub: "", back: ["Attendance", "& Payroll"] },
+  { pos: "c4", icon: PackageOpen, title: "Packing", sub: "", back: ["Export", "Packing"] },
+  { pos: "c5", icon: Warehouse, title: "Stocks", sub: "", back: ["Warehouse"] },
+  { pos: "fin", icon: Scale, title: "Financial", sub: "", back: ["P&L /", "Balance Sheet"] },
+  // Cluster D — retail, assets and finance
+  { pos: "d1", icon: Store, title: "POS", sub: "", back: ["Counter", "Sales"] },
+  { pos: "d6", icon: Building2, title: "Assets", sub: "", back: ["Fixed", "Assets"] },
   { pos: "d2", icon: Award, title: "Quality", sub: "QA · QC", back: ["Defects", "& audits"] },
-  { pos: "d3", icon: Receipt, title: "Cashflow", sub: "invoices", back: ["Invoicing", "& budgets"] },
-  { pos: "d4", icon: ChartColumn, title: "Reporting", sub: "exports", back: ["PDF · GAEB", "JSON · API"] },
-  { pos: "d5", icon: User, title: "Users", sub: "RBAC · SSO", back: ["RBAC", "& SSO"] },
+  { pos: "d3", icon: PiggyBank, title: "Budgets", sub: "", back: ["Cost", "Centres"] },
+  { pos: "d4", icon: ChartColumn, title: "Reporting", sub: "exports", back: ["Stock & GL", "ledgers"] },
+  { pos: "d5", icon: UserCog, title: "Admin", sub: "", back: ["Roles &", "Audit"] },
+  { pos: "banks", icon: Landmark, title: "Banks", sub: "", back: ["Receipts /", "Payments"] },
 ];
 
 export interface HexPlug {
@@ -88,27 +96,6 @@ export const HEX_PLUGS: HexPlug[] = [
   { n: 1, icon: SlidersHorizontal, title: "Custom", sub: "plug-in", label: "Custom module - plug in your own" },
   { n: 2, icon: SquarePlus, title: "Your module", sub: "add your own", label: "Add your own module - build it on the platform" },
   { n: 3, icon: Code, title: "Build", sub: "SDK · API", label: "Build a module with the SDK and API" },
-];
-
-/** Faces beside the brand mark, in the order they assemble outward from it. Slugs match assets/people/seg-<slug>.webp. */
-export const HUB_PEOPLE: string[] = [
-  "estimator",
-  "construction-manager",
-  "general-contractor",
-  "architecture-engineering",
-  "owner-client",
-  "subcontractor",
-  "procurement-manager",
-  "mep-contractor",
-  "hse-manager",
-];
-
-/** One face per module cluster: the role that cluster is for. */
-export const RING_PEOPLE: { pos: "a" | "b" | "c" | "d"; slug: string }[] = [
-  { pos: "a", slug: "scheduler-planner" },
-  { pos: "b", slug: "bim-vdc" },
-  { pos: "c", slug: "site-supervisor" },
-  { pos: "d", slug: "commercial-manager" },
 ];
 
 /** Empty hexes growing out of the hub (`--col`, `--row`, delay, opacity). */

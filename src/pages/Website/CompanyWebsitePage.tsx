@@ -1,12 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   Bell,
-  Building2,
   Check,
   ChevronDown,
-  Clock,
   Globe,
   HelpCircle,
   Mail,
@@ -23,7 +21,9 @@ import { Logo } from "@/components/common/logo";
 import { ThemeToggle } from "@/components/layout/theme-provider";
 import { AreaChart, BarChart, DonutChart } from "@/components/charts/charts";
 import { cn } from "@/utils/cn";
-import { HeroHoneycomb, roleImage } from "./HeroHoneycomb";
+import { HeroHoneycomb } from "./HeroHoneycomb";
+import { IndustriesSection } from "./IndustriesSection";
+import { HEX_CELLS } from "./hero-honeycomb-data";
 import {
   BI_GOVERNANCE,
   BI_MOCK_SERIES,
@@ -32,11 +32,6 @@ import {
   COMPANY,
   DASHBOARDS,
   FAQS,
-  HERO_MODULE_TOTAL,
-  HERO_MODULES,
-  HERO_ROLE_TOTAL,
-  HERO_ROLES,
-  INDUSTRIES,
   MODULES,
   PRICING,
 } from "./website-data";
@@ -132,7 +127,7 @@ function SectionHeading({
   align = "left",
 }: {
   eyebrow: string;
-  title: string;
+  title: ReactNode;
   description?: string;
   align?: "left" | "center";
 }) {
@@ -198,23 +193,33 @@ function HeroHub() {
   );
 }
 
+/** Cells shown in the compact card, by title; they are looked up in the honeycomb's own data. */
+const SHOWCASE_TITLES = [
+  "Invoicing",
+  "Selling",
+  "MRQ",
+  "Stocks",
+  "PPC",
+  "Banks",
+  "Financial",
+  "Import",
+  "LCV",
+  "Approvals",
+  "POS",
+];
+const SHOWCASE_CELLS = SHOWCASE_TITLES.flatMap((title) => HEX_CELLS.filter((cell) => cell.title === title));
+
 /**
- * Hero showcase — replaces the old executive snapshot card. Centre hub, the
- * roles the platform is set up for, and the app cards (modules) on offer.
- * Ported from the hero of website-micromax.html; the Executive snapshot
- * itself now lives as a tab in the Dashboards section.
+ * Compact hero card for screens too narrow for the honeycomb: the brand hub
+ * and the same module cells, from the same data, as a plain grid.
  */
 function HeroShowcase() {
-  const [activeRole, setActiveRole] = useState<string | null>(null);
-  const moreModules = HERO_MODULE_TOTAL - HERO_MODULES.length;
-  const moreRoles = HERO_ROLE_TOTAL - HERO_ROLES.length;
-
   return (
     <Card className="animate-fade-in border-primary/20 p-5 shadow-lg dark:border-white/10">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold">{HERO_MODULE_TOTAL}+ built-in modules</p>
-          <p className="text-xs text-muted-foreground">One platform, shaped to every role</p>
+          <p className="text-sm font-semibold">{MODULES.length} modules, one system of record</p>
+          <p className="text-xs text-muted-foreground">From buying to the ledger, on one platform</p>
         </div>
         <Badge variant="info" dot>
           ERPNext core
@@ -225,57 +230,22 @@ function HeroShowcase() {
         <HeroHub />
       </div>
 
-      {/* Roles — hover a face to read the role. */}
-      <div className="mt-4">
-        <p className="text-xs font-medium text-muted-foreground">
-          {activeRole ?? "Built for every role on site and in the office"}
-        </p>
-        <ul className="mt-2 flex flex-wrap items-center gap-1.5">
-          {HERO_ROLES.map((role) => (
-            <li
-              key={role.slug}
-              onMouseEnter={() => setActiveRole(role.label)}
-              onMouseLeave={() => setActiveRole(null)}
-            >
-              <img
-                src={roleImage(role.slug)}
-                alt={role.label}
-                title={role.label}
-                width={40}
-                height={40}
-                decoding="async"
-                className="h-10 w-10 rounded-full border border-border/70 bg-muted object-cover transition-transform hover:z-10 hover:scale-110 dark:border-white/10"
-              />
-            </li>
-          ))}
-          <li className="flex h-10 items-center rounded-full border border-dashed border-border px-3 text-xs font-medium text-muted-foreground dark:border-white/20">
-            +{moreRoles} more roles
-          </li>
-        </ul>
-      </div>
-
-      {/* App cards */}
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {HERO_MODULES.map((module) => {
-          const Icon = module.icon;
+        {SHOWCASE_CELLS.map((cell) => {
+          const Icon = cell.icon;
           return (
             <a
-              key={module.label}
+              key={cell.title}
               href="#modules"
               className="hover-lift flex items-center gap-2 rounded-lg border border-border/70 bg-card/60 p-2 dark:border-white/10 dark:bg-white/5"
             >
-              <span
-                className={cn(
-                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-md",
-                  module.tone,
-                )}
-              >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                 <Icon className="h-4 w-4" aria-hidden="true" />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-xs font-medium">{module.label}</span>
+                <span className="block truncate text-xs font-medium">{cell.title}</span>
                 <span className="block truncate text-[10px] text-muted-foreground">
-                  {module.sub}
+                  {cell.back.join(" ")}
                 </span>
               </span>
             </a>
@@ -285,8 +255,8 @@ function HeroShowcase() {
           href="#modules"
           className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border p-2 text-center transition-colors hover:border-primary/40 hover:text-primary dark:border-white/20"
         >
-          <span className="text-sm font-semibold tabular-nums">+{moreModules}</span>
-          <span className="text-[10px] text-muted-foreground">more modules</span>
+          <span className="text-sm font-semibold">All modules</span>
+          <span className="text-[10px] text-muted-foreground">see the full list</span>
         </a>
       </div>
     </Card>
@@ -326,13 +296,13 @@ function HeroSection() {
         <div className="absolute bottom-[-8rem] left-1/3 h-72 w-72 rounded-full bg-amber-400/10 blur-3xl" />
       </div>
 
-      <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-24 xl:max-w-[88rem] xl:grid-cols-[0.8fr_1.2fr] xl:gap-8">
+      <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-24 xl:max-w-[88rem] xl:grid-cols-[minmax(27rem,1fr)_minmax(0,810px)] xl:gap-8">
         <div className="animate-fade-in">
           <Badge variant="primary" dot className="px-3 py-1">
             {COMPANY.legalName}
           </Badge>
 
-          <h1 className="mt-5 text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl">
+          <h1 className="mt-5 max-w-[36rem] text-balance text-3xl font-semibold leading-[1.15] tracking-tight sm:text-4xl xl:text-[2.15rem] min-[1360px]:text-[2.4rem]">
             One system of record for{" "}
             <span className="bg-gradient-to-r from-primary via-emerald-500 to-sky-500 bg-clip-text text-transparent">
               trading, manufacturing, distribution, POS, hospitals and education
@@ -387,189 +357,33 @@ function ProfileSection() {
           description={COMPANY.tagline}
         />
 
-        <div className="mt-10 grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
-          <div>
-            <div className="space-y-4">
-              {COMPANY.about.map((paragraph) => (
-                <p
-                  key={paragraph.slice(0, 24)}
-                  className="text-sm leading-relaxed text-muted-foreground sm:text-base"
-                >
-                  {paragraph}
-                </p>
-              ))}
-            </div>
-
-            <div className="mt-8 grid gap-3 sm:grid-cols-2">
-              {COMPANY.values.map((value) => {
-                const Icon = value.icon;
-                return (
-                  <Card key={value.title} className="hover-lift p-4">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <p className="mt-3 text-sm font-semibold">{value.title}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                      {value.description}
-                    </p>
-                  </Card>
-                );
-              })}
-            </div>
-          </div>
-
-          <Card className="h-fit p-5">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-primary" />
-              <p className="text-sm font-semibold">At a glance</p>
-            </div>
-
-            <dl className="mt-4 space-y-3">
-              {COMPANY.facts.map((fact) => (
-                <div
-                  key={fact.label}
-                  className="flex gap-3 border-b border-dashed border-border/60 pb-2.5 last:border-0 last:pb-0 dark:border-white/10"
-                >
-                  <dt className="w-24 shrink-0 text-xs text-muted-foreground">{fact.label}</dt>
-                  <dd className="text-xs font-medium leading-relaxed">{fact.value}</dd>
-                </div>
-              ))}
-            </dl>
-
-            <div className="mt-5 flex items-start gap-2.5 rounded-lg bg-primary/5 p-3 dark:bg-white/5">
-              <Clock className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                Implementation, data migration, user training and annual maintenance are delivered
-                by our own consultants — the same team that builds the platform.
-              </p>
-            </div>
-
-            <div className="mt-5 flex items-center gap-2 text-xs text-muted-foreground">
-              <Globe className="h-4 w-4 text-primary" />
-              Deployed for trading, manufacturing, distribution, POS, hospitals and education.
-            </div>
-          </Card>
+        <div className="mt-10 lg:columns-2 lg:gap-12">
+          {COMPANY.about.map((paragraph) => (
+            <p
+              key={paragraph.slice(0, 24)}
+              className="mb-4 break-inside-avoid text-sm leading-relaxed text-muted-foreground sm:text-base"
+            >
+              {paragraph}
+            </p>
+          ))}
         </div>
-      </div>
-    </section>
-  );
-}
 
-/**
- * Industry explorer — pick a vertical to see the modules it uses and the
- * features it gets. Module names are resolved from the MODULES catalogue so
- * the chips here can never drift from the module catalogue below.
- */
-function IndustriesSection() {
-  const [selected, setSelected] = useState(INDUSTRIES[0].id);
-  const industry = INDUSTRIES.find((i) => i.id === selected) ?? INDUSTRIES[0];
-  const modules = MODULES.filter((m) => industry.modules.includes(m.id));
-
-  return (
-    <section
-      id="industries"
-      className={cn("border-t border-border/70 bg-muted/30 dark:border-white/10 dark:bg-white/[0.02]", SECTION_CLASS)}
-    >
-      <div className="mx-auto w-full max-w-6xl px-4 py-16 lg:py-20">
-        <SectionHeading
-          eyebrow="Industry"
-          title="Modules and features, matched to how you actually work"
-          description="Every implementation starts from the standard ERPNext core and adds the documents, controls and reports your vertical runs on. Pick an industry to see the exact scope — from trading houses and factories to hospitals, schools and datacenters."
-        />
-
-        <div className="mt-8 flex flex-wrap gap-2">
-          {INDUSTRIES.map((item) => {
-            const Icon = item.icon;
-            const isActive = item.id === industry.id;
+        <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {COMPANY.values.map((value) => {
+            const Icon = value.icon;
             return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setSelected(item.id)}
-                aria-pressed={isActive}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-medium transition-colors",
-                  isActive
-                    ? "border-primary/40 bg-primary/10 text-primary"
-                    : "border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground dark:border-white/10 dark:bg-white/5",
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {item.label}
-              </button>
+              <Card key={value.title} className="hover-lift p-4">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Icon className="h-4 w-4" />
+                </span>
+                <p className="mt-3 text-sm font-semibold">{value.title}</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  {value.description}
+                </p>
+              </Card>
             );
           })}
         </div>
-
-        <Card className="mt-6 overflow-hidden">
-          <div className="flex flex-col gap-4 border-b border-border/70 bg-card/60 p-5 sm:flex-row sm:items-center sm:justify-between dark:border-white/10 dark:bg-white/5">
-            <div className="flex items-start gap-3">
-              <span
-                className={cn(
-                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
-                  industry.tone,
-                )}
-              >
-                <industry.icon className="h-5 w-5" />
-              </span>
-              <div>
-                <h3 className="text-lg font-semibold tracking-tight">{industry.label}</h3>
-                <p className="text-sm text-muted-foreground">{industry.tagline}</p>
-              </div>
-            </div>
-            <Badge variant="secondary" className="w-fit">
-              {modules.length} modules · {industry.features.length} key features
-            </Badge>
-          </div>
-
-          <CardContent className="p-5">
-            <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Overview
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  {industry.summary}
-                </p>
-
-                <p className="mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Modules enabled
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {modules.map((module) => {
-                    const Icon = module.icon;
-                    return (
-                      <span
-                        key={module.id}
-                        className={cn(
-                          "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
-                          module.tone,
-                        )}
-                      >
-                        <Icon className="h-3.5 w-3.5" />
-                        {module.label}
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  What you get
-                </p>
-                <ul className="mt-3 grid gap-2 sm:grid-cols-2">
-                  {industry.features.map((feature) => (
-                    <li key={feature} className="flex items-start gap-2 text-sm">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                      <span className="leading-relaxed text-muted-foreground">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </section>
   );
@@ -1164,7 +978,23 @@ export function CompanyWebsitePage() {
       <main>
         <HeroSection />
         <ProfileSection />
-        <IndustriesSection />
+        <IndustriesSection
+          className={cn(
+            "border-t border-border/70 bg-muted/30 dark:border-white/10 dark:bg-white/[0.02]",
+            SECTION_CLASS,
+          )}
+          heading={
+            <SectionHeading
+              eyebrow="Built for your industry"
+              title={
+                <>
+                  One platform, shaped to how you <span className="italic text-primary">build</span>.
+                </>
+              }
+              description="Pick the kind of business you run and the platform switches on exactly the modules it needs, already wired together in one shared database. Hover or tap an industry to watch its module honeycomb light up, grouped by discipline and linked as a single connected system."
+            />
+          }
+        />
         <ModulesSection />
         <DashboardsSection />
         <BiSection />

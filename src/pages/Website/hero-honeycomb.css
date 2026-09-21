@@ -8,8 +8,10 @@
  * fixed-size stage instead of reflowing it.
  */
 
-/* Theme tokens the ported rules read. Light first, dark under `.dark`. */
-.hh-scope {
+/* Theme tokens the ported rules read. Light first, dark under `.dark`. The hover card is
+   portaled to <body>, so it needs them too. */
+.hh-scope,
+.hh-tip {
   --ink-0: #0b1220;
   --ink-2: #475569;
   --ink-3: #94a3b8;
@@ -25,7 +27,8 @@
   --accent-6: #244c74;
   --hc-green: #1f9d70;
 }
-.dark .hh-scope {
+.dark .hh-scope,
+.dark .hh-tip {
   --ink-0: #eff6ff;
   --ink-2: #94a3b8;
   --ink-3: #7c8ba3;
@@ -558,6 +561,13 @@
 .hc-pos-a2 { animation-delay: 1.61s; }
 .hc-pos-a3 { animation-delay: 1.67s; }
 .hc-pos-a4 { animation-delay: 1.71s; }
+/* Cells that took over the slots of the removed "+N more modules" cell and the ring faces. */
+.hc-pos-mrq   { left: calc(var(--cl-a-x) + var(--hc-col) * 2); top: calc(var(--cl-a-y) + var(--hc-h));    animation-delay: 2.86s; }
+.hc-pos-stocks { left: calc(var(--cl-b-x) + var(--hc-col));     top: calc(var(--cl-b-y) + var(--hc-zig)); animation-delay: 2.06s; }
+.hc-pos-fin   { left: calc(var(--cl-c-x) + var(--hc-col) * 2); top: calc(var(--cl-c-y) + var(--hc-h));    animation-delay: 2.30s; }
+.hc-pos-banks { left: calc(var(--cl-d-x) + var(--hc-col) * 3); top: calc(var(--cl-d-y) + var(--hc-zig)); animation-delay: 2.63s; }
+/* PPC takes the slot the planner face used to fill. */
+.hc-pos-ppc { left: calc(var(--cl-a-x) + var(--hc-col)); top: calc(var(--cl-a-y) + var(--hc-zig) * 3); animation-delay: 1.75s; }
 .hc-pos-b6 { animation-delay: 1.96s; }
 .hc-pos-b1 { animation-delay: 1.74s; }
 .hc-pos-b2 { animation-delay: 1.80s; }
@@ -1159,3 +1169,218 @@
             0%, 100% { filter: drop-shadow(0 6px 15px color-mix(in oklab, var(--accent) 28%, transparent)); }
             50%      { filter: drop-shadow(0 10px 26px color-mix(in oklab, var(--accent) 58%, transparent)); }
           }
+
+/* ---- Soft moving light (added after the port; not from website-micromax.html) ---- */
+
+/* Ambient glows: three large radial lights that drift slowly behind the stage. */
+.hh-light {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.hh-glow {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--accent-2) 34%, transparent), transparent);
+  opacity: 0.55;
+  will-change: transform;
+}
+.dark .hh-glow {
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--accent-2) 42%, transparent), transparent);
+  mix-blend-mode: screen;
+  opacity: 0.6;
+}
+.hh-glow-a {
+  left: 500px;
+  top: 20px;
+  width: 400px;
+  height: 400px;
+  animation: hh-drift-a 19s ease-in-out infinite alternate;
+}
+.hh-glow-b {
+  left: 90px;
+  top: 190px;
+  width: 340px;
+  height: 340px;
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--hc-green) 26%, transparent), transparent);
+  animation: hh-drift-b 23s ease-in-out infinite alternate;
+}
+.dark .hh-glow-b {
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--hc-green) 30%, transparent), transparent);
+}
+.hh-glow-c {
+  left: 380px;
+  top: 340px;
+  width: 360px;
+  height: 360px;
+  animation: hh-drift-c 27s ease-in-out infinite alternate;
+}
+@keyframes hh-drift-a {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(-90px, 70px) scale(1.18); }
+}
+@keyframes hh-drift-b {
+  from { transform: translate(0, 0) scale(1.05); }
+  to   { transform: translate(80px, -60px) scale(0.9); }
+}
+@keyframes hh-drift-c {
+  from { transform: translate(0, 0) scale(0.95); }
+  to   { transform: translate(70px, -80px) scale(1.15); }
+}
+
+/* Light sweep: a soft diagonal band crossing the panel, then a pause. The
+   container fades out on all four edges so the band never shows a cut. */
+.hh-sweep {
+  position: absolute;
+  inset: -24px;
+  z-index: 9;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask-image:
+    linear-gradient(to right, transparent 0%, #000 22%, #000 78%, transparent 100%),
+    linear-gradient(to bottom, transparent 0%, #000 20%, #000 80%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent 0%, #000 22%, #000 78%, transparent 100%),
+    linear-gradient(to bottom, transparent 0%, #000 20%, #000 80%, transparent 100%);
+  mask-composite: intersect;
+}
+.hh-sweep::before {
+  content: "";
+  position: absolute;
+  top: -20%;
+  bottom: -20%;
+  left: -40%;
+  width: 34%;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    color-mix(in oklab, var(--accent-2) 16%, transparent) 40%,
+    color-mix(in oklab, var(--accent-2) 30%, transparent) 50%,
+    color-mix(in oklab, var(--accent-2) 16%, transparent) 60%,
+    transparent 100%
+  );
+  transform: skewX(-18deg);
+  opacity: 0;
+  animation: hh-sweep 9s ease-in-out 3s infinite;
+  will-change: transform, opacity;
+}
+/* On the dark canvas a white glint reads as light; on light it would bleach the labels. */
+.dark .hh-sweep::before {
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    color-mix(in oklab, var(--accent-2) 22%, transparent) 42%,
+    color-mix(in oklab, #ffffff 34%, transparent) 50%,
+    color-mix(in oklab, var(--accent-2) 22%, transparent) 58%,
+    transparent 100%
+  );
+  mix-blend-mode: soft-light;
+}
+@keyframes hh-sweep {
+  0%   { transform: translateX(0) skewX(-18deg); opacity: 0; }
+  8%   { opacity: 1; }
+  38%  { opacity: 1; }
+  46%  { transform: translateX(430%) skewX(-18deg); opacity: 0; }
+  100% { transform: translateX(430%) skewX(-18deg); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hh-glow,
+  .hh-sweep::before {
+    animation: none;
+  }
+  .hh-sweep {
+    display: none;
+  }
+}
+
+/* ---- Hover card (ported from the .oce-hcpop popover in website-micromax.html) ---- */
+.hh-tip {
+  position: fixed;
+  z-index: 3000;
+  left: 0;
+  top: 0;
+  width: min(290px, 86vw);
+  box-sizing: border-box;
+  padding: 12px 12px 10px;
+  border-radius: 14px;
+  background: color-mix(in oklab, var(--bg-0) 92%, var(--accent) 4%);
+  border: 1px solid color-mix(in oklab, var(--accent) 26%, var(--line-1));
+  box-shadow: 0 18px 44px -18px color-mix(in oklab, var(--accent) 55%, transparent),
+              0 2px 8px -4px rgba(0, 0, 0, 0.25);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  color: var(--ink-0);
+  font-family: 'Inter Tight', 'Helvetica Neue', Helvetica, Arial, 'Liberation Sans', sans-serif;
+}
+.hh-tip-h {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 8px;
+  font: 700 10px ui-monospace, 'JetBrains Mono', monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--accent) 82%, var(--ink-2));
+}
+.hh-tip-h .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+}
+.hh-tip-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.hh-tip-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.3;
+}
+.hh-tip-list li .bul {
+  width: 5px;
+  height: 5px;
+  margin-top: 6px;
+  border-radius: 1.5px;
+  flex: none;
+  background: color-mix(in oklab, var(--accent) 55%, transparent);
+  transform: rotate(45deg);
+}
+.hh-tip-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  border-radius: 8px;
+  color: var(--accent);
+  border: 1px dashed color-mix(in oklab, var(--accent) 40%, transparent);
+}
+.hh-tip-more:hover {
+  background: color-mix(in oklab, var(--accent) 10%, transparent);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hh-tip {
+    animation: hh-tip-in 0.14s ease-out;
+  }
+  @keyframes hh-tip-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: none; }
+  }
+}

@@ -1,37 +1,27 @@
 import {
   Activity,
-  BadgeCheck,
   Bell,
-  Box,
   Boxes,
-  CalendarClock,
   Calculator,
   ChartColumn,
   CircleDollarSign,
   CircuitBoard,
-  ClipboardList,
   Cloud,
-  Coins,
   CreditCard,
   Database,
   Eye,
   Factory,
-  FileText,
-  FolderKanban,
   Gauge,
-  Gavel,
   Globe,
   GraduationCap,
   Handshake,
   HardDrive,
-  HardHat,
   Landmark,
   Layers,
   Lock,
   Network,
   Package,
   Route,
-  Ruler,
   Scale,
   ScrollText,
   Server,
@@ -630,65 +620,6 @@ export const HERO_KPIS: { label: string; value: string; delta: string; up: boole
   { label: "Open shipments", value: "24", delta: "+3", up: true },
   { label: "LCs in transit", value: "9", delta: "-1", up: false },
   { label: "Stock value", value: "$1.42M", delta: "+6.4%", up: true },
-];
-
-/* ------------------------------------------------------------------ *
- * Hero showcase — the app cards and role faces beside the headline.
- * Ported from the hero of website-micromax.html.
- * ------------------------------------------------------------------ */
-
-/** Modules drawn as app cards; the rest are summarised as a "+N more" tile. */
-export const HERO_MODULE_TOTAL = 190;
-
-export interface HeroModule {
-  label: string;
-  sub: string;
-  icon: LucideIcon;
-  /** Dark-mode-safe accent pair, same convention as ui/badge.tsx. */
-  tone: string;
-}
-
-const TONE_PLAN = "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
-const TONE_DESIGN = "bg-sky-500/10 text-sky-600 dark:text-sky-400";
-const TONE_SITE = "bg-amber-500/10 text-amber-600 dark:text-amber-400";
-
-export const HERO_MODULES: HeroModule[] = [
-  { label: "Projects", sub: "portfolio", icon: FolderKanban, tone: TONE_PLAN },
-  { label: "BOQ", sub: "assemblies", icon: ClipboardList, tone: TONE_PLAN },
-  { label: "Schedules", sub: "4D gantt", icon: CalendarClock, tone: TONE_PLAN },
-  { label: "Takeoff", sub: "auto", icon: Ruler, tone: TONE_DESIGN },
-  { label: "CAD / BIM", sub: "DWG · IFC", icon: Box, tone: TONE_DESIGN },
-  { label: "Costs", sub: "120k items", icon: Coins, tone: TONE_DESIGN },
-  { label: "Validation", sub: "compliance", icon: BadgeCheck, tone: TONE_DESIGN },
-  { label: "Tenders", sub: "bid packs", icon: Gavel, tone: TONE_SITE },
-  { label: "Contracts", sub: "awards", icon: ScrollText, tone: TONE_SITE },
-  { label: "Safety", sub: "HSE", icon: HardHat, tone: TONE_SITE },
-  { label: "Documents", sub: "revisions", icon: FileText, tone: TONE_SITE },
-];
-
-/** Roles the platform is configured for; the faces show a sample of them. */
-export const HERO_ROLE_TOTAL = 24;
-
-export interface HeroRole {
-  /** Matches assets/people/seg-<slug>.webp. */
-  slug: string;
-  label: string;
-}
-
-export const HERO_ROLES: HeroRole[] = [
-  { slug: "estimator", label: "Cost Estimator / QS" },
-  { slug: "construction-manager", label: "Project / Construction Manager" },
-  { slug: "general-contractor", label: "General Contractor" },
-  { slug: "architecture-engineering", label: "Architecture / Engineering" },
-  { slug: "owner-client", label: "Owner / Client" },
-  { slug: "subcontractor", label: "Subcontractor / Trade" },
-  { slug: "procurement-manager", label: "Procurement / Supply Chain" },
-  { slug: "mep-contractor", label: "MEP / Building Services" },
-  { slug: "hse-manager", label: "Health, Safety & Environment" },
-  { slug: "scheduler-planner", label: "Planner / Scheduler" },
-  { slug: "bim-vdc", label: "BIM / VDC Coordinator" },
-  { slug: "site-supervisor", label: "Site Manager / Superintendent" },
-  { slug: "commercial-manager", label: "Commercial / Contracts Manager" },
 ];
 
 export const BI_MOCK_SERIES: { day: string; docs: number; alerts: number }[] = [

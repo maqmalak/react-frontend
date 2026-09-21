@@ -1,48 +1,84 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import "./hero-honeycomb.css";
 import type { CityHandle } from "./hero-city";
-import {
-  AURA,
-  HEX_CELLS,
-  HEX_MODULE_TOTAL,
-  HEX_PLUGS,
-  HUB_PEOPLE,
-  RING_PEOPLE,
-} from "./hero-honeycomb-data";
-import { HERO_ROLES, HERO_ROLE_TOTAL } from "./website-data";
+import { AURA, HEX_CELLS, HEX_PLUGS, type HexCell } from "./hero-honeycomb-data";
+import { HEX_TIPS } from "./hero-honeycomb-tips";
 
-/** Role portraits, resolved at build time from assets/people/seg-<slug>.webp. */
-const ROLE_IMAGES = import.meta.glob<string>("./assets/people/seg-*.webp", {
-  eager: true,
-  query: "?url",
-  import: "default",
-});
-
-export function roleImage(slug: string): string | undefined {
-  return ROLE_IMAGES[`./assets/people/seg-${slug}.webp`];
-}
-
-const roleLabel = (slug: string) => HERO_ROLES.find((r) => r.slug === slug)?.label ?? slug;
-
-/** Design size of the stage; the whole thing is scaled down to fit narrower columns. */
+/** Design size of the stage. It is drawn 1:1 (the size ported from the HTML) and only scaled down if its column is narrower. */
 const STAGE_W = 920;
 const STAGE_H = 640;
+/** The stage's left edge is empty now that the team faces are gone, so it is cropped out of the layout width. */
+const VIEW_LEFT = 120;
+const VIEW_W = STAGE_W - VIEW_LEFT;
 
 const TINT: CSSProperties = { "--tint": "var(--accent)" } as CSSProperties;
 
-function RoleFace({ slug, className }: { slug: string; className: string }) {
-  const front = className.startsWith("hc-person") ? "hcp-face hcp-front" : "hp-face hp-front";
-  const back = className.startsWith("hc-person") ? "hcp-face hcp-back" : "hp-face hp-back";
-  return (
-    <a className={className} href="#industries">
-      <span className={front}>
-        <img src={roleImage(slug)} alt="" width={128} height={128} decoding="async" />
-      </span>
-      <span className={back}>
-        <span data-role-label>{roleLabel(slug)}</span>
-      </span>
-    </a>
+interface ActiveTip {
+  cell: HexCell;
+  rect: DOMRect;
+}
+
+/**
+ * Hover card for a module cell: the list of features it covers.
+ * Rendered into <body> so the stage's scaling and clipping never touch it,
+ * and placed beside the cell in viewport coordinates.
+ */
+function HexTipCard({
+  tip,
+  onEnter,
+  onLeave,
+}: {
+  tip: ActiveTip;
+  onEnter: () => void;
+  onLeave: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  const features = HEX_TIPS[tip.cell.title];
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const { rect } = tip;
+    const width = el.offsetWidth;
+    const height = el.offsetHeight;
+    const left = Math.max(10, Math.min(rect.left + rect.width / 2 - width / 2, window.innerWidth - width - 10));
+    let top = rect.bottom + 10;
+    if (top + height > window.innerHeight - 10) top = rect.top - height - 10;
+    setPos({ left, top: Math.max(10, top) });
+  }, [tip]);
+
+  if (!features?.length) return null;
+
+  return createPortal(
+    <div
+      ref={ref}
+      className="hh-tip"
+      role="dialog"
+      aria-label={`${tip.cell.title} features`}
+      style={{ left: pos?.left ?? 0, top: pos?.top ?? 0, visibility: pos ? "visible" : "hidden" }}
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+    >
+      <p className="hh-tip-h">
+        <span className="dot" />
+        {tip.cell.title} · features
+      </p>
+      <ul className="hh-tip-list">
+        {features.map((item) => (
+          <li key={item}>
+            <span className="bul" />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+      <a className="hh-tip-more" href="#modules">
+        See all modules
+      </a>
+    </div>,
+    document.body,
   );
 }
 
@@ -83,8 +119,8 @@ const isDark = () => document.documentElement.classList.contains("dark");
 
 /**
  * The hero visual from website-micromax.html: a hex ring of module cells
- * around a wireframe 3D city, the brand hub, and role faces that flip to
- * show the role. The CSS is that page's own (hero-honeycomb.css); this
+ * around a wireframe 3D city and the brand hub, each cell flipping to a
+ * fuller name on hover. The CSS is that page's own (hero-honeycomb.css); this
  * component supplies the markup, scales the fixed-size stage to its
  * container, and runs the city.
  */
@@ -94,15 +130,42 @@ export function HeroHoneycomb() {
   const [fit, setFit] = useState({ scale: 1, x: 0 });
   const [ready, setReady] = useState(false);
   const [noWebgl, setNoWebgl] = useState(false);
+  const [tip, setTip] = useState<ActiveTip | null>(null);
+  const hideTimer = useRef<number>();
 
-  // Scale the stage to whatever width the layout gives us (never above 1:1).
+  const showTip = useCallback((cell: HexCell, el: HTMLElement) => {
+    window.clearTimeout(hideTimer.current);
+    setTip({ cell, rect: el.getBoundingClientRect() });
+  }, []);
+  const holdTip = useCallback(() => window.clearTimeout(hideTimer.current), []);
+  const hideTip = useCallback(() => {
+    window.clearTimeout(hideTimer.current);
+    hideTimer.current = window.setTimeout(() => setTip(null), 140);
+  }, []);
+
+  // A card anchored to a cell must not outlive a scroll, a resize or Escape.
+  useEffect(() => {
+    const close = () => setTip(null);
+    const onKey = (event: KeyboardEvent) => event.key === "Escape" && close();
+    window.addEventListener("scroll", close, { passive: true });
+    window.addEventListener("resize", close);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      window.clearTimeout(hideTimer.current);
+      window.removeEventListener("scroll", close);
+      window.removeEventListener("resize", close);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, []);
+
+  // Draw the stage at its original size; scale down only when the column is narrower.
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
     const observer = new ResizeObserver(([entry]) => {
       const width = entry.contentRect.width;
-      const scale = Math.min(1, width / STAGE_W);
-      setFit({ scale, x: Math.max(0, (width - STAGE_W * scale) / 2) });
+      const scale = Math.min(1, width / VIEW_W);
+      setFit({ scale, x: Math.max(0, (width - VIEW_W * scale) / 2) - VIEW_LEFT * scale });
     });
     observer.observe(el);
     return () => observer.disconnect();
@@ -145,8 +208,6 @@ export function HeroHoneycomb() {
     };
   }, []);
 
-  const shownRoles = HUB_PEOPLE.length + RING_PEOPLE.length;
-
   return (
     <div
       ref={wrapRef}
@@ -158,7 +219,14 @@ export function HeroHoneycomb() {
         className="hh-stage"
         style={{ transform: `translateX(${fit.x}px) scale(${fit.scale})` }}
       >
-        {/* Left: hub, the empty aura hexes growing out of it, and the role faces. */}
+        {/* Soft ambient light drifting behind everything. */}
+        <div className="hh-light" aria-hidden="true">
+          <span className="hh-glow hh-glow-a" />
+          <span className="hh-glow hh-glow-b" />
+          <span className="hh-glow hh-glow-c" />
+        </div>
+
+        {/* Left: the hub and the empty aura hexes growing out of it. */}
         <div className="hh-left">
           <div className="hero-hub-aura" aria-hidden="true">
             {AURA.map((group) => (
@@ -176,25 +244,6 @@ export function HeroHoneycomb() {
             ))}
           </div>
 
-          <div className="hero-people">
-            {HUB_PEOPLE.map((slug, index) => (
-              <RoleFace
-                key={slug}
-                slug={slug}
-                className={`hero-person hero-person-s hero-person-s${index + 1}`}
-              />
-            ))}
-            <a className="hero-person hero-person-more" href="#industries">
-              <span className="hp-face hp-front">
-                <span className="hp-more-n">+{HERO_ROLE_TOTAL - shownRoles}</span>
-                <span className="hp-more-l">more roles</span>
-              </span>
-              <span className="hp-face hp-back">
-                <span>See industries</span>
-              </span>
-            </a>
-          </div>
-
           <Hub />
         </div>
 
@@ -210,38 +259,31 @@ export function HeroHoneycomb() {
                     className={`hc-cell hc-pos-${cell.pos}`}
                     style={TINT}
                     href="#modules"
+                    onMouseEnter={(e) => showTip(cell, e.currentTarget)}
+                    onMouseLeave={hideTip}
+                    onFocus={(e) => showTip(cell, e.currentTarget)}
+                    onBlur={hideTip}
                   >
                     <span className="hc-face hc-face-front">
                       <span className="hc-ico" aria-hidden="true">
                         <Icon />
                       </span>
                       <span className="hc-title">{cell.title}</span>
-                      <span className="hc-sub">{cell.sub}</span>
+                      {cell.sub && <span className="hc-sub">{cell.sub}</span>}
                     </span>
                     <span className="hc-face hc-face-back">
                       <span className="hc-feature">
-                        {cell.back[0]}
-                        <br />
-                        {cell.back[1]}
+                        {cell.back.map((line, index) => (
+                          <span key={line}>
+                            {index > 0 && <br />}
+                            {line}
+                          </span>
+                        ))}
                       </span>
                     </span>
                   </a>
                 );
               })}
-
-              {RING_PEOPLE.map((person) => (
-                <RoleFace key={person.slug} slug={person.slug} className={`hc-person hc-person-${person.pos}`} />
-              ))}
-
-              <a className="hc-more" href="#modules">
-                <span className="hcm-face hcm-front">
-                  <span className="hcm-n">+{HEX_MODULE_TOTAL - HEX_CELLS.length}</span>
-                  <span className="hcm-l">more modules</span>
-                </span>
-                <span className="hcm-face hcm-back">
-                  <span>See the module system</span>
-                </span>
-              </a>
 
               {[1, 2, 3, 4, 5].map((n) => (
                 <span key={n} className={`hc-plug-link hc-plug-link-${n}`} aria-hidden="true" />
@@ -282,6 +324,8 @@ export function HeroHoneycomb() {
               role="img"
               aria-label="Wireframe city with live cost, carbon and schedule overlays"
             />
+            {/* A slow band of light that passes over the ring every few seconds. */}
+            <div className="hh-sweep" aria-hidden="true" />
             <div className="static-scene" aria-hidden="true">
               <svg viewBox="0 0 520 360" fill="none">
                 <g stroke="var(--accent)" strokeWidth="1" opacity="0.8">
@@ -302,6 +346,7 @@ export function HeroHoneycomb() {
           </div>
         </div>
       </div>
+      {tip && <HexTipCard tip={tip} onEnter={holdTip} onLeave={hideTip} />}
     </div>
   );
 }
