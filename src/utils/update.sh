@@ -135,11 +135,22 @@ else
 
   if [[ ! -d "$MICROMAX_DIR" ]] || ! grep -qx "$MICROMAX_APP" <<<"$A_INSTALLED_APPS"; then
     warn "'${MICROMAX_APP}' isn't installed on site '${SITE_NAME}' — skipping the backend update. The frontend below expects the micromax backend changes; if this box still runs '${APPAREL_APP}', run once with REMOVE_APPAREL=1."
-  elif ! as_frappe git -C "$MICROMAX_DIR" remote get-url origin >/dev/null 2>&1; then
-    warn "'${MICROMAX_DIR}' has no git 'origin' remote — can't pull it, skipping the backend update. Check: cd ${MICROMAX_DIR} && git remote -v"
   else
+    if ! as_frappe git -C "$MICROMAX_DIR" remote get-url origin >/dev/null 2>&1; then
+      # An app installed with `bench get-app <local path>` keeps its source as
+      # 'upstream' and has no 'origin', so there is nothing to pull from. Point
+      # 'origin' at the configured repo (a plain, local config change).
+      warn "'${MICROMAX_DIR}' has no git 'origin' remote (remotes: $(as_frappe git -C "$MICROMAX_DIR" remote | tr '\n' ' ')) — adding origin = ${MICROMAX_REPO}"
+      as_frappe git -C "$MICROMAX_DIR" remote add origin "$MICROMAX_REPO" \
+        || die "Could not add the 'origin' remote to ${MICROMAX_DIR}."
+    fi
+    if [[ -n "$(as_frappe git -C "$MICROMAX_DIR" status --porcelain)" ]]; then
+      warn "'${MICROMAX_DIR}' has local, uncommitted changes — the reset below DISCARDS them:"
+      as_frappe git -C "$MICROMAX_DIR" status --short
+    fi
     A_BEFORE_SHA="$(as_frappe git -C "$MICROMAX_DIR" rev-parse HEAD)"
-    as_frappe git -C "$MICROMAX_DIR" fetch origin "$MICROMAX_BRANCH"
+    as_frappe git -C "$MICROMAX_DIR" fetch origin "$MICROMAX_BRANCH" \
+      || die "Could not fetch ${MICROMAX_BRANCH} from origin ($(as_frappe git -C "$MICROMAX_DIR" remote get-url origin)). If the repo is private, this box needs credentials for it; also confirm the branch has been pushed."
     as_frappe git -C "$MICROMAX_DIR" checkout "$MICROMAX_BRANCH"
     as_frappe git -C "$MICROMAX_DIR" reset --hard "origin/${MICROMAX_BRANCH}"
     A_AFTER_SHA="$(as_frappe git -C "$MICROMAX_DIR" rev-parse HEAD)"
