@@ -1,5 +1,5 @@
 import { Repeat, Clock, AlertTriangle, CheckCircle2, CalendarClock } from "lucide-react";
-import { CrmManagementPage, type CrmManagementConfig } from "@/components/crm/CrmManagementPage";
+import { CrmManagementPage, countStat, type CrmManagementConfig } from "@/components/crm/CrmManagementPage";
 import type { ColumnDef } from "@/components/tables/data-table";
 import { StatusBadge } from "@/components/common/status-badge";
 import { formatDateTime, todayISO } from "@/utils/dates";
@@ -74,18 +74,24 @@ export default function FollowUpsPage() {
     statusOptions: STATUSES,
     columns,
     exportFilename: "follow-ups",
-    stats: (rows) => [
-      { label: "Total", value: rows.length, icon: <Repeat className="h-4 w-4" />, tone: "sky" },
-      { label: "Open", value: rows.filter((r) => r.status === "Todo").length, icon: <Clock className="h-4 w-4" />, tone: "indigo" },
-      {
-        label: "Overdue",
-        value: rows.filter((r) => r.due_date && r.status !== "Done" && r.status !== "Cancelled" && r.due_date < todayISO()).length,
-        icon: <AlertTriangle className="h-4 w-4" />,
-        tone: "rose",
-      },
-      { label: "High Priority", value: rows.filter((r) => r.priority === "High" && r.status !== "Done").length, icon: <CalendarClock className="h-4 w-4" />, tone: "amber" },
-      { label: "Done", value: rows.filter((r) => r.status === "Done").length, icon: <CheckCircle2 className="h-4 w-4" />, tone: "emerald" },
-    ],
+    dateField: "due_date",
+    dateLabel: "Due date",
+    // Each card's count and its click-to-filter predicate come from the same function (countStat).
+    stats: (rows) => {
+      const today = todayISO();
+      return [
+        countStat(rows, { label: "Total", icon: <Repeat className="h-4 w-4" />, tone: "sky", clear: true }),
+        countStat(rows, { label: "Open", icon: <Clock className="h-4 w-4" />, tone: "indigo", predicate: (r) => r.status === "Todo" }),
+        countStat(rows, {
+          label: "Overdue",
+          icon: <AlertTriangle className="h-4 w-4" />,
+          tone: "rose",
+          predicate: (r) => !!r.due_date && r.status !== "Done" && r.status !== "Cancelled" && r.due_date < today,
+        }),
+        countStat(rows, { label: "High Priority", icon: <CalendarClock className="h-4 w-4" />, tone: "amber", predicate: (r) => r.priority === "High" && r.status !== "Done" }),
+        countStat(rows, { label: "Done", icon: <CheckCircle2 className="h-4 w-4" />, tone: "emerald", predicate: (r) => r.status === "Done" }),
+      ];
+    },
     rowName: (r) => r.title,
     rowSubtitle: (r) => (r.due_date ? `Due ${formatDateTime(r.due_date)}` : undefined),
     renderCard: (r) => (
@@ -97,6 +103,7 @@ export default function FollowUpsPage() {
         </div>
       </div>
     ),
+    showId: true,
     emptyTitle: "No follow-ups",
     emptyDescription: "Schedule a follow-up so no deal slips through the cracks",
     newLabel: "New Follow-up",

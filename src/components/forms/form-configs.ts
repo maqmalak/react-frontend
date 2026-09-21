@@ -1073,3 +1073,47 @@ export const CRM_PROSPECT_SCRAPE_FIELDS: FormFieldMeta[] = [
   { fieldname: "raw_extract", label: "Raw Extract", fieldtype: "Text", read_only: true },
   { fieldname: "scrape_error", label: "Scrape Error", fieldtype: "Data", read_only: true },
 ];
+
+/**
+ * Create/edit forms for the CRM master records. Each is the single definition used BOTH by that
+ * record's own management page and by the "+" quick-create dialog on a Link field pointing at it
+ * (components/forms/link-quick-create.tsx), so the two can't drift apart.
+ */
+
+// CRM Organization.no_of_employees is a Select, so the server rejects anything outside its option list.
+// The last bucket ("Above 500") is added to that list by micromax.install.make_crm_organization_employee_options
+// (runs on install/migrate); the crm app's own "501-1000" / "1000+" stay valid for existing records.
+export const ORGANIZATION_EMPLOYEE_RANGES = ["1-10", "11-50", "51-200", "201-500", "Above 500"];
+
+export const CRM_ORGANIZATION_FORM_FIELDS: FormFieldMeta[] = [
+  { fieldname: "organization_name", label: "Organization Name", fieldtype: "Data", reqd: true },
+  { fieldname: "website", label: "Website", fieldtype: "Data" },
+  // CRM Organization links to the crm app's own CRM Industry / CRM Territory doctypes — NOT the core
+  // "Industry" / ERPNext "Territory" ones, which have different (or no) records, so the picker showed
+  // none of the values managed on the Industries / Territories pages (e.g. "Automotive").
+  { fieldname: "industry", label: "Industry", fieldtype: "Link", options: "CRM Industry" },
+  { fieldname: "no_of_employees", label: "No. of Employees", fieldtype: "Select", options: ORGANIZATION_EMPLOYEE_RANGES.join("\n") },
+  { fieldname: "annual_revenue", label: "Annual Revenue", fieldtype: "Currency" },
+  { fieldname: "territory", label: "Territory", fieldtype: "Link", options: "CRM Territory" },
+  { fieldname: "address", label: "Address", fieldtype: "Text" },
+];
+
+export const CRM_TERRITORY_FORM_FIELDS: FormFieldMeta[] = [
+  { fieldname: "territory_name", label: "Territory Name", fieldtype: "Data", reqd: true },
+  { fieldname: "territory_manager", label: "Territory Manager", fieldtype: "Link", options: "User" },
+  { fieldname: "is_group", label: "Is Group", fieldtype: "Check" },
+];
+
+export const CRM_INDUSTRY_FORM_FIELDS: FormFieldMeta[] = [
+  { fieldname: "industry", label: "Industry", fieldtype: "Data", reqd: true },
+];
+
+export const CRM_LEAD_SOURCE_FORM_FIELDS: FormFieldMeta[] = [
+  { fieldname: "source_name", label: "Source Name", fieldtype: "Data", reqd: true },
+  { fieldname: "details", label: "Details", fieldtype: "Text Editor" },
+];
+
+export const CRM_LOST_REASON_FORM_FIELDS: FormFieldMeta[] = [
+  { fieldname: "lost_reason", label: "Lost Reason", fieldtype: "Data", reqd: true },
+  { fieldname: "description", label: "Description", fieldtype: "Text Editor" },
+];

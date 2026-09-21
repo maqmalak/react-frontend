@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { StickyNote, FileText, Users } from "lucide-react";
-import { CrmManagementPage, type CrmManagementConfig } from "@/components/crm/CrmManagementPage";
+import { CrmManagementPage, countStat, type CrmManagementConfig } from "@/components/crm/CrmManagementPage";
 import { CrmReferenceCell } from "@/components/crm/CrmReferenceCell";
 import { textPreview } from "@/components/crm/doc-panels";
 import type { ColumnDef } from "@/components/tables/data-table";
@@ -68,11 +68,23 @@ export default function NotesPage() {
       searchField: "title",
       statusField: "owner",
       columns,
-      stats: (rows) => [
-        { label: "Total Notes", value: rows.length, icon: <StickyNote className="h-4 w-4" />, tone: "amber" },
-        { label: "This Week", value: rows.filter((r) => r.modified && Date.now() - (parseDate(r.modified)?.getTime() ?? 0) < 7 * 864e5).length, icon: <FileText className="h-4 w-4" />, tone: "sky" },
-        { label: "Authors", value: new Set(rows.map((r) => r.owner).filter(Boolean)).size, icon: <Users className="h-4 w-4" />, tone: "indigo" },
-      ],
+      dateField: "modified",
+      dateLabel: "Updated",
+      // Each card's count and its click-to-filter predicate come from the same function (countStat).
+      stats: (rows) => {
+        const authors = new Set(rows.map((r) => r.owner).filter(Boolean));
+        return [
+          countStat(rows, { label: "Total Notes", icon: <StickyNote className="h-4 w-4" />, tone: "amber", clear: true }),
+          countStat(rows, {
+            label: "This Week",
+            icon: <FileText className="h-4 w-4" />,
+            tone: "sky",
+            predicate: (r) => !!r.modified && Date.now() - (parseDate(r.modified)?.getTime() ?? 0) < 7 * 864e5,
+          }),
+          // Distinct-author count isn't a row subset, so this card stays informational (no predicate).
+          { label: "Authors", value: authors.size, icon: <Users className="h-4 w-4" />, tone: "indigo" as const },
+        ];
+      },
       rowName: (r) => r.title || "Untitled note",
       rowSubtitle: (r) => (r.modified ? formatDateTime(r.modified) : undefined),
       renderCard: (r) => (
@@ -82,6 +94,7 @@ export default function NotesPage() {
           <p className="line-clamp-2 text-xs text-muted-foreground">{r.content ? textPreview(r.content, 160) : ""}</p>
         </div>
       ),
+      showId: true,
       emptyTitle: "No notes yet",
       emptyDescription: "Capture important context by creating your first note",
       newLabel: "New Note",

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { CheckSquare, Flag, ListChecks, Clock, AlertTriangle } from "lucide-react";
-import { CrmManagementPage, type CrmManagementConfig } from "@/components/crm/CrmManagementPage";
+import { CrmManagementPage, countStat, type CrmManagementConfig } from "@/components/crm/CrmManagementPage";
 import { CrmReferenceCell } from "@/components/crm/CrmReferenceCell";
 import type { ColumnDef } from "@/components/tables/data-table";
 import { StatusBadge } from "@/components/common/status-badge";
@@ -99,12 +99,15 @@ export default function TasksPage() {
       statusField: "status",
       statusOptions: STATUSES,
       columns,
+      dateField: "due_date",
+      dateLabel: "Due date",
+      // Each card's count and its click-to-filter predicate come from the same function (countStat).
       stats: (rows) => [
-        { label: "Total Tasks", value: rows.length, icon: <ListChecks className="h-4 w-4" />, tone: "sky" },
-        { label: "Open", value: rows.filter((r) => r.status !== "Done" && r.status !== "Cancelled").length, icon: <Clock className="h-4 w-4" />, tone: "indigo" },
-        { label: "In Progress", value: rows.filter((r) => r.status === "In Progress").length, icon: <Flag className="h-4 w-4" />, tone: "amber" },
-        { label: "High Priority", value: rows.filter((r) => r.priority === "High" && r.status !== "Done").length, icon: <AlertTriangle className="h-4 w-4" />, tone: "rose" },
-        { label: "Done", value: rows.filter((r) => r.status === "Done").length, icon: <CheckSquare className="h-4 w-4" />, tone: "emerald" },
+        countStat(rows, { label: "Total Tasks", icon: <ListChecks className="h-4 w-4" />, tone: "sky", clear: true }),
+        countStat(rows, { label: "Open", icon: <Clock className="h-4 w-4" />, tone: "indigo", predicate: (r) => r.status !== "Done" && r.status !== "Cancelled" }),
+        countStat(rows, { label: "In Progress", icon: <Flag className="h-4 w-4" />, tone: "amber", predicate: (r) => r.status === "In Progress" }),
+        countStat(rows, { label: "High Priority", icon: <AlertTriangle className="h-4 w-4" />, tone: "rose", predicate: (r) => r.priority === "High" && r.status !== "Done" }),
+        countStat(rows, { label: "Done", icon: <CheckSquare className="h-4 w-4" />, tone: "emerald", predicate: (r) => r.status === "Done" }),
       ],
       rowName: (r) => r.title,
       rowSubtitle: (r) => (r.due_date ? `Due ${formatDateTime(r.due_date)}` : undefined),
@@ -120,6 +123,7 @@ export default function TasksPage() {
           </div>
         </div>
       ),
+      showId: true,
       emptyTitle: "No tasks yet",
       emptyDescription: "Create your first task to start tracking work",
       newLabel: "New Task",

@@ -88,6 +88,21 @@ export function startOfMonthISO(): string {
   return `${todayISO().slice(0, 7)}-01`;
 }
 
+/** Last day of the current month in `APP_TIME_ZONE`, as an ERPNext-format ISO date. */
+export function endOfMonthISO(): string {
+  const [y, m] = todayISO().split("-").map(Number);
+  // Day 0 of the *next* month is the last day of this one (UTC math — no local-timezone drift).
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return `${y}-${String(m).padStart(2, "0")}-${String(last).padStart(2, "0")}`;
+}
+
+/** `iso` (YYYY-MM-DD) shifted by `days` calendar days (negative = earlier), as an ISO date. */
+export function addDaysISO(iso: string, days: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d + days));
+  return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, "0")}-${String(t.getUTCDate()).padStart(2, "0")}`;
+}
+
 /**
  * The current instant as an ERPNext-format naive datetime string
  * (`YYYY-MM-DD HH:MM:SS`) in `APP_TIME_ZONE` — for writing timestamps

@@ -142,6 +142,7 @@ const config: CrmManagementConfig<ContactRow> = {
       </div>
     </div>
   ),
+  showId: true,
   emptyTitle: "No contacts",
   emptyDescription: "Add a contact to connect people to your pipeline",
   newLabel: "New Contact",

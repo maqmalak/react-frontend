@@ -117,6 +117,7 @@ export default function CallLogsPage() {
           </div>
         </div>
       ),
+      showId: true,
       emptyTitle: "No call logs",
       emptyDescription: "Calls will appear here as your team makes and receives them",
       newLabel: "Log Call",

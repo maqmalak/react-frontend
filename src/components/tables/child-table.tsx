@@ -33,6 +33,8 @@ export interface EditableChildTableProps {
   extraDialogColumns?: FormFieldMeta[];
   /** Adds a "Columns" button to show/hide inline grid columns (desktop only). Hidden columns still appear in the row-edit dialog. */
   columnPicker?: boolean;
+  /** Share the available width between the columns (inputs shrink to fit) instead of sizing every column to its widest input; the grid only scrolls sideways once columns would drop below ~150px. */
+  fitColumns?: boolean;
 }
 
 /**
@@ -58,6 +60,7 @@ export function EditableChildTable({
   editableInDialog,
   extraDialogColumns,
   columnPicker,
+  fitColumns,
 }: EditableChildTableProps) {
   const linkFieldnames = React.useMemo(
     () => columns.filter((c) => c.fieldtype === "Link").map((c) => c.fieldname),
@@ -148,7 +151,10 @@ export function EditableChildTable({
         <>
           {/* Desktop grid */}
           <div className="hidden overflow-x-auto rounded-md border border-border md:block scrollbar-thin">
-            <table className="w-full min-w-max border-collapse text-sm">
+            <table
+              className={cn("w-full border-collapse text-sm", fitColumns ? "table-fixed" : "min-w-max")}
+              style={fitColumns ? { minWidth: 112 + visibleColumns.length * 150 } : undefined}
+            >
               <thead>
                 <tr className="border-b border-border bg-muted/50 text-left">
                   <th className="sticky left-0 z-10 w-28 bg-muted/50 px-3 py-2 text-xs font-semibold text-muted-foreground">
@@ -170,7 +176,7 @@ export function EditableChildTable({
                   {visibleColumns.map((col) => (
                     <th
                       key={col.fieldname}
-                      className="min-w-[110px] whitespace-nowrap px-3 py-2 text-xs font-semibold text-muted-foreground"
+                      className={cn("whitespace-nowrap px-3 py-2 text-xs font-semibold text-muted-foreground", !fitColumns && "min-w-[110px]")}
                     >
                       {col.label}
                     </th>

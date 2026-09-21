@@ -20,6 +20,7 @@ import {
   Stethoscope,
   GraduationCap,
   Workflow,
+  FolderKanban,
   type LucideIcon,
 } from "lucide-react";
 
@@ -88,7 +89,7 @@ export const APPS: AppTile[] = [
     label: "Production",
     description: "Plan, issue and cost manufacturing on the shop floor",
     icon: Factory,
-    to: "/production/work-orders",
+    to: "/production",
     colorClass: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
     features: ["Multi-level BOM", "Work orders", "Job cards", "WIP valuation"],
   },
@@ -218,11 +219,22 @@ export const APPS: AppTile[] = [
   {
     id: "assets",
     label: "Assets",
-    description: "Fixed asset register, depreciation and maintenance",
+    description: "Fixed asset register, depreciation, movements and repairs",
     icon: Building2,
-    to: "/assets",
+    to: "/asset-management",
     colorClass: "bg-stone-500/10 text-stone-600 dark:text-stone-400",
     module: ["Assets"],
+    features: ["Asset register", "Depreciation schedules", "Movements & repairs", "Categories & locations"],
+  },
+  {
+    id: "projects",
+    label: "Projects",
+    description: "Projects, tasks and delivery tracking",
+    icon: FolderKanban,
+    to: "/projects",
+    colorClass: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+    module: ["Projects"],
+    features: ["Project tracking", "Task board", "Costing", "Overdue alerts"],
   },
   {
     id: "support",

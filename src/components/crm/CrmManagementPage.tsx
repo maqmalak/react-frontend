@@ -26,14 +26,30 @@ import { FilterBar } from "@/components/filters/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { KanbanBoard, type KanbanColumnDef } from "@/components/crm/KanbanBoard";
+import { RecordId } from "@/components/crm/RecordId";
 import { FrappeForm } from "@/components/forms/frappe-form";
 import { useCrmManagement } from "@/hooks/useCrmManagement";
 import { notifyDataChanged } from "@/hooks/useRealtime";
 import { humanizeError } from "@/services/frappe";
+import { DateRangeFilterControls, useDateRangeFilter } from "@/components/filters/date-range-filter";
 
 type ViewMode = "list" | "kanban";
 
-export interface CrmStatSpec extends StatCardProps {}
+export interface CrmStatSpec<T = any> extends Omit<StatCardProps, "onClick" | "active"> {
+  /**
+   * Makes the card clickable: clicking it narrows the list/pipeline to the rows this returns true
+   * for (click again to release). Use the SAME predicate that produces `value`, so the number on the
+   * card always matches the rows you get after clicking it (see `countStat`).
+   */
+  predicate?: (row: T) => boolean;
+  /** Clickable card that CLEARS any active card filter instead of applying one (e.g. a "Total" card). */
+  clear?: boolean;
+}
+
+/** Builds a stat whose `value` is the number of `rows` matching its own `predicate` (or all rows). */
+export function countStat<T>(rows: T[], spec: Omit<CrmStatSpec<T>, "value">): CrmStatSpec<T> {
+  return { ...spec, value: spec.predicate ? rows.filter(spec.predicate).length : rows.length };
+}
 
 export interface CrmManagementConfig<T extends Record<string, any>> {
   title: string;
@@ -69,8 +85,22 @@ export interface CrmManagementConfig<T extends Record<string, any>> {
   columns: ColumnDef<T>[];
   /** Enables the list view's Export (CSV/Excel) and Print-preview (→ browser "Save as PDF") actions — filename base, no extension. Omit to hide both. */
   exportFilename?: string;
-  /** Optional KPI strip; defaults to a single Total card. */
-  stats?: (rows: T[]) => CrmStatSpec[];
+  /**
+   * Optional KPI strip; defaults to a single Total card. Receives the rows after the search/status/date
+   * filters (but BEFORE a clicked card narrows them), so every card keeps showing its own count while
+   * one of them is selected. Give a card a `predicate` to make it click-to-filter.
+   */
+  stats?: (rows: T[]) => CrmStatSpec<T>[];
+  /**
+   * Show each record's ID (its Frappe `name`) as an "ID" column in the list and as a small label on every
+   * pipeline card. Opt-in because this page is shared with non-CRM screens, and pointless where the
+   * name IS the display name (e.g. an Organization).
+   */
+  showId?: boolean;
+  /** Field the date filter applies to (an ERPNext Date/Datetime). Omit to hide the date filter. */
+  dateField?: keyof T;
+  /** Human name of `dateField` for the filter's labels, e.g. "Due date" / "Updated". */
+  dateLabel?: string;
   /** Display name (used for avatar initials + titles). */
   rowName: (r: T) => string;
   rowImage?: (r: T) => string | undefined;
@@ -103,6 +133,8 @@ export function CrmManagementPage<T extends Record<string, any>>({ config }: { c
   const [view, setView] = useState<ViewMode>("list");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [activeStat, setActiveStat] = useState<string | null>(null);
+  const dateFilter = useDateRangeFilter();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<T | null>(null);
   const [formValues, setFormValues] = useState<Record<string, any>>({});
@@ -141,7 +173,9 @@ export function CrmManagementPage<T extends Record<string, any>>({ config }: { c
     }, { replace: true });
   }, [searchParams, rows, setSearchParams]);
 
-  const filtered = useMemo(() => {
+  // Search + status + date, i.e. everything EXCEPT a clicked KPI card — the cards' own counts are
+  // computed from this so selecting one doesn't zero out the others.
+  const baseFiltered = useMemo(() => {
     let out = rows ?? [];
     const q = search.trim().toLowerCase();
     if (q) {
@@ -152,8 +186,13 @@ export function CrmManagementPage<T extends Record<string, any>>({ config }: { c
     if (statusFilter !== "all") {
       out = out.filter((r) => String(r[config.statusField] ?? "") === statusFilter);
     }
+    if (config.dateField && dateFilter.active) {
+      const field = config.dateField;
+      // Rows with no date are hidden while a date filter is active.
+      out = out.filter((r) => dateFilter.matches(r[field]));
+    }
     return out;
-  }, [rows, search, statusFilter, config]);
+  }, [rows, search, statusFilter, dateFilter, config]);
 
   const statusOptions = useMemo(() => {
     const fromData = [...new Set((rows ?? []).map((r) => String(r[config.statusField] ?? "")).filter(Boolean))];
@@ -166,12 +205,24 @@ export function CrmManagementPage<T extends Record<string, any>>({ config }: { c
     [rows, config.kanbanField, config.kanbanColumns],
   );
 
-  const stats = useMemo(
+  const stats: CrmStatSpec<T>[] = useMemo(
     () =>
-      config.stats?.(filtered) ?? [
-        { label: "Total", value: filtered.length, icon: <List className="h-4 w-4" />, tone: "sky" as const },
+      config.stats?.(baseFiltered) ?? [
+        { label: "Total", value: baseFiltered.length, icon: <List className="h-4 w-4" />, tone: "sky" as const },
       ],
-    [config, filtered],
+    [config, baseFiltered],
+  );
+
+  const activeStatSpec = useMemo(
+    () => stats.find((s) => s.predicate && s.label === activeStat),
+    [stats, activeStat],
+  );
+  const cardsClickable = stats.some((s) => s.predicate || s.clear);
+
+  // What both the list and the pipeline actually render.
+  const filtered = useMemo(
+    () => (activeStatSpec?.predicate ? baseFiltered.filter(activeStatSpec.predicate) : baseFiltered),
+    [baseFiltered, activeStatSpec],
   );
 
   const listColumns: ColumnDef<T>[] = useMemo(
@@ -196,6 +247,16 @@ export function CrmManagementPage<T extends Record<string, any>>({ config }: { c
           </div>
         ),
       },
+      ...(config.showId
+        ? [
+            {
+              key: "__id",
+              label: "ID",
+              render: (r: T) => <RecordId name={r.name} />,
+              getValue: (r: T) => (r.name === undefined || r.name === null ? "" : String(r.name)),
+            } as ColumnDef<T>,
+          ]
+        : []),
       ...config.columns,
       {
         key: "__actions",
@@ -309,7 +370,23 @@ export function CrmManagementPage<T extends Record<string, any>>({ config }: { c
     ...(statusFilter !== "all"
       ? [{ id: "status", label: "Status", value: statusFilter, display: statusFilter }]
       : []),
+    ...(dateFilter.active
+      ? [{ id: "date", label: config.dateLabel ?? "Date", value: dateFilter.display, display: dateFilter.display }]
+      : []),
+    ...(activeStatSpec ? [{ id: "stat", label: "Card", value: activeStatSpec.label, display: activeStatSpec.label }] : []),
   ];
+
+  const removeFilter = (id: string) => {
+    if (id === "search") setSearch("");
+    else if (id === "status") setStatusFilter("all");
+    else if (id === "date") dateFilter.reset();
+    else if (id === "stat") setActiveStat(null);
+  };
+
+  const handleStatClick = (s: CrmStatSpec<T>) => {
+    if (s.clear) setActiveStat(null);
+    else if (s.predicate) setActiveStat((cur) => (cur === s.label ? null : s.label));
+  };
 
 
   return (
@@ -348,14 +425,22 @@ export function CrmManagementPage<T extends Record<string, any>>({ config }: { c
 
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-        {stats.map((s, i) => (
-          <StatCard key={i} {...s} />
-        ))}
+        {stats.map((s, i) => {
+          const { predicate, clear, ...card } = s;
+          return (
+            <StatCard
+              key={i}
+              {...card}
+              onClick={cardsClickable && (predicate || clear) ? () => handleStatClick(s) : undefined}
+              active={!!predicate && activeStat === s.label}
+            />
+          );
+        })}
       </div>
 
       <FilterBar
         activeFilters={activeFilters}
-        onRemove={(id) => (id === "search" ? setSearch("") : setStatusFilter("all"))}
+        onRemove={removeFilter}
       >
         <div className="relative w-full sm:w-64">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -384,6 +469,7 @@ export function CrmManagementPage<T extends Record<string, any>>({ config }: { c
             ))}
           </Select>
         </div>
+        {config.dateField && <DateRangeFilterControls filter={dateFilter} label={config.dateLabel ?? "Date"} />}
       </FilterBar>
 
       {view === "list" ? (
@@ -409,8 +495,8 @@ export function CrmManagementPage<T extends Record<string, any>>({ config }: { c
           rows={filtered}
           groupField={config.kanbanField}
           rowKey={(r) => String(r.name)}
-          renderCard={(r) =>
-            config.renderCard?.(r) ?? (
+          renderCard={(r) => {
+            const card = config.renderCard?.(r) ?? (
               <div className="flex items-center gap-2.5">
                 <Avatar
                   name={config.rowName(r)}
@@ -424,8 +510,16 @@ export function CrmManagementPage<T extends Record<string, any>>({ config }: { c
                   )}
                 </div>
               </div>
-            )
-          }
+            );
+            return config.showId ? (
+              <div className="space-y-1.5">
+                <RecordId name={r.name} className="block text-[10px]" />
+                {card}
+              </div>
+            ) : (
+              card
+            );
+          }}
           onCardMove={handleCardMove}
           onCardClick={(r) => {
             setEditing(r);

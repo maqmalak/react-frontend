@@ -34,6 +34,32 @@ function applyFetch(meta: FormFieldMeta, values: FormValues, row?: FormValues): 
  *  - fetch_from    -> copies a value from a selected Link in the same row
  *                       (lightweight client-side mirror; server stays truth)
  */
+/**
+ * Date / datetime box that can be typed into. A native date input reports "" while it is only half typed
+ * (e.g. month entered, year still empty); feeding that back through a controlled `value` wipes what the user
+ * typed so far, so the box is left uncontrolled and only pushes complete (or deliberately cleared) values up.
+ */
+export function DateInput({ type, value, onValue, disabled, error, className }: { type: "date" | "datetime-local"; value: string; onValue: (v: string) => void; disabled?: boolean; error?: string; className?: string }) {
+  const ref = React.useRef<HTMLInputElement>(null);
+  React.useEffect(() => {
+    const el = ref.current;
+    if (el && el.value !== value && !el.validity.badInput) el.value = value;
+  }, [value]);
+  return (
+    <Input
+      ref={ref}
+      type={type}
+      defaultValue={value}
+      disabled={disabled}
+      error={error}
+      className={className}
+      onChange={(e) => {
+        if (!e.target.validity.badInput) onValue(e.target.value);
+      }}
+    />
+  );
+}
+
 export function FieldRenderer({
   meta,
   values,
@@ -67,16 +93,18 @@ export function FieldRenderer({
   let input: React.ReactNode;
   switch (fieldtype) {
     case "Data":
+      input = <Input type="text" value={value ?? ""} disabled={disabled} onChange={(e) => onChange(fieldname, e.target.value)} error={error} placeholder={meta.placeholder} />;
+      break;
     case "Date":
     case "Datetime":
       input = (
-        <Input
-          type={fieldtype === "Date" ? "date" : fieldtype === "Datetime" ? "datetime-local" : "text"}
-          value={value ?? ""}
+        <DateInput
+          type={fieldtype === "Date" ? "date" : "datetime-local"}
+          // A datetime-local box only understands "YYYY-MM-DDTHH:mm"; Frappe returns "YYYY-MM-DD HH:mm:ss.ffffff".
+          value={fieldtype === "Datetime" && value ? String(value).replace(" ", "T").slice(0, 16) : value ?? ""}
           disabled={disabled}
-          onChange={(e) => onChange(fieldname, e.target.value)}
+          onValue={(v) => onChange(fieldname, v)}
           error={error}
-          placeholder={meta.placeholder}
         />
       );
       break;
@@ -97,8 +125,13 @@ export function FieldRenderer({
       break;
     case "Select": {
       const options = splitOptions(meta.options);
+      // splitOptions drops the blank entry, so without this an optional Select that is still empty would LOOK
+      // like it holds its first option. Offer an explicit blank for optional fields (and for required ones
+      // until a choice has been made).
+      const blank = !meta.reqd || !value;
       input = (
         <Select value={value ?? ""} disabled={disabled} onChange={(e) => onChange(fieldname, e.target.value)} error={error}>
+          {blank && !options.includes("") && <option value=""> </option>}
           {options.map((o) => (
             <option key={o} value={o}>
               {o}

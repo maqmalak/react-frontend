@@ -10,6 +10,7 @@ import { FieldRenderer } from "@/components/forms/frappe-form";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CRM_LEAD_FIELDS } from "@/components/forms/form-configs";
 import { useCrmLead, useCrmLeadMutations } from "@/hooks/useCrmLeads";
+import { LEAD_ORGANIZATION_FIELDS, useOrganizationAutofill } from "@/hooks/useOrganizationAutofill";
 import { useAuth } from "@/hooks/useAuth";
 import { notifyDataChanged } from "@/hooks/useRealtime";
 import { humanizeError } from "@/services/frappe";
@@ -103,8 +104,12 @@ export function LeadFormPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc, docLoading, isNew]);
 
+  // Picking an Organization pulls in its website / employees / industry / territory / address.
+  const fetchFromOrganization = useOrganizationAutofill(LEAD_ORGANIZATION_FIELDS, setValues);
+
   const onChange = (fieldname: string, value: any) => {
     setValues((v) => ({ ...v, [fieldname]: value }));
+    if (fieldname === "organization") void fetchFromOrganization(String(value ?? ""));
     setErrors((e) => {
       const next = { ...e };
       delete next[fieldname];

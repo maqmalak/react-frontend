@@ -29,9 +29,13 @@ import { FrappeDataTable, type ColumnDef } from "@/components/tables/data-table"
 import { FilterBar } from "@/components/filters/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { KanbanBoard, type KanbanColumnDef } from "@/components/crm/KanbanBoard";
+import { RecordId } from "@/components/crm/RecordId";
 import { WhatsAppIcon } from "@/components/common/whatsapp-icon";
 import { useCrmDeals, useCrmDealMutations } from "@/hooks/useCrmDeals";
 import { useCrmKanban } from "@/hooks/useCrmViews";
+import { useStatCardFilter } from "@/hooks/useStatCardFilter";
+import { DateRangeFilterControls, useDateRangeFilter, type DateFieldOption } from "@/components/filters/date-range-filter";
+import { ActiveCardFilter } from "@/components/crm/ActiveCardFilter";
 import { useWhatsAppCall } from "@/hooks/useWhatsAppCall";
 import { notifyDataChanged } from "@/hooks/useRealtime";
 import { humanizeError } from "@/services/frappe";
@@ -55,19 +59,47 @@ function isOpenDeal(status?: string): boolean {
   return !["won", "lost", "closed", "rejected", "cancelled"].some((x) => s.includes(x));
 }
 
+/**
+ * Which rows each summary card stands for — used both to COUNT/SUM a card and to FILTER by it when
+ * clicked, so the two can never disagree. Pipeline Value and Open Deals are the same set of deals
+ * (open ones), shown as a money total and as a count respectively.
+ */
+/** Dates a deal can be filtered on (server-side, on the doctype's own columns). */
+const DEAL_DATE_FIELDS: DateFieldOption[] = [
+  { value: "creation", label: "Created" },
+  { value: "modified", label: "Updated" },
+  { value: "expected_closure_date", label: "Expected close" },
+];
+
+type DealCard = "pipeline" | "open" | "won" | "lost";
+const dealStatus = (r: CrmDeal) => (r.status ?? "").toLowerCase();
+const DEAL_CARD_PREDICATES: Record<DealCard, (r: CrmDeal) => boolean> = {
+  pipeline: (r) => isOpenDeal(r.status),
+  open: (r) => isOpenDeal(r.status),
+  won: (r) => dealStatus(r).includes("won"),
+  lost: (r) => dealStatus(r).includes("lost"),
+};
+const DEAL_CARD_LABELS: Record<DealCard, string> = { pipeline: "Pipeline Value", open: "Open Deals", won: "Won Value", lost: "Lost Deals" };
+
 export function DealsPage() {
   const navigate = useNavigate();
   const [view, setView] = useState<ViewMode>("list");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [pendingDelete, setPendingDelete] = useState<CrmDeal | null>(null);
+  const cardFilter = useStatCardFilter<DealCard, CrmDeal>(DEAL_CARD_PREDICATES);
+  const dateFilter = useDateRangeFilter();
+  const [dateField, setDateField] = useState("creation");
 
   const filters = useMemo(() => {
     const f: unknown[][] = [];
     if (search) f.push(["organization", "like", `%${search}%`]);
     if (statusFilter) f.push(["status", "=", statusFilter]);
+    f.push(...dateFilter.listFilters(dateField));
     return f;
-  }, [search, statusFilter]);
+  }, [search, statusFilter, dateFilter, dateField]);
+  // The Pipeline is fetched by crm.api.doc.get_data, which takes a dict — same date range, other shape.
+  const kanbanFilters = useMemo(() => dateFilter.dictFilters(dateField), [dateFilter, dateField]);
 
   const { data, error, isLoading, mutate } = useCrmDeals({ filters, limit: 500, enabled: view === "list" });
   const { deleteDoc, updateDoc, loading: mutating } = useCrmDealMutations();
@@ -80,6 +112,7 @@ export function DealsPage() {
   } = useCrmKanban<CrmDeal>({
     doctype: "CRM Deal",
     columnField: "status",
+    filters: kanbanFilters,
     kanbanFields: ["deal_value", "expected_deal_value", "currency", "lead_name", "mobile_no", "phone"],
     enabled: view === "kanban",
   });
@@ -106,9 +139,9 @@ export function DealsPage() {
   // the (money-bearing) kanban rows in Pipeline view — so no second fetch.
   const stats = useMemo(() => {
     const rows = view === "list" ? (data ?? []) : kanbanRows;
-    const openRows = rows.filter((r) => isOpenDeal(r.status));
-    const wonRows = rows.filter((r) => (r.status ?? "").toLowerCase().includes("won"));
-    const lostRows = rows.filter((r) => (r.status ?? "").toLowerCase().includes("lost"));
+    const openRows = rows.filter(DEAL_CARD_PREDICATES.open);
+    const wonRows = rows.filter(DEAL_CARD_PREDICATES.won);
+    const lostRows = rows.filter(DEAL_CARD_PREDICATES.lost);
     const currency = rows.find((r) => r.currency)?.currency || "USD";
     return {
       total: rows.length,
@@ -120,7 +153,18 @@ export function DealsPage() {
     };
   }, [view, data, kanbanRows]);
 
+  // What is actually rendered: the fetched rows narrowed by the clicked summary card (if any). The card
+  // figures above deliberately come from the un-narrowed rows, so picking one doesn't zero the others.
+  const visibleRows = useMemo(() => cardFilter.apply(data ?? []), [cardFilter.apply, data]);
+  const visibleKanbanRows = useMemo(() => cardFilter.apply(kanbanRows), [cardFilter.apply, kanbanRows]);
+  // A whole column either belongs to the picked card (by its status) or is emptied — show that in its count.
+  const visibleKanbanColumns = useMemo(
+    () => kanbanColumns.map((c) => (cardFilter.matches({ status: c.value } as CrmDeal) ? c : { ...c, count: 0 })),
+    [cardFilter.matches, kanbanColumns],
+  );
+
   const columns: ColumnDef<CrmDeal>[] = [
+    { key: "name", label: "ID", render: (r) => <RecordId name={r.name} />, getValue: (r) => r.name },
     {
       key: "organization",
       label: "Organization",
@@ -217,27 +261,34 @@ export function DealsPage() {
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-        <StatCard label="Total Deals" value={stats.total} icon={<Users className="h-4 w-4" />} tone="primary" />
+        {/* Clicking a card filters the List and the Pipeline to it; clicking it again (or Total) releases it. */}
+        <StatCard label="Total Deals" value={stats.total} icon={<Users className="h-4 w-4" />} tone="primary" onClick={cardFilter.clear} />
         <StatCard
           label="Pipeline Value"
           value={formatMoney(stats.pipeline, stats.currency, { compact: true })}
           icon={<Coins className="h-4 w-4" />}
           tone="sky"
+          onClick={() => cardFilter.toggle("pipeline")}
+          active={cardFilter.active === "pipeline"}
         />
-        <StatCard label="Open Deals" value={stats.open} icon={<TrendingUp className="h-4 w-4" />} tone="amber" />
+        <StatCard label="Open Deals" value={stats.open} icon={<TrendingUp className="h-4 w-4" />} tone="amber" onClick={() => cardFilter.toggle("open")} active={cardFilter.active === "open"} />
         <StatCard
           label="Won Value"
           value={formatMoney(stats.won, stats.currency, { compact: true })}
           icon={<Handshake className="h-4 w-4" />}
           tone="emerald"
+          onClick={() => cardFilter.toggle("won")}
+          active={cardFilter.active === "won"}
         />
-        <StatCard label="Lost Deals" value={stats.lost} icon={<X className="h-4 w-4" />} tone="rose" />
+        <StatCard label="Lost Deals" value={stats.lost} icon={<X className="h-4 w-4" />} tone="rose" onClick={() => cardFilter.toggle("lost")} active={cardFilter.active === "lost"} />
       </div>
+
+      <ActiveCardFilter label={cardFilter.active ? DEAL_CARD_LABELS[cardFilter.active] : null} onClear={cardFilter.clear} />
 
       {view === "list" ? (
         <FrappeDataTable<CrmDeal>
           columns={columns}
-          rows={data ?? []}
+          rows={visibleRows}
           rowKey={(r) => r.name ?? ""}
           loading={isLoading}
           error={error}
@@ -270,8 +321,9 @@ export function DealsPage() {
                     {statusOptions.map((s) => <option key={s} value={s}>{s}</option>)}
                   </Select>
                 </label>
-                {(search || statusFilter) && (
-                  <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatusFilter(""); }}>
+                <DateRangeFilterControls labeled filter={dateFilter} fields={DEAL_DATE_FIELDS} field={dateField} onFieldChange={setDateField} />
+                {(search || statusFilter || cardFilter.active || dateFilter.active) && (
+                  <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatusFilter(""); cardFilter.clear(); dateFilter.reset(); }}>
                     <X className="h-4 w-4" /> Clear
                   </Button>
                 )}
@@ -280,9 +332,20 @@ export function DealsPage() {
           }
         />
       ) : (
+        <>
+        <FilterBar>
+          <div className="flex flex-wrap items-end gap-3">
+            <DateRangeFilterControls labeled filter={dateFilter} fields={DEAL_DATE_FIELDS} field={dateField} onFieldChange={setDateField} />
+            {dateFilter.active && (
+              <Button variant="outline" size="sm" onClick={dateFilter.reset}>
+                <X className="h-4 w-4" /> Clear
+              </Button>
+            )}
+          </div>
+        </FilterBar>
 <KanbanBoard<CrmDeal>
-          columns={kanbanColumns}
-          rows={kanbanRows}
+          columns={visibleKanbanColumns}
+          rows={visibleKanbanRows}
           groupField="status"
           rowKey={(r) => r.name ?? ""}
           loading={kanbanLoading}
@@ -291,6 +354,7 @@ export function DealsPage() {
           emptyDescription="Convert a lead or create a deal directly to start the pipeline."
           renderCard={(r) => (
             <article className="space-y-1.5">
+              <RecordId name={r.name} className="block text-[10px]" />
               <div className="flex min-w-0 items-center gap-2">
                 <Avatar name={dealName(r)} size="sm" className={avatarTone(dealName(r))} />
                 <p className="min-w-0 flex-1 truncate text-sm font-medium">{dealName(r)}</p>
@@ -336,6 +400,7 @@ export function DealsPage() {
             </article>
           )}
         />
+        </>
       )}
 
       <ConfirmDialog

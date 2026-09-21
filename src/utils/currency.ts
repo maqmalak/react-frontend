@@ -64,10 +64,12 @@ export function formatMoney(
   currency = activeCurrency,
   options: MoneyFormatOptions = {},
 ): string {
-  const n = asNumber(value);
   const symbol = options.symbol ?? currencySymbol(currency);
   const decimals =
     options.decimals ?? (options.compact ? 1 : currency === "PKR" ? 0 : 2);
+  // Anything that rounds to zero is shown as plain zero — never "-0" (negative zero / tiny negatives).
+  const raw = asNumber(value);
+  const n = Math.abs(raw) < 0.5 * 10 ** -decimals ? 0 : raw;
 
   const formatted = options.compact
     ? compactNumber(n)

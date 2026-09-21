@@ -20,23 +20,38 @@ const sizeClasses = {
   xl: "max-w-4xl",
 };
 
+// Open dialogs, oldest first. A dialog can be opened from inside another one (e.g. the "+" quick-create
+// on a Link field inside a create/edit form), so only the TOPMOST reacts to Escape, and page scroll is
+// only unlocked once the LAST one closes.
+const openDialogStack: symbol[] = [];
+
 /**
  * Accessible modal dialog. Renders into a portal, closes on Esc / overlay
  * click, supports focus. Lightweight, dependency-free.
  */
 export function Dialog({ open, onClose, title, description, children, className, size = "md" }: DialogProps) {
+  // Callers mostly pass an inline `onClose`, whose identity changes on every parent render — keep it in a
+  // ref so the effect below depends on `open` only. Otherwise each parent re-render would pop and re-push
+  // this dialog, moving it above a dialog opened later (and Escape would then close the wrong one).
+  const onCloseRef = React.useRef(onClose);
+  onCloseRef.current = onClose;
+
   React.useEffect(() => {
     if (!open) return;
+    const id = Symbol("dialog");
+    openDialogStack.push(id);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && openDialogStack[openDialogStack.length - 1] === id) onCloseRef.current();
     };
     document.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
+      const i = openDialogStack.indexOf(id);
+      if (i !== -1) openDialogStack.splice(i, 1);
+      if (openDialogStack.length === 0) document.body.style.overflow = "";
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

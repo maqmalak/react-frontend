@@ -5,6 +5,7 @@ import { FrappeDataTable, type ColumnDef } from "@/components/tables/data-table"
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/common/status-badge";
 import { useJournalEntries } from "@/hooks/useAccounting";
+import { useServerTable, useServerDocCount } from "@/hooks/useServerTable";
 import { useCompanyContext, companyFilter } from "@/hooks/useCompanyContext";
 import { formatMoney } from "@/utils/currency";
 import { formatDate } from "@/utils/dates";
@@ -15,7 +16,22 @@ const DOCSTATUS_LABEL: Record<number, string> = { 0: "Draft", 1: "Submitted", 2:
 export function JournalEntriesPage() {
   const navigate = useNavigate();
   const { company } = useCompanyContext();
-  const { data, error, isLoading, mutate } = useJournalEntries({ filters: companyFilter(company) });
+  // There are tens of thousands of Journal Entries: page, search and sort on the server rather than
+  // fetching a fixed 200 rows and filtering those in the browser (which hid everything older).
+  const table = useServerTable({
+    searchFields: ["name", "voucher_type", "user_remark", "cheque_no", "title"],
+    sort: { key: "posting_date", dir: "desc" },
+    pageSize: 50,
+  });
+  const baseFilters = companyFilter(company);
+  const { data, error, isLoading, mutate } = useJournalEntries({
+    filters: baseFilters,
+    orFilters: table.orFilters,
+    limit: table.pageSize,
+    limitStart: table.limitStart,
+    orderBy: table.orderBy,
+  });
+  const { data: total } = useServerDocCount("Journal Entry", baseFilters, table.orFilters);
 
   const columns: ColumnDef<JournalEntry>[] = [
     { key: "name", label: "Journal Entry", render: (r) => <span className="font-medium">{r.name}</span> },
@@ -46,7 +62,10 @@ export function JournalEntriesPage() {
         onRetry={() => void mutate()}
         onRowClick={(r) => navigate(`/accounting/journal-entries/${encodeURIComponent(String(r.name))}`)}
         title="Journal Entries"
-        subtitle={`${data?.length ?? 0} entries`}
+        subtitle={`${(total ?? 0).toLocaleString()} entries`}
+        serverSide={table.controls(total ?? 0)}
+        pageSizeOptions={[20, 50, 100, 200]}
+        searchPlaceholder="Search name, type, remark…"
         exportFilename="journal-entries"
         emptyTitle="No journal entries yet"
         emptyDescription='Manual accounting entries you post will show up here — click "New Journal Entry" to create one.'

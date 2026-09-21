@@ -35,6 +35,26 @@ export interface ColumnDef<T> {
   cellClassName?: string;
 }
 
+/**
+ * Server-driven paging/search/sort, for lists too large to load into the browser
+ * (e.g. Payment Entries, Journal Entries). When passed to FrappeDataTable, `rows`
+ * is just the CURRENT page — the table stops filtering/sorting/slicing it itself
+ * and reports every change through these callbacks instead.
+ */
+export interface ServerTableControls {
+  /** Number of rows matching the current search/filters on the server. */
+  total: number;
+  /** 0-based current page. */
+  page: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
+  query: string;
+  onQueryChange: (query: string) => void;
+  sort?: { key: string; dir: "asc" | "desc" } | null;
+  onSortChange?: (sort: { key: string; dir: "asc" | "desc" }) => void;
+}
+
 export interface FrappeDataTableProps<T> {
   columns: ColumnDef<T>[];
   rows: T[];
@@ -72,6 +92,8 @@ export interface FrappeDataTableProps<T> {
   frozenColumns?: number;
   /** A pre-aggregated row (e.g. the report's own server-computed Total) rendered as a bold footer through the same column pipeline as every other row — not re-derived from `rows`, so it stays correct under pagination/filtering. */
   totalRow?: T;
+  /** Switch to server-side paging/search/sort (see ServerTableControls). Omit for the default in-browser behaviour. */
+  serverSide?: ServerTableControls;
 }
 
 function cellValue<T>(row: T, col: ColumnDef<T>): string | number | undefined | null {
@@ -111,7 +133,9 @@ export function FrappeDataTable<T extends Record<string, any>>({
   striped,
   frozenColumns,
   totalRow,
+  serverSide,
 }: FrappeDataTableProps<T>) {
+  const srv = serverSide;
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | null>(
     defaultSortKey ? { key: defaultSortKey, dir: "asc" } : null,
@@ -124,7 +148,8 @@ export function FrappeDataTable<T extends Record<string, any>>({
   // identity to know when to re-measure, so a fresh array every render
   // (this used to be a plain `.filter()` call) would re-run it in a loop.
   const visibleColumns = useMemo(() => columns.filter((c) => !hiddenCols.has(c.key)), [columns, hiddenCols]);
-  const searchableText = query.trim().toLowerCase();
+  // In server mode the server has already applied the search, so the client-side filter/sort/slice below are skipped.
+  const searchableText = srv ? "" : query.trim().toLowerCase();
 
   const frozenCount = Math.min(frozenColumns ?? 0, visibleColumns.length);
   const headerCellRefs = useRef<(HTMLTableCellElement | null)[]>([]);
@@ -138,7 +163,7 @@ export function FrappeDataTable<T extends Record<string, any>>({
   }, [rows, columns, searchableText]);
 
   const sorted = useMemo(() => {
-    if (!sort) return filtered;
+    if (srv || !sort) return filtered;
     const col = columns.find((c) => c.key === sort.key);
     if (!col) return filtered;
     return [...filtered].sort((a, b) => {
@@ -150,20 +175,23 @@ export function FrappeDataTable<T extends Record<string, any>>({
       }
       return sort.dir === "asc" ? cmp : -cmp;
     });
-  }, [filtered, sort, columns]);
+  }, [filtered, sort, columns, srv]);
 
-  const total = sorted.length;
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  const safePage = Math.min(page, pageCount - 1);
+  const activePageSize = srv ? srv.pageSize : pageSize;
+  const activeSort = srv ? (srv.sort ?? null) : sort;
+  const total = srv ? srv.total : sorted.length;
+  const pageCount = Math.max(1, Math.ceil(total / activePageSize));
+  const safePage = Math.min(srv ? srv.page : page, pageCount - 1);
   // Memoized for the same reason as visibleColumns above — a fresh `.slice()`
   // array every render would re-trigger the frozen-column measurement effect
-  // on every render, forever.
+  // on every render, forever. In server mode `sorted` already IS the page.
   const pageRows = useMemo(
-    () => sorted.slice(safePage * pageSize, safePage * pageSize + pageSize),
-    [sorted, safePage, pageSize],
+    () => (srv ? sorted : sorted.slice(safePage * activePageSize, safePage * activePageSize + activePageSize)),
+    [srv, sorted, safePage, activePageSize],
   );
-  const from = total === 0 ? 0 : safePage * pageSize + 1;
-  const to = Math.min(total, safePage * pageSize + pageSize);
+  const from = total === 0 ? 0 : safePage * activePageSize + 1;
+  const to = total === 0 ? 0 : from - 1 + pageRows.length;
+  const goToPage = (p: number) => (srv ? srv.onPageChange(p) : setPage(p));
 
   // Column widths are content-driven (no fixed table-layout), so the sticky
   // `left` offset for each frozen column has to be measured from the actual
@@ -202,8 +230,15 @@ export function FrappeDataTable<T extends Record<string, any>>({
   const selectedRows = selectedKeys ? (rows ?? []).filter((r) => selectedKeys.has(rowKey(r))) : [];
 
   const handleSort = (key: string) => {
-    setSort((s) => (s?.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
-    setPage(0);
+    const next: { key: string; dir: "asc" | "desc" } =
+      activeSort?.key === key ? { key, dir: activeSort.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" };
+    if (srv) {
+      srv.onSortChange?.(next);
+      srv.onPageChange(0);
+    } else {
+      setSort(next);
+      setPage(0);
+    }
   };
   const toggleColumn = (key: string) => {
     setHiddenCols((prev) => {
@@ -214,6 +249,10 @@ export function FrappeDataTable<T extends Record<string, any>>({
     });
   };
   const changePageSize = (size: number) => {
+    if (srv) {
+      srv.onPageSizeChange(size);
+      return;
+    }
     setPageSize(size);
     setPage(0);
   };
@@ -255,8 +294,12 @@ export function FrappeDataTable<T extends Record<string, any>>({
                 <Input
                   id="table-search"
                   type="search"
-                  value={query}
+                  value={srv ? srv.query : query}
                   onChange={(e) => {
+                    if (srv) {
+                      srv.onQueryChange(e.target.value);
+                      return;
+                    }
                     setQuery(e.target.value);
                     setPage(0);
                   }}
@@ -356,8 +399,8 @@ export function FrappeDataTable<T extends Record<string, any>>({
                   >
                     <span className="inline-flex items-center gap-1">
                       {col.label}
-                      {sort?.key === col.key ? (
-                        sort.dir === "asc" ? (
+                      {activeSort?.key === col.key ? (
+                        activeSort.dir === "asc" ? (
                           <ChevronUp className="h-3.5 w-3.5" />
                         ) : (
                           <ChevronDown className="h-3.5 w-3.5" />
@@ -374,7 +417,7 @@ export function FrappeDataTable<T extends Record<string, any>>({
           </thead>
           <tbody>
             {loading ? (
-              Array.from({ length: Math.min(pageSize, 8) }).map((_, i) => (
+              Array.from({ length: Math.min(activePageSize, 8) }).map((_, i) => (
                 <tr key={`sk-${i}`} className="border-b border-border last:border-0">
                   <td colSpan={spanCount} className="px-3 py-2">
                     <Skeleton className="h-8 w-full" />
@@ -510,7 +553,7 @@ export function FrappeDataTable<T extends Record<string, any>>({
               <span className="text-xs text-muted-foreground">Rows</span>
               <select
                 className="h-7 rounded border border-input bg-transparent text-xs"
-                value={pageSize}
+                value={activePageSize}
                 onChange={(e) => changePageSize(Number(e.target.value))}
               >
                 {pageSizeOptions.map((s) => (
@@ -526,7 +569,7 @@ export function FrappeDataTable<T extends Record<string, any>>({
                 size="icon"
                 className="h-7 w-7"
                 disabled={safePage === 0}
-                onClick={() => setPage(safePage - 1)}
+                onClick={() => goToPage(safePage - 1)}
                 aria-label="Previous page"
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -539,7 +582,7 @@ export function FrappeDataTable<T extends Record<string, any>>({
                 size="icon"
                 className="h-7 w-7"
                 disabled={safePage >= pageCount - 1}
-                onClick={() => setPage(safePage + 1)}
+                onClick={() => goToPage(safePage + 1)}
                 aria-label="Next page"
               >
                 <ChevronRight className="h-4 w-4" />

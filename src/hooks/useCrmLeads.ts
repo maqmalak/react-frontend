@@ -20,6 +20,8 @@ const CRM_LEAD_FIELDS = [
   "phone",
   "source",
   "industry",
+  "website",
+  "address",
   "territory",
   "lead_owner",
   "annual_revenue",

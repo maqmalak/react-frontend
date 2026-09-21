@@ -1,7 +1,8 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { useFrappeGetDocList } from "frappe-react-sdk";
-import { Link as LinkIcon, Search, X } from "lucide-react";
+import { Link as LinkIcon, Plus, Search, X } from "lucide-react";
+import { LinkQuickCreateDialog, canQuickCreate, quickCreateLabel } from "./link-quick-create";
 
 /**
  * ERPNext-style form field metadata.
@@ -106,6 +107,7 @@ export function FrappeLinkField({
   onError,
   className,
   allowClear = true,
+  allowCreate = true,
 }: {
   meta: FormFieldMeta;
   value?: string;
@@ -114,9 +116,15 @@ export function FrappeLinkField({
   onError?: (msg: string) => void;
   className?: string;
   allowClear?: boolean;
+  /** Show the "+" / "Create …" quick-create for link targets that support it (see link-quick-create.tsx). Pass false for filter pickers. */
+  allowCreate?: boolean;
 }) {
   const doctype = String(meta.options ?? "");
   const titleField = linkTitleField(doctype);
+  const creatable = allowCreate && !disabled && canQuickCreate(doctype);
+  const [createOpen, setCreateOpen] = React.useState(false);
+  // Text typed into the search box, remembered past the blur that clicking "+" causes (blur clears `query`).
+  const [createSeed, setCreateSeed] = React.useState("");
   const [query, setQuery] = React.useState("");
   const [open, setOpen] = React.useState(false);
   const [focused, setFocused] = React.useState(false);
@@ -221,97 +229,149 @@ export function FrappeLinkField({
     return { value: String(d.name ?? ""), label };
   });
 
+  const startCreate = (seed: string) => {
+    setCreateSeed(seed);
+    setCreateOpen(true);
+    setOpen(false);
+    setFocused(false);
+  };
+
   return (
-    <div className={`relative ${className ?? ""}`} ref={wrapperRef}>
-      <div className="relative">
-        <LinkIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input
-          className="h-9 w-full rounded-md border border-input bg-transparent pl-9 pr-8 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-          value={focused ? query : value ?? ""}
-          placeholder={meta.placeholder ?? `Search ${meta.label ?? doctype}…`}
-          disabled={disabled || !doctype}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setOpen(true);
-          }}
-          onFocus={() => {
-            setFocused(true);
-            setQuery("");
-            setOpen(true);
-          }}
-          onBlur={() => {
-            setFocused(false);
-            setOpen(false);
-            setQuery("");
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && query) {
-              e.preventDefault();
-              onChange(query.trim());
-              setOpen(false);
+    <div className={`flex items-center gap-1.5 ${className ?? ""}`}>
+      <div className="relative min-w-0 flex-1" ref={wrapperRef}>
+        <div className="relative">
+          <LinkIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            className="h-9 w-full rounded-md border border-input bg-transparent pl-9 pr-8 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            value={focused ? query : value ?? ""}
+            placeholder={meta.placeholder ?? `Search ${meta.label ?? doctype}…`}
+            disabled={disabled || !doctype}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setCreateSeed(e.target.value);
+              setOpen(true);
+            }}
+            onFocus={() => {
+              setFocused(true);
+              setQuery("");
+              setCreateSeed("");
+              setOpen(true);
+            }}
+            onBlur={() => {
               setFocused(false);
-            }
-            if (e.key === "Escape") {
               setOpen(false);
-              setFocused(false);
-            }
-          }}
-        />
-        {allowClear && value && (
-          <button
-            type="button"
-            tabIndex={-1}
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              onChange("");
               setQuery("");
             }}
-            aria-label="Clear"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        )}
-      </div>
-      {open &&
-        menuPos &&
-        createPortal(
-          <ul
-            className="fixed z-50 overflow-auto rounded-md border border-border bg-popover p-1 shadow-lg"
-            style={{
-              left: menuPos.left,
-              width: menuPos.width,
-              maxHeight: menuPos.maxHeight,
-              ...(menuPos.top !== undefined ? { top: menuPos.top } : { bottom: menuPos.bottom }),
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && query) {
+                e.preventDefault();
+                onChange(query.trim());
+                setOpen(false);
+                setFocused(false);
+              }
+              if (e.key === "Escape") {
+                setOpen(false);
+                setFocused(false);
+              }
             }}
-          >
-            {isLoading && results.length === 0 && (
-              <li className="px-2 py-1.5 text-sm text-muted-foreground">Searching…</li>
-            )}
-            {!isLoading && results.length === 0 && (
-              <li className="px-2 py-1.5 text-sm text-muted-foreground">No results</li>
-            )}
-            {results.map((r) => (
-              <li key={r.value}>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    onChange(r.value);
-                    setOpen(false);
-                    setFocused(false);
-                    setQuery("");
-                  }}
-                >
-                  <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  <span className="truncate">{r.label}</span>
-                </button>
-              </li>
-            ))}
-          </ul>,
-          document.body,
-        )}
+          />
+          {allowClear && value && (
+            <button
+              type="button"
+              tabIndex={-1}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onChange("");
+                setQuery("");
+              }}
+              aria-label="Clear"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+        {open &&
+          menuPos &&
+          createPortal(
+            <ul
+              className="fixed z-50 overflow-auto rounded-md border border-border bg-popover p-1 shadow-lg"
+              style={{
+                left: menuPos.left,
+                width: menuPos.width,
+                maxHeight: menuPos.maxHeight,
+                ...(menuPos.top !== undefined ? { top: menuPos.top } : { bottom: menuPos.bottom }),
+              }}
+            >
+              {isLoading && results.length === 0 && (
+                <li className="px-2 py-1.5 text-sm text-muted-foreground">Searching…</li>
+              )}
+              {!isLoading && results.length === 0 && (
+                <li className="px-2 py-1.5 text-sm text-muted-foreground">No results</li>
+              )}
+              {creatable && q && !results.some((r) => r.value.toLowerCase() === q.toLowerCase()) && (
+                <li>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm font-medium text-primary hover:bg-accent"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      startCreate(q);
+                    }}
+                  >
+                    <Plus className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{`Create ${quickCreateLabel(doctype)} “${q}”`}</span>
+                  </button>
+                </li>
+              )}
+              {results.map((r) => (
+                <li key={r.value}>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      onChange(r.value);
+                      setOpen(false);
+                      setFocused(false);
+                      setQuery("");
+                    }}
+                  >
+                    <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="truncate">{r.label}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>,
+            document.body,
+          )}
+      </div>
+      {creatable && (
+        <button
+          type="button"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-input text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          title={`New ${quickCreateLabel(doctype)}`}
+          aria-label={`Create new ${quickCreateLabel(doctype)}`}
+          // mousedown keeps the search input from blurring first, so its typed text is still available to seed the dialog
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => startCreate(createSeed)}
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+      )}
+      {creatable && (
+        <LinkQuickCreateDialog
+          doctype={doctype}
+          open={createOpen}
+          initialValue={createSeed}
+          onClose={() => setCreateOpen(false)}
+          onCreated={(name) => {
+            onChange(name);
+            setQuery("");
+            setCreateSeed("");
+          }}
+        />
+      )}
     </div>
   );
 }

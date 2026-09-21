@@ -5,22 +5,38 @@
 # originally provisioned (site "demo", Frappe v16 backend, bench at
 # ~/frappe-bench, React frontend at ~/react-frontend served by nginx).
 #
-# It does two independent, idempotent things:
+# It does three independent, idempotent things, in this order:
 #
-#   A. Redeploy the React frontend  — git pull, npm ci, npm run build.
+#   A. Update the custom backend app (`micromax`) — git pull, site backup,
+#      `bench migrate`, rebuild, clear cache, restart. This is what applies
+#      server-side changes the frontend depends on (Property Setters, custom
+#      fields, hooks...) — e.g. micromax.install's CRM Organization address /
+#      no-of-employees fixes run on migrate. Runs by default, BEFORE the
+#      frontend, so a new frontend never goes live against an old backend.
+#      Non-destructive; skip it with UPDATE_BACKEND=0. Needs `micromax`
+#      already installed on the site (see C for a box still on `apparel`).
+#
+#   B. Redeploy the React frontend  — git pull, npm ci, npm run build.
 #      Safe to re-run any time; this is the normal "ship a frontend change"
 #      path. Runs by default.
 #
-#   B. Swap the custom backend app  — uninstall+remove the old `apparel` app
+#   C. Swap the custom backend app  — uninstall+remove the old `apparel` app
 #      and fetch+install `micromax` in its place, then migrate and rebuild.
 #      This is a ONE-TIME, DESTRUCTIVE migration (uninstalling `apparel`
 #      deletes every doctype/record that app owns) — it only runs when you
 #      explicitly opt in with REMOVE_APPAREL=1, and once `apparel` is gone
-#      this step becomes a no-op on every later run.
+#      this step becomes a no-op on every later run. When it runs it does
+#      its own pull/migrate/restart, so A is skipped.
+#
+# IMPORTANT — this script deploys what is on GitHub, not what is on your
+# laptop: both repos are `git reset --hard origin/<branch>` on the server.
+# Commit and push the frontend repo (FRONTEND_REPO) AND the micromax repo
+# (MICROMAX_REPO) first, or the server just re-installs the old code.
 #
 # Run as root (same as install.sh):
-#   sudo bash update.sh                        # frontend only
-#   sudo REMOVE_APPAREL=1 bash update.sh        # frontend + one-time app swap
+#   sudo bash update.sh                        # backend update + frontend
+#   sudo UPDATE_BACKEND=0 bash update.sh       # frontend only
+#   sudo REMOVE_APPAREL=1 bash update.sh       # frontend + one-time app swap
 #
 # Idempotency: safe to re-run — already-applied steps (app already removed,
 # already installed, frontend already up to date) are skipped rather than
@@ -49,7 +65,14 @@ MICROMAX_BRANCH="${MICROMAX_BRANCH:-main}"
 APPAREL_APP="${APPAREL_APP:-apparel}"
 MICROMAX_APP="${MICROMAX_APP:-micromax}"
 
-# Opt-in switch for section B (see header comment) — deliberately off by
+# Section A (see header comment): pull + migrate the already-installed
+# micromax app. On by default; UPDATE_BACKEND=0 skips it.
+UPDATE_BACKEND="${UPDATE_BACKEND:-1}"
+# Section A takes a database backup before migrating (a migrate can't be
+# undone otherwise) — set to 1 to skip it.
+SKIP_BACKUP="${SKIP_BACKUP:-0}"
+
+# Opt-in switch for section C (see header comment) — deliberately off by
 # default because uninstall-app is destructive (drops that app's data).
 REMOVE_APPAREL="${REMOVE_APPAREL:-0}"
 # uninstall-app takes a full site backup before deleting apparel's data by
@@ -97,8 +120,59 @@ RESOLVED_NODE_VERSION="$(as_frappe_sh "'${NODE_BIN_DIR}/node' --version")"
 log "Using node ${RESOLVED_NODE_VERSION} from ${NODE_BIN_DIR}"
 [[ "$RESOLVED_NODE_VERSION" == v${NODE_MAJOR}.* ]] || warn "Resolved node ${RESOLVED_NODE_VERSION}, expected v${NODE_MAJOR}.x — double check 'nvm alias default' for ${FRAPPE_USER} (sudo -iu ${FRAPPE_USER} nvm alias default ${NODE_MAJOR})."
 
-# ======================================================== A. Frontend deploy
-log "A. Updating React frontend (${FRONTEND_DIR})"
+# ===================================================== A. Backend app update
+if [[ "$REMOVE_APPAREL" == "1" ]]; then
+  log "A. Skipping standalone backend update — section C (REMOVE_APPAREL=1) pulls, migrates and restarts it"
+elif [[ "$UPDATE_BACKEND" != "1" ]]; then
+  log "A. Skipping backend update (UPDATE_BACKEND=0)"
+else
+  MICROMAX_DIR="${BENCH_DIR}/apps/${MICROMAX_APP}"
+  log "A. Updating backend app '${MICROMAX_APP}' (${MICROMAX_DIR})"
+
+  # `|| true`: if list-apps itself fails we just can't confirm the install,
+  # which the check below reports — not a reason to abort the whole deploy.
+  A_INSTALLED_APPS="$(as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' list-apps" 2>/dev/null | awk '{print $1}' || true)"
+
+  if [[ ! -d "$MICROMAX_DIR" ]] || ! grep -qx "$MICROMAX_APP" <<<"$A_INSTALLED_APPS"; then
+    warn "'${MICROMAX_APP}' isn't installed on site '${SITE_NAME}' — skipping the backend update. The frontend below expects the micromax backend changes; if this box still runs '${APPAREL_APP}', run once with REMOVE_APPAREL=1."
+  elif ! as_frappe git -C "$MICROMAX_DIR" remote get-url origin >/dev/null 2>&1; then
+    warn "'${MICROMAX_DIR}' has no git 'origin' remote — can't pull it, skipping the backend update. Check: cd ${MICROMAX_DIR} && git remote -v"
+  else
+    A_BEFORE_SHA="$(as_frappe git -C "$MICROMAX_DIR" rev-parse HEAD)"
+    as_frappe git -C "$MICROMAX_DIR" fetch origin "$MICROMAX_BRANCH"
+    as_frappe git -C "$MICROMAX_DIR" checkout "$MICROMAX_BRANCH"
+    as_frappe git -C "$MICROMAX_DIR" reset --hard "origin/${MICROMAX_BRANCH}"
+    A_AFTER_SHA="$(as_frappe git -C "$MICROMAX_DIR" rev-parse HEAD)"
+    if [[ "$A_BEFORE_SHA" == "$A_AFTER_SHA" ]]; then
+      log "'${MICROMAX_APP}' already at latest ${MICROMAX_BRANCH} (${A_AFTER_SHA:0:8}) — migrating anyway (safe, and picks up any not-yet-applied changes)"
+    else
+      log "'${MICROMAX_APP}' updated ${A_BEFORE_SHA:0:8} -> ${A_AFTER_SHA:0:8}"
+    fi
+
+    if [[ "$SKIP_BACKUP" == "1" ]]; then
+      warn "SKIP_BACKUP=1 — migrating without a database backup."
+    else
+      log "Backing up the '${SITE_NAME}' database before migrating (bench backup; files land in ${BENCH_DIR}/sites/${SITE_NAME}/private/backups)"
+      as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' backup" \
+        || die "Pre-migrate backup failed — not migrating. Fix that (or re-run with SKIP_BACKUP=1 if you accept the risk)."
+    fi
+
+    # A failed migrate aborts here (set -e), on purpose: the frontend is not
+    # deployed on top of a half-migrated backend, and the backup above is the way back.
+    log "Running bench migrate for site '${SITE_NAME}'"
+    as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' migrate"
+
+    log "Rebuilding backend app assets (bench build --app ${MICROMAX_APP})"
+    as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' build --app '${MICROMAX_APP}'"
+
+    log "Clearing cache and restarting bench workers/web processes"
+    as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' clear-cache"
+    as_root_sh "supervisorctl restart all" || warn "supervisorctl restart failed — restart the bench's supervisor group manually."
+  fi
+fi
+
+# ======================================================== B. Frontend deploy
+log "B. Updating React frontend (${FRONTEND_DIR})"
 if [[ ! -d "$FRONTEND_DIR" ]]; then
   log "Frontend not cloned yet — cloning ${FRONTEND_REPO}"
   as_frappe git clone --branch "$FRONTEND_BRANCH" "$FRONTEND_REPO" "$FRONTEND_DIR"
@@ -125,11 +199,11 @@ chmod -R o+rx "$FRAPPE_HOME"
 
 log "Frontend deployed — nginx serves ${FRONTEND_DIR}/dist directly off disk, no reload needed."
 
-# =============================================== B. apparel -> micromax swap
+# =============================================== C. apparel -> micromax swap
 if [[ "$REMOVE_APPAREL" != "1" ]]; then
-  log "B. Skipping apparel -> micromax app swap (set REMOVE_APPAREL=1 to run it)"
+  log "C. Skipping apparel -> micromax app swap (set REMOVE_APPAREL=1 to run it)"
 else
-  log "B. Swapping backend app: removing '${APPAREL_APP}', installing '${MICROMAX_APP}'"
+  log "C. Swapping backend app: removing '${APPAREL_APP}', installing '${MICROMAX_APP}'"
 
   INSTALLED_APPS="$(as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' list-apps" 2>/dev/null | awk '{print $1}')"
 
@@ -241,6 +315,7 @@ fi
 log "Done."
 cat <<EOF
 
+  Backend:   $([[ "$REMOVE_APPAREL" == "1" ]] && echo "handled by the app swap (C)" || { [[ "$UPDATE_BACKEND" == "1" ]] && echo "'${MICROMAX_APP}' updated + migrated (A) — see any WARN above if it was skipped" || echo "not updated this run (UPDATE_BACKEND=0)"; })
   Frontend:  ${FRONTEND_DIR} (rebuilt, served by nginx from dist/)
   Site:      ${SITE_NAME}
   Bench:     ${BENCH_DIR}

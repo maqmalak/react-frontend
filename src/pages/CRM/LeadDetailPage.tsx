@@ -15,6 +15,7 @@ import { CRM_TASK_FIELDS, CRM_NOTE_FIELDS } from "@/components/forms/form-config
 import { useCrmLead } from "@/hooks/useCrmLeads";
 import { useCrmActivities, useCrmNotes, useCrmCallLogs, useCrmNoteMutations, describeCrmActivity } from "@/hooks/useCrmActivities";
 import { useCrmTasks, useCrmTaskMutations } from "@/hooks/useCrmTasks";
+import { OrganizationPortfolioCard } from "@/components/crm/OrganizationPortfolioCard";
 import { ConnectionsPanel, EmailPanel, WhatsAppPanel, AttachmentsPanel, useLinkedEvents, type ConnectionGroup } from "@/components/crm/doc-panels";
 import { useFrappeGetDocList } from "frappe-react-sdk";
 import { convertCrmLeadToDeal } from "@/services/api";
@@ -262,6 +263,8 @@ export function LeadDetailPage() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
+          <OrganizationPortfolioCard organization={lead.organization} currentLead={name} />
+
           <SectionCard title="Activity">
             <div className="space-y-3">
               <div className="flex gap-2">

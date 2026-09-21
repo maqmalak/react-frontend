@@ -1,6 +1,8 @@
-import { Building2, Globe, Users, Landmark, MapPin } from "lucide-react";
+import { Building2, Factory, Globe, Users, Landmark, MapPin } from "lucide-react";
+import { WebsiteLink } from "@/components/crm/WebsiteLink";
 import { CrmManagementPage, type CrmManagementConfig } from "@/components/crm/CrmManagementPage";
 import type { ColumnDef } from "@/components/tables/data-table";
+import { CRM_ORGANIZATION_FORM_FIELDS } from "@/components/forms/form-configs";
 import { compactNumber } from "@/utils/currency";
 import type { CrmOrganization } from "@/types/frappe";
 
@@ -37,15 +39,7 @@ const config: CrmManagementConfig<CrmOrganization> = {
   icon: <Building2 className="h-5 w-5" />,
   doctype: "CRM Organization",
   fields: ["name", "organization_name", "website", "industry", "no_of_employees", "annual_revenue", "territory", "address", "currency", "organization_logo", "modified"],
-  formFields: [
-    { fieldname: "organization_name", label: "Organization Name", fieldtype: "Data", reqd: true },
-    { fieldname: "website", label: "Website", fieldtype: "Data" },
-    { fieldname: "industry", label: "Industry", fieldtype: "Link", options: "Industry" },
-    { fieldname: "no_of_employees", label: "No. of Employees", fieldtype: "Data" },
-    { fieldname: "annual_revenue", label: "Annual Revenue", fieldtype: "Currency" },
-    { fieldname: "territory", label: "Territory", fieldtype: "Link", options: "Territory" },
-    { fieldname: "address", label: "Address", fieldtype: "Text" },
-  ],
+  formFields: CRM_ORGANIZATION_FORM_FIELDS,
   kanbanField: "industry",
   searchField: "organization_name",
   statusField: "industry",
@@ -68,10 +62,20 @@ const config: CrmManagementConfig<CrmOrganization> = {
   renderCard: (r) => (
     <div className="space-y-1.5">
       <p className="truncate text-sm font-medium">{r.organization_name || r.name}</p>
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span className="truncate">{r.industry || "—"}</span>
-        <span className="tabular-nums">{r.no_of_employees || ""}</span>
+      <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <Factory className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">{r.industry || "—"}</span>
+        </span>
+        <span className="shrink-0 tabular-nums">{r.no_of_employees || ""}</span>
       </div>
+      {r.website && <WebsiteLink url={r.website} />}
+      {r.address && (
+        <p className="flex min-w-0 items-start gap-1.5 text-xs text-muted-foreground">
+          <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span className="line-clamp-2 whitespace-pre-line break-words">{r.address}</span>
+        </p>
+      )}
     </div>
   ),
   emptyTitle: "No organizations",

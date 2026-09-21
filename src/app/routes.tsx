@@ -51,7 +51,9 @@ const PurchaseInvoiceDetailPage = lazy(() => import("@/pages/Purchase/PurchaseIn
 const LandedCostVouchersPage = lazy(() => import("@/pages/Purchase/LandedCostVouchersPage").then((m) => ({ default: m.LandedCostVouchersPage })));
 const LandedCostVoucherFormPage = lazy(() => import("@/pages/Purchase/LandedCostVoucherFormPage").then((m) => ({ default: m.LandedCostVoucherFormPage })));
 const LandedCostVoucherDetailPage = lazy(() => import("@/pages/Purchase/LandedCostVoucherDetailPage").then((m) => ({ default: m.LandedCostVoucherDetailPage })));
-const WorkOrdersPage = lazy(() => import("@/pages/Production/WorkOrdersPage").then((m) => ({ default: m.WorkOrdersPage })));
+const ProductionRoutes = lazy(() => import("@/pages/Production/ProductionRoutes").then((m) => ({ default: m.ProductionRoutes })));
+const AssetsRoutes = lazy(() => import("@/pages/Assets/AssetsRoutes").then((m) => ({ default: m.AssetsRoutes })));
+const ProjectsRoutes = lazy(() => import("@/pages/Projects/ProjectsRoutes").then((m) => ({ default: m.ProjectsRoutes })));
 const SellingSettingsPage = lazy(() => import("@/pages/Selling/SellingSettingsPage").then((m) => ({ default: m.SellingSettingsPage })));
 const SalesOrdersPage = lazy(() => import("@/pages/Selling/SalesOrdersPage").then((m) => ({ default: m.SalesOrdersPage })));
 const SalesOrderFormPage = lazy(() => import("@/pages/Selling/SalesOrderFormPage").then((m) => ({ default: m.SalesOrderFormPage })));
@@ -223,8 +225,7 @@ export function AppRoutes() {
         <Route path="export/shipments/:name" element={<Suspense fallback={<FullPageLoader />}><ExportShipmentDetailPage /></Suspense>} />
 
         {/* Production */}
-        <Route path="production/work-orders" element={<Suspense fallback={<FullPageLoader />}><WorkOrdersPage /></Suspense>} />
-        <Route path="production/status" element={<ComingSoonPage title="Production Status" description="Live progress across work orders" />} />
+        <Route path="production/*" element={<Suspense fallback={<FullPageLoader />}><ProductionRoutes /></Suspense>} />
 
         {/* Inventory */}
         <Route path="inventory/stock" element={<ComingSoonPage title="Stock" description="Stock balances from ERPNext Bin / Stock Ledger Entry" />} />
@@ -371,7 +372,8 @@ export function AppRoutes() {
         />
 
         <Route path="subcontracting" element={<ComingSoonPage title="Subcontracting" description="Subcontracting orders and receipts" />} />
-        <Route path="assets" element={<ComingSoonPage title="Assets" description="Fixed asset register, depreciation and maintenance" />} />
+        <Route path="asset-management/*" element={<Suspense fallback={<FullPageLoader />}><AssetsRoutes /></Suspense>} />
+        <Route path="projects/*" element={<Suspense fallback={<FullPageLoader />}><ProjectsRoutes /></Suspense>} />
         <Route path="support" element={<ComingSoonPage title="Support" description="Issues and customer support tickets" />} />
         <Route path="pos" element={<ComingSoonPage title="Point of Sale" description="Counter billing posting straight into stock and the ledger" />} />
         <Route path="hospital" element={<ComingSoonPage title="Hospital & Clinic" description="Patient registration, OPD queue, clinical documentation and billing" />} />

@@ -5,6 +5,7 @@ import { FrappeDataTable, type ColumnDef } from "@/components/tables/data-table"
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/common/status-badge";
 import { usePaymentEntries } from "@/hooks/usePaymentEntries";
+import { useServerTable, useServerDocCount } from "@/hooks/useServerTable";
 import { useCompanyContext, companyFilter } from "@/hooks/useCompanyContext";
 import { formatMoney } from "@/utils/currency";
 import { formatDate } from "@/utils/dates";
@@ -15,7 +16,22 @@ const DOCSTATUS_LABEL: Record<number, string> = { 0: "Draft", 1: "Submitted", 2:
 export function PaymentEntriesPage() {
   const navigate = useNavigate();
   const { company } = useCompanyContext();
-  const { data, error, isLoading, mutate } = usePaymentEntries({ filters: companyFilter(company) });
+  // There are tens of thousands of Payment Entries: page, search and sort on the server rather than
+  // fetching a fixed 200 rows and filtering those in the browser (which hid everything older).
+  const table = useServerTable({
+    searchFields: ["name", "party", "party_name", "reference_no", "mode_of_payment", "paid_from", "paid_to"],
+    sort: { key: "posting_date", dir: "desc" },
+    pageSize: 50,
+  });
+  const baseFilters = companyFilter(company);
+  const { data, error, isLoading, mutate } = usePaymentEntries({
+    filters: baseFilters,
+    orFilters: table.orFilters,
+    limit: table.pageSize,
+    limitStart: table.limitStart,
+    orderBy: table.orderBy,
+  });
+  const { data: total } = useServerDocCount("Payment Entry", baseFilters, table.orFilters);
 
   const columns: ColumnDef<PaymentEntry>[] = [
     { key: "name", label: "Payment Entry", render: (r) => <span className="font-medium">{r.name}</span> },
@@ -48,7 +64,10 @@ export function PaymentEntriesPage() {
         onRetry={() => void mutate()}
         onRowClick={(r) => navigate(`/accounting/payment-entries/${encodeURIComponent(String(r.name))}`)}
         title="Payment Entries"
-        subtitle={`${data?.length ?? 0} entries`}
+        subtitle={`${(total ?? 0).toLocaleString()} entries`}
+        serverSide={table.controls(total ?? 0)}
+        pageSizeOptions={[20, 50, 100, 200]}
+        searchPlaceholder="Search name, party, reference…"
         exportFilename="payment-entries"
         emptyTitle="No payment entries yet"
         emptyDescription='Payments you record will show up here — click "New Payment Entry" to create one.'

@@ -67,6 +67,11 @@ import {
   FileSpreadsheet,
   PlayCircle,
   type LucideIcon,
+  Layers,
+  Timer,
+  Wrench,
+  FolderKanban,
+  ListTodo,
 } from "lucide-react";
 
 export interface NavItem {
@@ -155,11 +160,26 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
   export: SELLING_NAV,
   production: [
     {
-      title: "Production",
+      items: [{ label: "Overview", to: "/production", icon: LayoutDashboard }],
+    },
+    {
+      title: "Planning",
+      items: [
+        { label: "Production Plans", to: "/production/production-plans", icon: CalendarRange },
+        { label: "Bills of Materials", to: "/production/boms", icon: Layers },
+      ],
+    },
+    {
+      title: "Execution",
       items: [
         { label: "Work Orders", to: "/production/work-orders", icon: Factory },
-        { label: "Production Status", to: "/production/status", icon: ClipboardList },
+        { label: "Job Cards", to: "/production/job-cards", icon: ListChecks },
+        { label: "Downtime", to: "/production/downtime", icon: Timer },
       ],
+    },
+    {
+      title: "Masters",
+      items: [{ label: "Workstations", to: "/production/workstations", icon: Cog }],
     },
   ],
   inventory: [
@@ -315,7 +335,39 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
     },
   ],
   subcontracting: [{ items: [{ label: "Subcontracting", to: "/subcontracting", icon: Cog }] }],
-  assets: [{ items: [{ label: "Assets", to: "/assets", icon: Building2 }] }],
+  "asset-management": [
+    {
+      items: [{ label: "Overview", to: "/asset-management", icon: LayoutDashboard }],
+    },
+    {
+      title: "Register",
+      items: [
+        { label: "Assets", to: "/asset-management/register", icon: Building2 },
+        { label: "Asset Movements", to: "/asset-management/movements", icon: ArrowLeftRight },
+        { label: "Repairs", to: "/asset-management/repairs", icon: Wrench },
+      ],
+    },
+    {
+      title: "Masters",
+      items: [
+        { label: "Asset Categories", to: "/asset-management/categories", icon: Tags },
+        { label: "Locations", to: "/asset-management/locations", icon: MapPin },
+      ],
+    },
+  ],
+  projects: [
+    {
+      items: [{ label: "Overview", to: "/projects", icon: LayoutDashboard }],
+    },
+    {
+      title: "Projects",
+      items: [
+        { label: "Projects", to: "/projects/list", icon: FolderKanban },
+        { label: "Tasks", to: "/projects/tasks", icon: ListTodo },
+        { label: "Task Board", to: "/projects/board", icon: LayoutGrid },
+      ],
+    },
+  ],
   support: [{ items: [{ label: "Support", to: "/support", icon: LifeBuoy }] }],
   hr: [
     {
@@ -403,7 +455,8 @@ export const APP_LABELS: Record<string, string> = {
   selling: "Selling",
   crm: "CRM",
   subcontracting: "Subcontracting",
-  assets: "Assets",
+  "asset-management": "Assets",
+  projects: "Projects",
   support: "Support",
   hr: "HR",
   payroll: "Payroll",
@@ -458,7 +511,7 @@ export const ROUTE_TITLES: Record<string, string> = {
   selling: "Selling",
   crm: "CRM",
   subcontracting: "Subcontracting",
-  assets: "Assets",
+  "asset-management": "Assets",
   support: "Support",
   hr: "HR",
   payroll: "Payroll",
@@ -481,6 +534,8 @@ export const ROUTE_TITLES: Record<string, string> = {
   orders: "Orders",
   packing: "Packing",
   "work-orders": "Work Orders",
+  boms: "Bills of Materials",
+  register: "Asset Register",
   status: "Status",
   stock: "Stock",
   "stock-entries": "Stock Entries",

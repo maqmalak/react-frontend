@@ -374,17 +374,39 @@ const JE_LIST_FIELDS = [
   "docstatus",
 ] as const;
 
-export function useJournalEntries(args?: { filters?: unknown[][]; limit?: number; enabled?: boolean }) {
-  const { filters = [], limit = 200, enabled = true } = args ?? {};
+/**
+ * List Journal Entries. `limit` defaults to 200 for callers that just want "the recent ones";
+ * the list page passes `limit` / `limitStart` / `orFilters` / `orderBy` (see useServerTable) to
+ * page and search on the server instead — there are tens of thousands of these.
+ */
+export function useJournalEntries(args?: {
+  filters?: unknown[][];
+  orFilters?: unknown[][];
+  limit?: number;
+  limitStart?: number;
+  orderBy?: { field: string; order?: "asc" | "desc" };
+  enabled?: boolean;
+}) {
+  const {
+    filters = [],
+    orFilters = [],
+    limit = 200,
+    limitStart = 0,
+    orderBy = { field: "posting_date", order: "desc" },
+    enabled = true,
+  } = args ?? {};
   return useFrappeGetDocList<JournalEntry>(
     "Journal Entry",
     {
       fields: JE_LIST_FIELDS as unknown as (keyof JournalEntry)[],
       filters: filters as any,
+      orFilters: orFilters.length ? (orFilters as any) : undefined,
+      limit_start: limitStart,
       limit,
-      orderBy: { field: "posting_date", order: "desc" },
+      orderBy,
     },
-    enabled ? `micromax.je.${JSON.stringify({ filters, limit })}` : null,
+    enabled ? `micromax.je.${JSON.stringify({ filters, orFilters, limit, limitStart, orderBy })}` : null,
+    { keepPreviousData: true },
   );
 }
 

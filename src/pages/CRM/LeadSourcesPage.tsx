@@ -1,5 +1,6 @@
 import { MastersPage } from "@/components/crm/MastersPage";
 import { Megaphone } from "lucide-react";
+import { CRM_LEAD_SOURCE_FORM_FIELDS } from "@/components/forms/form-configs";
 
 /** Master data for `CRM Lead Source` (crm/fcrm/doctype/crm_lead_source). */
 export default function LeadSourcesPage() {
@@ -11,10 +12,7 @@ export default function LeadSourcesPage() {
         icon: <Megaphone className="h-5 w-5" />,
         doctype: "CRM Lead Source",
         fields: ["name", "source_name", "details"],
-        formFields: [
-          { fieldname: "source_name", label: "Source Name", fieldtype: "Data", reqd: true },
-          { fieldname: "details", label: "Details", fieldtype: "Text Editor" },
-        ],
+        formFields: CRM_LEAD_SOURCE_FORM_FIELDS,
         primaryField: "source_name",
         primaryLabel: "Source Name",
         secondaryFields: [{ field: "details", label: "Details" }],

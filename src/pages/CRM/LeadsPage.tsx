@@ -22,6 +22,8 @@ import {
   Pencil,
   MoreVertical,
   Phone,
+  Factory,
+  MapPin,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
@@ -37,10 +39,15 @@ import { FrappeDataTable, type ColumnDef } from "@/components/tables/data-table"
 import { FilterBar } from "@/components/filters/filter-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { KanbanBoard, type KanbanColumnDef } from "@/components/crm/KanbanBoard";
+import { RecordId } from "@/components/crm/RecordId";
+import { WebsiteLink } from "@/components/crm/WebsiteLink";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { WhatsAppIcon } from "@/components/common/whatsapp-icon";
 import { useCrmLeads, useCrmLeadMutations } from "@/hooks/useCrmLeads";
 import { useCrmKanban } from "@/hooks/useCrmViews";
+import { useStatCardFilter } from "@/hooks/useStatCardFilter";
+import { DateRangeFilterControls, useDateRangeFilter, type DateFieldOption } from "@/components/filters/date-range-filter";
+import { ActiveCardFilter } from "@/components/crm/ActiveCardFilter";
 import { useMonthlyLeadTarget } from "@/hooks/useMonthlyLeadTarget";
 import { useWhatsAppCall } from "@/hooks/useWhatsAppCall";
 import { notifyDataChanged } from "@/hooks/useRealtime";
@@ -144,6 +151,28 @@ function leadDisplayName(r: CrmLead): string {
   return r.lead_name || `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || r.name || "";
 }
 
+/** Dates a lead can be filtered on (server-side, on the doctype's own columns). */
+const LEAD_DATE_FIELDS: DateFieldOption[] = [
+  { value: "creation", label: "Created" },
+  { value: "modified", label: "Updated" },
+];
+
+const leadStatus = (r: CrmLead) => (r.status ?? "").toLowerCase();
+
+/**
+ * Which rows each summary card stands for. Used both to COUNT a card (List view) and to FILTER by it
+ * when clicked, so the two can never disagree. Status-based on purpose: the Pipeline's cards don't
+ * carry the `converted` flag, only their column's status.
+ */
+type LeadCard = "new" | "active" | "qualified" | "converted";
+const LEAD_CARD_PREDICATES: Record<LeadCard, (r: CrmLead) => boolean> = {
+  new: (r) => leadStatus(r) === "new",
+  active: (r) => ["contacted", "nurture", "qualified"].includes(leadStatus(r)),
+  qualified: (r) => leadStatus(r) === "qualified",
+  converted: (r) => r.converted === 1 || leadStatus(r).includes("convert"),
+};
+const LEAD_CARD_LABELS: Record<LeadCard, string> = { new: "New", active: "Active", qualified: "Qualified", converted: "Converted" };
+
 export function LeadsPage() {
   const navigate = useNavigate();
   const [view, setView] = useState<ViewMode>("list");
@@ -151,13 +180,19 @@ export function LeadsPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [pendingDelete, setPendingDelete] = useState<CrmLead | null>(null);
   const [converting, setConverting] = useState<string | null>(null);
+  const cardFilter = useStatCardFilter<LeadCard, CrmLead>(LEAD_CARD_PREDICATES);
+  const dateFilter = useDateRangeFilter();
+  const [dateField, setDateField] = useState("creation");
 
   const filters = useMemo(() => {
     const f: unknown[][] = [];
     if (search) f.push(["lead_name", "like", `%${search}%`]);
     if (statusFilter) f.push(["status", "=", statusFilter]);
+    f.push(...dateFilter.listFilters(dateField));
     return f;
-  }, [search, statusFilter]);
+  }, [search, statusFilter, dateFilter, dateField]);
+  // The Pipeline is fetched by crm.api.doc.get_data, which takes a dict — same date range, other shape.
+  const kanbanFilters = useMemo(() => dateFilter.dictFilters(dateField), [dateFilter, dateField]);
 
   const { data, error, isLoading, mutate } = useCrmLeads({ filters, limit: 500, enabled: view === "list" });
   const { deleteDoc, updateDoc, loading: mutating } = useCrmLeadMutations();
@@ -167,7 +202,15 @@ export function LeadsPage() {
     board,
     isLoading: kanbanLoading,
     mutate: mutateKanban,
-  } = useCrmKanban<CrmLead>({ doctype: "CRM Lead", columnField: "status", enabled: view === "kanban" });
+  } = useCrmKanban<CrmLead>({
+    doctype: "CRM Lead",
+    columnField: "status",
+    filters: kanbanFilters,
+    // Passing kanbanFields REPLACES the server's defaults (organization, email, mobile_no, _assign,
+    // modified), so those are repeated here ahead of the organization details the card now shows.
+    kanbanFields: ["organization", "email", "mobile_no", "_assign", "modified", "industry", "website", "address"],
+    enabled: view === "kanban",
+  });
 
   const kanbanColumns: KanbanColumnDef[] = useMemo(
     () => board.columns.map((c) => ({ value: c.value, title: c.title, count: c.count })),
@@ -197,20 +240,28 @@ export function LeadsPage() {
     const isList = view === "list";
     const rows = isList ? (data ?? []) : [];
     const colCount = (s: string) => board.columns.find((c) => c.value.toLowerCase() === s.toLowerCase())?.count ?? 0;
-    const has = (r: CrmLead) => (r.status ?? "").toLowerCase();
-    const newLeads = isList ? rows.filter((r) => has(r) === "new").length : colCount("new");
+    const newLeads = isList ? rows.filter(LEAD_CARD_PREDICATES.new).length : colCount("new");
     const active = isList
-      ? rows.filter((r) => ["contacted", "nurture", "qualified"].includes(has(r))).length
+      ? rows.filter(LEAD_CARD_PREDICATES.active).length
       : ["Contacted", "Nurture", "Qualified"].reduce((acc, s) => acc + colCount(s), 0);
-    const qualified = isList ? rows.filter((r) => has(r) === "qualified").length : colCount("qualified");
-    const converted = isList
-      ? rows.filter((r) => r.converted === 1 || has(r).includes("convert")).length
-      : colCount("converted");
+    const qualified = isList ? rows.filter(LEAD_CARD_PREDICATES.qualified).length : colCount("qualified");
+    const converted = isList ? rows.filter(LEAD_CARD_PREDICATES.converted).length : colCount("converted");
     const total = isList ? rows.length : board.columns.reduce((acc, c) => acc + (c.count ?? 0), 0);
     return { total, new: newLeads, active, qualified, converted };
   }, [view, data, board.columns]);
 
+  // What is actually rendered: the fetched rows narrowed by the clicked summary card (if any). The card
+  // counts above deliberately come from the un-narrowed rows, so picking one doesn't zero the others.
+  const visibleRows = useMemo(() => cardFilter.apply(data ?? []), [cardFilter.apply, data]);
+  const visibleKanbanRows = useMemo(() => cardFilter.apply(kanbanRows), [cardFilter.apply, kanbanRows]);
+  // A whole column either belongs to the picked card (by its status) or is emptied — show that in its count.
+  const visibleKanbanColumns = useMemo(
+    () => kanbanColumns.map((c) => (cardFilter.matches({ status: c.value } as CrmLead) ? c : { ...c, count: 0 })),
+    [cardFilter.matches, kanbanColumns],
+  );
+
   const columns: ColumnDef<CrmLead>[] = [
+    { key: "name", label: "ID", render: (r) => <RecordId name={r.name} />, getValue: (r) => r.name },
     {
       key: "lead_name",
       label: "Lead",
@@ -226,7 +277,25 @@ export function LeadsPage() {
         </span>
       ),
     },
-    { key: "organization", label: "Organization", render: (r) => <span className="truncate">{r.organization || "—"}</span> },
+    {
+      key: "organization",
+      label: "Organization",
+      render: (r) => (
+        <span className="flex min-w-0 flex-col">
+          <span className="block max-w-[16rem] truncate">{r.organization || "—"}</span>
+          {(r.industry || r.website) && (
+            <span className="block max-w-[16rem] truncate text-xs text-muted-foreground">
+              {[r.industry, r.website?.replace(/^https?:\/\//i, "")].filter(Boolean).join(" · ")}
+            </span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: "address",
+      label: "Address",
+      render: (r) => <span className="block max-w-[16rem] truncate text-muted-foreground">{r.address || "—"}</span>,
+    },
     { key: "email", label: "Email", render: (r) => <span className="truncate">{r.email || "—"}</span> },
     {
       key: "mobile_no",
@@ -322,19 +391,22 @@ export function LeadsPage() {
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-        <StatCard label="Total" value={stats.total} icon={<Users className="h-4 w-4" />} tone="primary" />
-        <StatCard label="New" value={stats.new} icon={<Rocket className="h-4 w-4" />} tone="sky" />
-        <StatCard label="Active" value={stats.active} icon={<TrendingUp className="h-4 w-4" />} tone="amber" />
-        <StatCard label="Qualified" value={stats.qualified} icon={<Check className="h-4 w-4" />} tone="indigo" />
-        <StatCard label="Converted" value={stats.converted} icon={<Handshake className="h-4 w-4" />} tone="emerald" />
+        {/* Clicking a card filters the List and the Pipeline to it; clicking it again (or Total) releases it. */}
+        <StatCard label="Total" value={stats.total} icon={<Users className="h-4 w-4" />} tone="primary" onClick={cardFilter.clear} />
+        <StatCard label="New" value={stats.new} icon={<Rocket className="h-4 w-4" />} tone="sky" onClick={() => cardFilter.toggle("new")} active={cardFilter.active === "new"} />
+        <StatCard label="Active" value={stats.active} icon={<TrendingUp className="h-4 w-4" />} tone="amber" onClick={() => cardFilter.toggle("active")} active={cardFilter.active === "active"} />
+        <StatCard label="Qualified" value={stats.qualified} icon={<Check className="h-4 w-4" />} tone="indigo" onClick={() => cardFilter.toggle("qualified")} active={cardFilter.active === "qualified"} />
+        <StatCard label="Converted" value={stats.converted} icon={<Handshake className="h-4 w-4" />} tone="emerald" onClick={() => cardFilter.toggle("converted")} active={cardFilter.active === "converted"} />
       </div>
+
+      <ActiveCardFilter label={cardFilter.active ? LEAD_CARD_LABELS[cardFilter.active] : null} onClear={cardFilter.clear} />
 
       <LeadTargetWidget />
 
       {view === "list" ? (
         <FrappeDataTable<CrmLead>
           columns={columns}
-          rows={data ?? []}
+          rows={visibleRows}
           rowKey={(r) => r.name ?? ""}
           loading={isLoading}
           error={error}
@@ -373,8 +445,9 @@ export function LeadsPage() {
                     {statusOptions.map((s) => <option key={s} value={s}>{s}</option>)}
                   </Select>
                 </label>
-                {(search || statusFilter) && (
-                  <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatusFilter(""); }}>
+                <DateRangeFilterControls labeled filter={dateFilter} fields={LEAD_DATE_FIELDS} field={dateField} onFieldChange={setDateField} />
+                {(search || statusFilter || cardFilter.active || dateFilter.active) && (
+                  <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatusFilter(""); cardFilter.clear(); dateFilter.reset(); }}>
                     <X className="h-4 w-4" /> Clear
                   </Button>
                 )}
@@ -383,9 +456,20 @@ export function LeadsPage() {
           }
         />
       ) : (
+        <>
+        <FilterBar>
+          <div className="flex flex-wrap items-end gap-3">
+            <DateRangeFilterControls labeled filter={dateFilter} fields={LEAD_DATE_FIELDS} field={dateField} onFieldChange={setDateField} />
+            {dateFilter.active && (
+              <Button variant="outline" size="sm" onClick={dateFilter.reset}>
+                <X className="h-4 w-4" /> Clear
+              </Button>
+            )}
+          </div>
+        </FilterBar>
         <KanbanBoard<CrmLead>
-          columns={kanbanColumns}
-          rows={kanbanRows}
+          columns={visibleKanbanColumns}
+          rows={visibleKanbanRows}
           groupField="status"
           rowKey={(r) => r.name ?? ""}
           loading={kanbanLoading}
@@ -394,6 +478,7 @@ export function LeadsPage() {
           emptyDescription="Create your first lead to start the pipeline."
           renderCard={(r) => (
             <article className="space-y-1.5">
+              <RecordId name={r.name} className="block text-[10px]" />
               <div className="flex min-w-0 items-center gap-2">
                 <Avatar name={leadDisplayName(r)} src={r.image} size="sm" className={avatarTone(leadDisplayName(r))} />
                 <p className="min-w-0 flex-1 truncate text-sm font-medium">{leadDisplayName(r)}</p>
@@ -421,8 +506,20 @@ export function LeadsPage() {
                 </div>
               </div>
               {r.organization && (
-                <p className="flex min-w-0 items-center gap-1 truncate text-xs text-muted-foreground">
-                  <Building2 className="h-3.5 w-3.5 shrink-0" />{r.organization}
+                <p className="flex min-w-0 items-center gap-1 truncate text-xs font-medium text-foreground">
+                  <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />{r.organization}
+                </p>
+              )}
+              {r.industry && (
+                <p className="flex min-w-0 items-center gap-1.5 truncate text-xs text-muted-foreground">
+                  <Factory className="h-3.5 w-3.5 shrink-0" />{r.industry}
+                </p>
+              )}
+              {r.website && <WebsiteLink url={r.website} />}
+              {r.address && (
+                <p className="flex min-w-0 items-start gap-1.5 text-xs text-muted-foreground">
+                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span className="line-clamp-2 whitespace-pre-line break-words">{r.address}</span>
                 </p>
               )}
               {r.email && (
@@ -456,6 +553,7 @@ export function LeadsPage() {
             </article>
           )}
         />
+        </>
       )}
 
       <ConfirmDialog
