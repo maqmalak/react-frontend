@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   Bell,
@@ -23,6 +23,7 @@ import { Logo } from "@/components/common/logo";
 import { ThemeToggle } from "@/components/layout/theme-provider";
 import { AreaChart, BarChart, DonutChart } from "@/components/charts/charts";
 import { cn } from "@/utils/cn";
+import { HeroHoneycomb, roleImage } from "./HeroHoneycomb";
 import {
   BI_GOVERNANCE,
   BI_MOCK_SERIES,
@@ -31,8 +32,10 @@ import {
   COMPANY,
   DASHBOARDS,
   FAQS,
-  HERO_KPIS,
-  HERO_TREND,
+  HERO_MODULE_TOTAL,
+  HERO_MODULES,
+  HERO_ROLE_TOTAL,
+  HERO_ROLES,
   INDUSTRIES,
   MODULES,
   PRICING,
@@ -146,13 +149,173 @@ function SectionHeading({
   );
 }
 
+/** Hexagon used by the hub mark — same proportions as the hero hub in website-micromax.html. */
+const HEXAGON_CLIP = "polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%)";
+
 /**
- * Hero — brand promise on the left, a glassy snapshot panel on the right.
- * The chart is illustrative sample data (see website-data.ts) and is
- * labelled as a preview so it is never mistaken for live figures.
+ * Centre image: the MicroMax hub over a line drawing of a skyline. Both are
+ * ported from the hero of website-micromax.html (its hub mark and its
+ * static city scene) and recoloured with the app's theme tokens.
+ */
+function HeroHub() {
+  return (
+    <div className="relative flex h-44 items-center justify-center overflow-hidden rounded-lg border border-border/70 bg-card/40 dark:border-white/10 dark:bg-white/5">
+      <svg
+        aria-hidden
+        viewBox="0 0 520 360"
+        preserveAspectRatio="xMidYMax slice"
+        fill="none"
+        className="absolute inset-0 h-full w-full"
+      >
+        <g className="stroke-primary" strokeWidth="1" opacity="0.55">
+          <rect x="80" y="200" width="50" height="70" />
+          <rect x="140" y="170" width="50" height="100" />
+          <rect x="200" y="140" width="60" height="130" />
+          <rect x="270" y="110" width="50" height="160" />
+          <rect x="330" y="170" width="60" height="100" />
+          <rect x="400" y="190" width="50" height="80" />
+        </g>
+        <g className="stroke-sky-500" strokeWidth="1" opacity="0.4">
+          <line x1="0" y1="280" x2="520" y2="280" />
+          <line x1="0" y1="300" x2="520" y2="300" />
+          <line x1="250" y1="80" x2="250" y2="340" />
+        </g>
+      </svg>
+
+      <Link
+        to="/home"
+        aria-label="Open the ERP"
+        className="group relative flex h-[6.5rem] w-[7.5rem] items-center justify-center bg-gradient-to-br from-primary via-emerald-500 to-sky-500 text-white shadow-lg transition-transform hover:scale-105 focus-visible:scale-105 focus-visible:outline-none"
+        style={{ clipPath: HEXAGON_CLIP }}
+      >
+        <span className="flex flex-col items-center text-lg font-semibold leading-[1.05] tracking-tight">
+          <span>Micro</span>
+          <span>Max</span>
+          <span className="text-sm font-medium opacity-80">ERP</span>
+        </span>
+      </Link>
+    </div>
+  );
+}
+
+/**
+ * Hero showcase — replaces the old executive snapshot card. Centre hub, the
+ * roles the platform is set up for, and the app cards (modules) on offer.
+ * Ported from the hero of website-micromax.html; the Executive snapshot
+ * itself now lives as a tab in the Dashboards section.
+ */
+function HeroShowcase() {
+  const [activeRole, setActiveRole] = useState<string | null>(null);
+  const moreModules = HERO_MODULE_TOTAL - HERO_MODULES.length;
+  const moreRoles = HERO_ROLE_TOTAL - HERO_ROLES.length;
+
+  return (
+    <Card className="animate-fade-in border-primary/20 p-5 shadow-lg dark:border-white/10">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold">{HERO_MODULE_TOTAL}+ built-in modules</p>
+          <p className="text-xs text-muted-foreground">One platform, shaped to every role</p>
+        </div>
+        <Badge variant="info" dot>
+          ERPNext core
+        </Badge>
+      </div>
+
+      <div className="mt-4">
+        <HeroHub />
+      </div>
+
+      {/* Roles — hover a face to read the role. */}
+      <div className="mt-4">
+        <p className="text-xs font-medium text-muted-foreground">
+          {activeRole ?? "Built for every role on site and in the office"}
+        </p>
+        <ul className="mt-2 flex flex-wrap items-center gap-1.5">
+          {HERO_ROLES.map((role) => (
+            <li
+              key={role.slug}
+              onMouseEnter={() => setActiveRole(role.label)}
+              onMouseLeave={() => setActiveRole(null)}
+            >
+              <img
+                src={roleImage(role.slug)}
+                alt={role.label}
+                title={role.label}
+                width={40}
+                height={40}
+                decoding="async"
+                className="h-10 w-10 rounded-full border border-border/70 bg-muted object-cover transition-transform hover:z-10 hover:scale-110 dark:border-white/10"
+              />
+            </li>
+          ))}
+          <li className="flex h-10 items-center rounded-full border border-dashed border-border px-3 text-xs font-medium text-muted-foreground dark:border-white/20">
+            +{moreRoles} more roles
+          </li>
+        </ul>
+      </div>
+
+      {/* App cards */}
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {HERO_MODULES.map((module) => {
+          const Icon = module.icon;
+          return (
+            <a
+              key={module.label}
+              href="#modules"
+              className="hover-lift flex items-center gap-2 rounded-lg border border-border/70 bg-card/60 p-2 dark:border-white/10 dark:bg-white/5"
+            >
+              <span
+                className={cn(
+                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-md",
+                  module.tone,
+                )}
+              >
+                <Icon className="h-4 w-4" aria-hidden="true" />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-xs font-medium">{module.label}</span>
+                <span className="block truncate text-[10px] text-muted-foreground">
+                  {module.sub}
+                </span>
+              </span>
+            </a>
+          );
+        })}
+        <a
+          href="#modules"
+          className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border p-2 text-center transition-colors hover:border-primary/40 hover:text-primary dark:border-white/20"
+        >
+          <span className="text-sm font-semibold tabular-nums">+{moreModules}</span>
+          <span className="text-[10px] text-muted-foreground">more modules</span>
+        </a>
+      </div>
+    </Card>
+  );
+}
+
+/** Below this width the hero shows the compact card instead of the honeycomb (matches the `xl:` grid). */
+const HONEYCOMB_MIN_WIDTH = "(min-width: 1280px)";
+
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
+
+  useEffect(() => {
+    const list = window.matchMedia(query);
+    const onChange = () => setMatches(list.matches);
+    onChange();
+    list.addEventListener("change", onChange);
+    return () => list.removeEventListener("change", onChange);
+  }, [query]);
+
+  return matches;
+}
+
+/**
+ * Hero — brand promise on the left, the module / role showcase on the right.
  */
 function HeroSection() {
   const navigate = useNavigate();
+  const wide = useMediaQuery(HONEYCOMB_MIN_WIDTH);
 
   return (
     <section className="relative overflow-hidden">
@@ -163,7 +326,7 @@ function HeroSection() {
         <div className="absolute bottom-[-8rem] left-1/3 h-72 w-72 rounded-full bg-amber-400/10 blur-3xl" />
       </div>
 
-      <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-24">
+      <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-24 xl:max-w-[88rem] xl:grid-cols-[0.8fr_1.2fr] xl:gap-8">
         <div className="animate-fade-in">
           <Badge variant="primary" dot className="px-3 py-1">
             {COMPANY.legalName}
@@ -203,52 +366,8 @@ function HeroSection() {
           </div>
         </div>
 
-        <Card className="animate-fade-in border-primary/20 p-5 shadow-lg dark:border-white/10">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <p className="text-sm font-semibold">Executive snapshot</p>
-              <p className="text-xs text-muted-foreground">Illustrative preview — not live data</p>
-            </div>
-            <Badge variant="info" dot>
-              Power BI · Grafana
-            </Badge>
-          </div>
-
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            {HERO_KPIS.map((kpi) => (
-              <div
-                key={kpi.label}
-                className="rounded-lg border border-border/70 bg-card/60 p-3 dark:border-white/10 dark:bg-white/5"
-              >
-                <p className="text-[11px] font-medium text-muted-foreground">{kpi.label}</p>
-                <p className="mt-1 flex items-baseline gap-1 text-lg font-semibold tabular-nums">
-                  {kpi.value}
-                  <span
-                    className={cn(
-                      "inline-flex items-center text-[11px] font-medium",
-                      kpi.up ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500",
-                    )}
-                  >
-                    {kpi.up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                    {kpi.delta}
-                  </span>
-                </p>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-4 rounded-lg border border-border/70 bg-card/40 p-3 dark:border-white/10 dark:bg-white/5">
-            <p className="mb-2 text-xs font-medium text-muted-foreground">
-              Shipments handled, last 6 months
-            </p>
-            <AreaChart
-              data={HERO_TREND}
-              xKey="month"
-              series={[{ key: "shipments", label: "Shipments" }]}
-              height={176}
-            />
-          </div>
-        </Card>
+        {/* The full honeycomb needs room (and loads Three.js); narrower screens get the compact card. */}
+        {wide ? <HeroHoneycomb /> : <HeroShowcase />}
       </div>
     </section>
   );
