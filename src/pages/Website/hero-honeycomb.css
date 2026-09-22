@@ -95,7 +95,7 @@
 .hero-hub {
       position: absolute;
       left: 50%;
-      top: 51%;
+      top: 46%;
       transform: translate(-50%, -50%);
       z-index: 4;
       pointer-events: none;

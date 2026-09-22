@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProp
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import "./hero-honeycomb.css";
-import type { CityHandle } from "./hero-city";
+import { IndustryCity } from "./IndustryCity";
 import { AURA, HEX_CELLS, HEX_PLUGS, type HexCell } from "./hero-honeycomb-data";
 import { HEX_TIPS } from "./hero-honeycomb-tips";
 
@@ -114,8 +114,6 @@ function Hub() {
   );
 }
 
-const isDark = () => document.documentElement.classList.contains("dark");
-
 /**
  * Outgoing data-flow fan: ported from the hero-flow SVG of website-micromax.html
  * — a dotted "broken" line per path (`.hh-flow-trace`) with a small glowing
@@ -186,10 +184,7 @@ function HeroFlow() {
  */
 export function HeroHoneycomb() {
   const wrapRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [fit, setFit] = useState({ scale: 1, x: 0 });
-  const [ready, setReady] = useState(false);
-  const [noWebgl, setNoWebgl] = useState(false);
   const [tip, setTip] = useState<ActiveTip | null>(null);
   const hideTimer = useRef<number>();
 
@@ -231,50 +226,8 @@ export function HeroHoneycomb() {
     return () => observer.disconnect();
   }, []);
 
-  // Start the city lazily; follow light/dark changes; fall back if WebGL is missing.
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    let cancelled = false;
-    let handle: CityHandle | null = null;
-    let dark = isDark();
-
-    import("./hero-city")
-      .then(({ startHeroCity }) => startHeroCity(canvas))
-      .then((city) => {
-        if (cancelled) {
-          city.dispose();
-          return;
-        }
-        handle = city;
-        setReady(true);
-      })
-      .catch(() => {
-        if (!cancelled) setNoWebgl(true);
-      });
-
-    const themeWatcher = new MutationObserver(() => {
-      if (isDark() !== dark) {
-        dark = isDark();
-        handle?.setDark(dark);
-      }
-    });
-    themeWatcher.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-
-    return () => {
-      cancelled = true;
-      themeWatcher.disconnect();
-      handle?.dispose();
-    };
-  }, []);
-
   return (
-    <div
-      ref={wrapRef}
-      className="hh-scope"
-      data-static={noWebgl ? "" : undefined}
-      style={{ height: STAGE_H * fit.scale }}
-    >
+    <div ref={wrapRef} className="hh-scope" style={{ height: STAGE_H * fit.scale }}>
       <div
         className="hh-stage"
         style={{ transform: `translateX(${fit.x}px) scale(${fit.scale})` }}
@@ -380,32 +333,9 @@ export function HeroHoneycomb() {
               })}
             </div>
 
-            <div className="scene-backdrop" aria-hidden="true" />
-            <canvas
-              ref={canvasRef}
-              className={ready ? "three-canvas is-ready" : "three-canvas"}
-              role="img"
-              aria-label="Wireframe city with live cost, carbon and schedule overlays"
-            />
+            <IndustryCity />
             {/* A slow band of light that passes over the ring every few seconds. */}
             <div className="hh-sweep" aria-hidden="true" />
-            <div className="static-scene" aria-hidden="true">
-              <svg viewBox="0 0 520 360" fill="none">
-                <g stroke="var(--accent)" strokeWidth="1" opacity="0.8">
-                  <rect x="80" y="200" width="50" height="70" />
-                  <rect x="140" y="170" width="50" height="100" />
-                  <rect x="200" y="140" width="60" height="130" />
-                  <rect x="270" y="110" width="50" height="160" />
-                  <rect x="330" y="170" width="60" height="100" />
-                  <rect x="400" y="190" width="50" height="80" />
-                </g>
-                <g stroke="var(--accent-2)" strokeWidth="1" opacity="0.5">
-                  <line x1="0" y1="280" x2="520" y2="280" />
-                  <line x1="0" y1="300" x2="520" y2="300" />
-                  <line x1="250" y1="80" x2="250" y2="340" />
-                </g>
-              </svg>
-            </div>
           </div>
         </div>
       </div>

@@ -303,25 +303,20 @@ function HeroSection() {
         <div className="absolute bottom-[-8rem] left-1/3 h-72 w-72 rounded-full bg-amber-400/10 blur-3xl" />
       </div>
 
-      {/* Capped at max-w-6xl at every breakpoint (no wider xl: override) so this
-          lines up with the header above it instead of overflowing past it. */}
-      {/* Right column widened at the left's expense (was 1.05fr/0.95fr) so the
-          industry-city visual, which scales to fill whatever width its column
-          gives it, renders bigger. */}
-      <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-16 lg:grid-cols-[0.8fr_1.2fr] lg:items-center lg:py-24">
+      <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-24 xl:max-w-[88rem] xl:grid-cols-[minmax(27rem,1fr)_minmax(0,810px)] xl:gap-8">
         <div className="animate-fade-in">
           <Badge variant="primary" dot className="px-3 py-1">
             {COMPANY.legalName}
           </Badge>
 
-          <h1 className="mt-5 max-w-[36rem] text-balance text-2xl font-semibold leading-[1.15] tracking-tight sm:text-3xl xl:text-[1.85rem]">
+          <h1 className="mt-5 max-w-[36rem] text-balance text-3xl font-semibold leading-[1.15] tracking-tight sm:text-4xl xl:text-[2.15rem] min-[1360px]:text-[2.4rem]">
             One system of record for{" "}
             <span className="bg-gradient-to-r from-primary via-emerald-500 to-sky-500 bg-clip-text text-transparent">
               trading, manufacturing, distribution, POS, hospitals and education
             </span>
           </h1>
 
-          <p className="mt-5 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+          <p className="mt-5 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
             {COMPANY.intro}
           </p>
 

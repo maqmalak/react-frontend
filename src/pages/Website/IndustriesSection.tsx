@@ -26,6 +26,8 @@ import {
   type HexCellModel,
 } from "./industry-honeycomb";
 import { INDUSTRIES, MODULES, type ModuleProfile } from "./website-data";
+import { TextileProcessDiagram } from "./TextileProcessDiagram";
+import { TextileProcessSite } from "./TextileProcessSite";
 
 const moduleById = (id: string) => MODULES.find((m) => m.id === id);
 
@@ -320,19 +322,32 @@ export function IndustriesSection({ heading, className }: { heading: ReactNode; 
                 <div className="cp-caption" aria-live="polite">
                   <b>{industry.modules.length} modules</b> <span>· {industry.label}</span>
                 </div>
-                <ul className="cp-modlist" aria-label="Modules by discipline">
-                  {legend.map(({ gid, count }) => (
-                    <li key={gid} className="cp-ml" style={{ "--cp-gc": HEX_GROUPS[gid].color } as CSSProperties}>
-                      <i />
-                      <span className="cp-ml-name">{HEX_GROUPS[gid].label}</span>
-                      <span className="cp-ml-n">{count}</span>
-                    </li>
-                  ))}
-                </ul>
-                <a className="cp-install" href="#contact" aria-label={`Discuss this setup - ${industry.label}`}>
-                  <ArrowDown className="cp-install-ic" aria-hidden="true" />
-                  <span>Discuss this setup</span>
-                </a>
+                {industry.id === "textile" ? (
+                  // In place of the module legend + "Discuss this setup" link: the site-styled
+                  // process diagram, reusing this vertical space instead of a block further down.
+                  <div className="mt-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
+                      {industry.label} — the process, start to finish
+                    </p>
+                    <TextileProcessSite />
+                  </div>
+                ) : (
+                  <>
+                    <ul className="cp-modlist" aria-label="Modules by discipline">
+                      {legend.map(({ gid, count }) => (
+                        <li key={gid} className="cp-ml" style={{ "--cp-gc": HEX_GROUPS[gid].color } as CSSProperties}>
+                          <i />
+                          <span className="cp-ml-name">{HEX_GROUPS[gid].label}</span>
+                          <span className="cp-ml-n">{count}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <a className="cp-install" href="#contact" aria-label={`Discuss this setup - ${industry.label}`}>
+                      <ArrowDown className="cp-install-ic" aria-hidden="true" />
+                      <span>Discuss this setup</span>
+                    </a>
+                  </>
+                )}
               </div>
 
               {/* Not aria-hidden: the cells are real, focusable controls (hover / focus opens a module's feature list). */}
@@ -372,6 +387,32 @@ export function IndustriesSection({ heading, className }: { heading: ReactNode; 
               <p className="cp-gain-summary">{industry.summary}</p>
             </div>
             <div>
+              {industry.id === "textile" ? (
+                // Swapped with "What you get": the infographic-styled process diagram
+                // takes this slot, and "What you get" moves down to where it used to sit
+                // (below) — reusing space that already existed instead of adding a block.
+                <>
+                  <p className="cp-gain-h">{industry.label} — the process, start to finish</p>
+                  <TextileProcessDiagram />
+                </>
+              ) : (
+                <>
+                  <p className="cp-gain-h">What you get</p>
+                  <ul className="cp-gain-list">
+                    {industry.features.map((feature) => (
+                      <li key={feature}>
+                        <Check aria-hidden="true" />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          </div>
+
+          {industry.id === "textile" && (
+            <div className="mt-8">
               <p className="cp-gain-h">What you get</p>
               <ul className="cp-gain-list">
                 {industry.features.map((feature) => (
@@ -382,7 +423,7 @@ export function IndustriesSection({ heading, className }: { heading: ReactNode; 
                 ))}
               </ul>
             </div>
-          </div>
+          )}
 
           <p className="cp-foot">
             <b>Every implementation starts from the standard ERPNext core.</b> Industries never lock anything away —

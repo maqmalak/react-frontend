@@ -1,0 +1,122 @@
+/*
+ * Textile process diagram — styled after a textile-industry infographic:
+ * a fixed dark-teal card (not theme-aware by design, so it keeps the
+ * reference's own look in both light and dark site themes), a white
+ * zigzag connector with circular joints, and animation on two independent
+ * layers: a continuous flowing pulse along every connector (the same
+ * travelling-dash technique used by the hero honeycomb's flow lines), and
+ * a JS-driven "current stage" highlight that steps through the icons.
+ */
+
+.tpd-scope {
+  margin-top: 10px;
+}
+.tpd-card {
+  /* Capped rather than full-width — the SVG's own viewBox keeps its aspect
+     ratio, so this alone makes the whole card shorter too, not just narrower.
+     Sized to sit next to the (short) Overview paragraph in cp-gain without
+     stretching that row far past the paragraph's own height. */
+  max-width: 420px;
+  margin: 0 auto;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 14px 34px -18px rgba(0, 0, 0, 0.5);
+}
+.tpd-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.tpd-trace {
+  fill: none;
+  stroke: #d7ece9;
+  stroke-width: 2;
+  stroke-opacity: 0.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.tpd-joint {
+  fill: #0f3b46;
+  stroke: #d7ece9;
+  stroke-width: 2;
+}
+
+.tpd-pulse {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 34 380;
+  stroke-dashoffset: 414;
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.85));
+  animation: tpdPulse 2.4s cubic-bezier(0.42, 0.05, 0.28, 0.98) infinite;
+}
+@keyframes tpdPulse {
+  0% {
+    stroke-dashoffset: 414;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+.tpd-stage {
+  cursor: default;
+}
+.tpd-stage-ring {
+  fill: rgba(255, 255, 255, 0.06);
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-width: 1.5;
+  /* `r` grows on the active stage — no CSS transform involved, so there's no
+     transform-origin to get wrong and the circle stays exactly centred on
+     its own (already-translated) position. */
+  transition: fill 0.35s ease, stroke 0.35s ease, r 0.35s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+.tpd-stage.is-active .tpd-stage-ring {
+  fill: rgba(255, 255, 255, 0.14);
+  stroke: #ffffff;
+}
+.tpd-num-badge {
+  fill: #ffffff;
+}
+.tpd-num-text {
+  font-family: "Inter Tight", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  fill: #0f3b46;
+}
+.tpd-stage-label {
+  font-family: "Inter Tight", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  fill: #ffffff;
+  letter-spacing: -0.01em;
+}
+.tpd-stage-sub {
+  font-family: ui-monospace, "JetBrains Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.03em;
+  fill: #a9d4cd;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tpd-pulse {
+    animation: none;
+    opacity: 0;
+  }
+  .tpd-stage-ring {
+    transition: none;
+  }
+}

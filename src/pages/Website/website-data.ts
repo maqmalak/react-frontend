@@ -350,24 +350,6 @@ export interface IndustryProfile {
 
 export const INDUSTRIES: IndustryProfile[] = [
   {
-    id: "import-export",
-    label: "Import & Export Trading",
-    icon: Globe,
-    tagline: "Letter of credit to landed cost, without the spreadsheet",
-    summary:
-      "Our core vertical. Track proforma invoices, LCs, shipment milestones, clearing charges and export packing in one chain, so the cost that hits inventory is the true landed cost.",
-    modules: ["trade", "landed", "buying", "selling", "accounting", "reports", "workflow"],
-    features: [
-      "LC Proforma with bank, tenor and amendment history",
-      "Import shipment milestones with delay alerts",
-      "Import cost sheet allocating freight, duty and clearing per unit",
-      "Export packing details and shipment-wise buyer documentation",
-      "Multi-currency buying, selling and realised gain/loss",
-      "Shipment, LC and cost-sheet registers ready for audit",
-    ],
-    tone: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
-  },
-  {
     id: "textile",
     label: "Textile & Garments",
     icon: Layers,
@@ -384,6 +366,24 @@ export const INDUSTRIES: IndustryProfile[] = [
       "Export packing list generated from the order matrix",
     ],
     tone: "bg-teal-500/10 text-teal-600 dark:text-teal-400",
+  },
+  {
+    id: "import-export",
+    label: "Import & Export Trading",
+    icon: Globe,
+    tagline: "Letter of credit to landed cost, without the spreadsheet",
+    summary:
+      "Our core vertical. Track proforma invoices, LCs, shipment milestones, clearing charges and export packing in one chain, so the cost that hits inventory is the true landed cost.",
+    modules: ["trade", "landed", "buying", "selling", "accounting", "reports", "workflow"],
+    features: [
+      "LC Proforma with bank, tenor and amendment history",
+      "Import shipment milestones with delay alerts",
+      "Import cost sheet allocating freight, duty and clearing per unit",
+      "Export packing details and shipment-wise buyer documentation",
+      "Multi-currency buying, selling and realised gain/loss",
+      "Shipment, LC and cost-sheet registers ready for audit",
+    ],
+    tone: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
   },
   {
     id: "manufacturing",
