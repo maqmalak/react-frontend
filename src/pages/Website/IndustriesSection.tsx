@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -8,6 +9,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { ArrowDown, Check } from "lucide-react";
 import "./industry-honeycomb.css";
 import {
@@ -23,12 +25,78 @@ import {
   onInk,
   type HexCellModel,
 } from "./industry-honeycomb";
-import { INDUSTRIES, MODULES } from "./website-data";
+import { INDUSTRIES, MODULES, type ModuleProfile } from "./website-data";
 
 const moduleById = (id: string) => MODULES.find((m) => m.id === id);
 
 /** How long a switched-off cell takes to fade before it is removed. */
 const LEAVE_MS = 260;
+
+/** How long the tooltip waits before closing, so moving from the cell onto the card doesn't drop it. */
+const TIP_HIDE_MS = 140;
+
+interface ActiveTip {
+  module: ModuleProfile;
+  groupColor: string;
+  rect: DOMRect;
+}
+
+/**
+ * Hover / focus card for a module cell: its own feature list, as shown in the
+ * Modules section. Rendered into <body> so the honeycomb's scaling and the
+ * stage's clipping never touch it, and placed beside the cell in viewport
+ * coordinates (layout ported from the hero honeycomb's own hover card).
+ */
+function ModuleTipCard({
+  tip,
+  onEnter,
+  onLeave,
+}: {
+  tip: ActiveTip;
+  onEnter: () => void;
+  onLeave: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const { rect } = tip;
+    const width = el.offsetWidth;
+    const height = el.offsetHeight;
+    const left = Math.max(10, Math.min(rect.left + rect.width / 2 - width / 2, window.innerWidth - width - 10));
+    let top = rect.bottom + 10;
+    if (top + height > window.innerHeight - 10) top = rect.top - height - 10;
+    setPos({ left, top: Math.max(10, top) });
+  }, [tip]);
+
+  return createPortal(
+    <div
+      ref={ref}
+      className="cp-tip"
+      role="dialog"
+      aria-label={`${tip.module.label} features`}
+      style={{ "--cp-gc": tip.groupColor, left: pos?.left ?? 0, top: pos?.top ?? 0, visibility: pos ? "visible" : "hidden" } as CSSProperties}
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+    >
+      <p className="cp-tip-h">
+        <span className="dot" />
+        {tip.module.label} · features
+      </p>
+      <ul className="cp-tip-list">
+        {tip.module.features.map((feature) => (
+          <li key={feature}>
+            <span className="bul" />
+            <span>{feature}</span>
+          </li>
+        ))}
+      </ul>
+    </div>,
+    document.body,
+  );
+}
 
 /** Cards per row of the picker at the current width (see the `.cp-profiles` rules), for arrow-key movement. */
 function pickerColumns(): number {
@@ -49,6 +117,35 @@ export function IndustriesSection({ heading, className }: { heading: ReactNode; 
   const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const stageRef = useRef<HTMLDivElement>(null);
   const [stage, setStage] = useState({ w: 0, h: 0 });
+
+  const [tip, setTip] = useState<ActiveTip | null>(null);
+  const hideTimer = useRef<number>();
+  const showTip = useCallback((module: ModuleProfile, groupColor: string, el: HTMLElement) => {
+    window.clearTimeout(hideTimer.current);
+    setTip({ module, groupColor, rect: el.getBoundingClientRect() });
+  }, []);
+  const holdTip = useCallback(() => window.clearTimeout(hideTimer.current), []);
+  const hideTip = useCallback(() => {
+    window.clearTimeout(hideTimer.current);
+    hideTimer.current = window.setTimeout(() => setTip(null), TIP_HIDE_MS);
+  }, []);
+  // A card anchored to a cell must not outlive a scroll, a resize, a switch of industry, or Escape.
+  useEffect(() => {
+    setTip(null);
+  }, [activeIndex]);
+  useEffect(() => {
+    const close = () => setTip(null);
+    const onKey = (event: globalThis.KeyboardEvent) => event.key === "Escape" && close();
+    window.addEventListener("scroll", close, { passive: true });
+    window.addEventListener("resize", close);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      window.clearTimeout(hideTimer.current);
+      window.removeEventListener("scroll", close);
+      window.removeEventListener("resize", close);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, []);
 
   // The comb is fitted to the shape of the stage, so the stage is measured.
   useEffect(() => {
@@ -130,7 +227,10 @@ export function IndustriesSection({ heading, className }: { heading: ReactNode; 
     const meta = MODULE_HEX[cell.key];
     const group = HEX_GROUPS[cell.gid];
     if (!module || !meta || !group) return null;
-    const GroupIcon = group.icon;
+    // The module's own icon (same one the Modules section and the tooltip's
+    // header use), not the discipline's — so the symbol matches the features
+    // the hover card shows, cell by cell rather than group by group.
+    const ModuleIcon = module.icon;
     const style = {
       left: `calc(50% + ${cell.cx - boxW / 2}px)`,
       top: `calc(50% + ${cell.cy - boxH / 2}px)`,
@@ -141,17 +241,23 @@ export function IndustriesSection({ heading, className }: { heading: ReactNode; 
       "--cp-on": onInk(group.color),
     } as CSSProperties;
     return (
-      <div
+      <button
         key={cell.key}
+        type="button"
         className={isLeaving ? "cp-hex is-leaving" : "cp-hex"}
         style={style}
-        title={`${module.label} · ${group.label}`}
+        aria-label={`${module.label} · ${group.label} — see features`}
+        tabIndex={isLeaving ? -1 : 0}
+        onMouseEnter={(e) => !isLeaving && showTip(module, group.color, e.currentTarget)}
+        onMouseLeave={hideTip}
+        onFocus={(e) => !isLeaving && showTip(module, group.color, e.currentTarget)}
+        onBlur={hideTip}
       >
         <span className="cp-hex-t">{meta.short}</span>
         <i className="cp-hex-i" aria-hidden="true">
-          <GroupIcon />
+          <ModuleIcon />
         </i>
-      </div>
+      </button>
     );
   };
 
@@ -229,12 +335,16 @@ export function IndustriesSection({ heading, className }: { heading: ReactNode; 
                 </a>
               </div>
 
-              <div className="cp-stage" ref={stageRef} aria-hidden="true">
-                <div className="cp-canvas" style={{ width: layout.width, height: layout.height, transform: `translate(-50%, -50%) scale(${scale})` }}>
+              {/* Not aria-hidden: the cells are real, focusable controls (hover / focus opens a module's feature list). */}
+              <div className="cp-stage" ref={stageRef}>
+                <div
+                  className="cp-canvas"
+                  style={{ width: layout.width, height: layout.height, transform: `translate(-50%, -50%) scale(${scale})` }}
+                >
                   {layout.cells.map((cell) => renderCell(cell, false))}
                   {leaving.map((cell) => renderCell(cell, true))}
                 </div>
-                <div className="cp-flower" style={{ width: FIG_W * scale }}>
+                <div className="cp-flower" style={{ width: FIG_W * scale }} aria-hidden="true">
                   <span key={industry.id} className="cp-flower-ico">
                     <IndustryIcon />
                   </span>
@@ -242,6 +352,7 @@ export function IndustriesSection({ heading, className }: { heading: ReactNode; 
                 <div
                   key={industry.id}
                   className="cp-fig-name is-on"
+                  aria-hidden="true"
                   style={{
                     maxWidth: FIG_W * scale * 0.86,
                     fontSize: Math.max(11, FIG_W * scale * 0.072),
@@ -251,6 +362,7 @@ export function IndustriesSection({ heading, className }: { heading: ReactNode; 
                   {industry.label}
                 </div>
               </div>
+              {tip && <ModuleTipCard tip={tip} onEnter={holdTip} onLeave={hideTip} />}
             </div>
           </div>
 

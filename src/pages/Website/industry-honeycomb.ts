@@ -54,6 +54,8 @@ export const MODULE_HEX: Record<string, { group: string; short: string }> = {
   hr: { group: "control", short: "HR" },
   hospital: { group: "sector", short: "Hospital" },
   education: { group: "sector", short: "Education" },
+  hospitality: { group: "sector", short: "Hotel" },
+  realestate: { group: "sector", short: "Real Estate" },
   bi: { group: "platform", short: "BI" },
   datacenter: { group: "platform", short: "Datacenter" },
   virtualization: { group: "platform", short: "Virtual" },

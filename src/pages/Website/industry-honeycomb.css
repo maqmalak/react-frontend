@@ -6,8 +6,10 @@
  * industry's name and icon instead). Everything under "Added" is new.
  */
 
-/* Theme tokens the ported rules read. Light first, dark under `.dark`. */
-.cp-scope {
+/* Theme tokens the ported rules read. Light first, dark under `.dark`. The
+   hover card (.cp-tip) is portaled to <body>, so it needs them too. */
+.cp-scope,
+.cp-tip {
   --ink-0: #0b1220;
   --ink-1: #1e293b;
   --ink-2: #475569;
@@ -15,8 +17,10 @@
   --line-0: rgba(15, 23, 42, 0.05);
   --line-1: rgba(15, 23, 42, 0.09);
   --accent: #2d5e8e;
+  --bg-0: #f1f2f3;
 }
-.dark .cp-scope {
+.dark .cp-scope,
+.dark .cp-tip {
   --ink-0: #eff6ff;
   --ink-1: #cfe0f5;
   --ink-2: #94a3b8;
@@ -24,6 +28,7 @@
   --line-0: rgba(255, 255, 255, 0.06);
   --line-1: rgba(255, 255, 255, 0.1);
   --accent: #6ba2d8;
+  --bg-0: #0b1220;
 }
 
 /* ---- Ported rules ---- */
@@ -361,6 +366,91 @@
 }
 
 /* ---- Added ---- */
+
+/* .cp-hex is now a <button> (it opens the feature tooltip on hover/focus),
+   so the ported rules above need the usual button-chrome reset and a focus ring. */
+.cp-scope .cp-hex {
+  appearance: none;
+  border: none;
+  font-family: inherit;
+}
+.cp-scope .cp-hex:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Hover / focus card listing a module's own features (ported layout from the
+   hero's .oce-hcpop / .hh-tip popover; content is this module's own data). */
+.cp-tip {
+  position: fixed;
+  z-index: 3000;
+  left: 0;
+  top: 0;
+  width: min(290px, 86vw);
+  box-sizing: border-box;
+  padding: 12px 12px 10px;
+  border-radius: 14px;
+  background: color-mix(in oklab, var(--bg-0) 92%, var(--accent) 4%);
+  border: 1px solid color-mix(in oklab, var(--accent) 26%, var(--line-1));
+  box-shadow: 0 18px 44px -18px color-mix(in oklab, var(--accent) 55%, transparent),
+              0 2px 8px -4px rgba(0, 0, 0, 0.25);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  color: var(--ink-0);
+  font-family: 'Inter Tight', 'Helvetica Neue', Helvetica, Arial, 'Liberation Sans', sans-serif;
+}
+.cp-tip-h {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 8px;
+  font: 700 10px ui-monospace, 'JetBrains Mono', monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--accent) 82%, var(--ink-2));
+}
+.cp-tip-h .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cp-gc, var(--accent));
+  flex: none;
+}
+.cp-tip-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.cp-tip-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.cp-tip-list li .bul {
+  width: 5px;
+  height: 5px;
+  margin-top: 6px;
+  border-radius: 1.5px;
+  flex: none;
+  background: color-mix(in oklab, var(--cp-gc, var(--accent)) 65%, transparent);
+  transform: rotate(45deg);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .cp-tip {
+    animation: cpTipIn 0.14s ease-out;
+  }
+  @keyframes cpTipIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: none; }
+  }
+}
 
 /* The source's `margin: 0 auto` on .cp-wrap would remove the gap under the section heading. */
 .cp-scope .cp-wrap {

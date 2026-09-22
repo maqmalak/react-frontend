@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   Bell,
+  Building2,
   Check,
   ChevronDown,
   Globe,
@@ -13,6 +14,7 @@ import {
   Sparkles,
   TrendingDown,
   TrendingUp,
+  type LucideIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -122,18 +124,24 @@ function SiteHeader({ active }: { active: string }) {
 /** Shared section heading: small eyebrow, big title, muted description. */
 function SectionHeading({
   eyebrow,
+  eyebrowIcon: EyebrowIcon,
   title,
   description,
   align = "left",
 }: {
   eyebrow: string;
+  /** Optional icon shown in a small chip before the eyebrow text. */
+  eyebrowIcon?: LucideIcon;
   title: ReactNode;
   description?: string;
   align?: "left" | "center";
 }) {
   return (
     <div className={cn("max-w-3xl", align === "center" && "mx-auto text-center")}>
-      <span className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-card/60 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary dark:border-white/10 dark:bg-white/5">
+      <span
+        className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-card/60 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary dark:border-white/10 dark:bg-white/5"
+      >
+        {EyebrowIcon && <EyebrowIcon className="h-3.5 w-3.5 shrink-0" />}
         {eyebrow}
       </span>
       <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h2>
@@ -184,8 +192,7 @@ function HeroHub() {
         style={{ clipPath: HEXAGON_CLIP }}
       >
         <span className="flex flex-col items-center text-lg font-semibold leading-[1.05] tracking-tight">
-          <span>Micro</span>
-          <span>Max</span>
+          <span>MicroMax</span>
           <span className="text-sm font-medium opacity-80">ERP</span>
         </span>
       </Link>
@@ -986,6 +993,7 @@ export function CompanyWebsitePage() {
           heading={
             <SectionHeading
               eyebrow="Built for your industry"
+              eyebrowIcon={Building2}
               title={
                 <>
                   One platform, shaped to how you <span className="italic text-primary">build</span>.

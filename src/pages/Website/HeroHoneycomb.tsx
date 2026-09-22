@@ -102,8 +102,7 @@ function Hub() {
           />
         </svg>
         <span className="hero-hub-word">
-          <span className="hh-line">Micro</span>
-          <span className="hh-line">Max</span>
+          <span className="hh-line">MicroMax</span>
           <span className="hh-line hero-hub-word-light">ERP</span>
         </span>
         <span className="hero-hub-sheen" aria-hidden="true" />
@@ -116,6 +115,67 @@ function Hub() {
 }
 
 const isDark = () => document.documentElement.classList.contains("dark");
+
+/**
+ * Outgoing data-flow fan: ported from the hero-flow SVG of website-micromax.html
+ * — a dotted "broken" line per path (`.hh-flow-trace`) with a small glowing
+ * light packet (`.hh-flow-pulse`) racing along it on a loop. The source
+ * measures the hub's real DOM position at runtime and rewrites six paths on
+ * every resize; here the whole stage is one fixed 920x640 canvas that gets
+ * scaled as a unit (see STAGE_W/STAGE_H), so the six paths are worked out
+ * once, straight from the hub's own CSS position (`.hero-hub`: left 50%,
+ * top 51% of `.hh-left`, which is 540px wide) to points fanning into the
+ * module ring / city on the right, in the source's own proportions.
+ */
+const FLOW_HUB = { x: 270 + 84.6, y: 640 * 0.51 }; // hub centre (270, 326.4) + half its width (169.2 / 2)
+const FLOW_PATHS: { d: string; gradient: "A" | "B" | "C"; delay: string }[] = [
+  { d: `M ${FLOW_HUB.x} ${FLOW_HUB.y} Q 443.9 190.4, 554.4 139.4`, gradient: "A", delay: "0s" },
+  { d: `M ${FLOW_HUB.x} ${FLOW_HUB.y} Q 486.4 215.9, 630.9 181.9`, gradient: "B", delay: "0.55s" },
+  { d: `M ${FLOW_HUB.x} ${FLOW_HUB.y} Q 503.4 266.9, 656.4 241.4`, gradient: "C", delay: "1.1s" },
+  { d: `M ${FLOW_HUB.x} ${FLOW_HUB.y} Q 503.4 385.9, 656.4 411.4`, gradient: "A", delay: "1.65s" },
+  { d: `M ${FLOW_HUB.x} ${FLOW_HUB.y} Q 486.4 436.9, 630.9 470.9`, gradient: "B", delay: "2.2s" },
+  { d: `M ${FLOW_HUB.x} ${FLOW_HUB.y} Q 443.9 462.4, 554.4 513.4`, gradient: "C", delay: "2.75s" },
+];
+
+/** The light fan, positioned between the ambient glow and the hub/ring so it visibly departs from behind the hub. */
+function HeroFlow() {
+  return (
+    <svg className="hh-flow" viewBox={`0 0 ${STAGE_W} ${STAGE_H}`} preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="hhFlowA" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="var(--accent)" stopOpacity="0" />
+          <stop offset="45%" stopColor="var(--accent)" stopOpacity="0.95" />
+          <stop offset="55%" stopColor="var(--accent-3)" stopOpacity="0.95" />
+          <stop offset="100%" stopColor="var(--accent-3)" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id="hhFlowB" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="var(--accent-2)" stopOpacity="0" />
+          <stop offset="50%" stopColor="var(--accent-2)" stopOpacity="0.95" />
+          <stop offset="100%" stopColor="var(--accent-2)" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id="hhFlowC" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="var(--accent-3)" stopOpacity="0" />
+          <stop offset="50%" stopColor="var(--accent-3)" stopOpacity="0.95" />
+          <stop offset="100%" stopColor="var(--accent-3)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <g className="hh-flow-trace-group">
+        {FLOW_PATHS.map((p, i) => (
+          <path key={i} className="hh-flow-trace" d={p.d} />
+        ))}
+      </g>
+      {FLOW_PATHS.map((p, i) => (
+        <path
+          key={i}
+          className="hh-flow-pulse"
+          d={p.d}
+          stroke={`url(#hhFlow${p.gradient})`}
+          style={{ animationDelay: p.delay }}
+        />
+      ))}
+    </svg>
+  );
+}
 
 /**
  * The hero visual from website-micromax.html: a hex ring of module cells
@@ -225,6 +285,9 @@ export function HeroHoneycomb() {
           <span className="hh-glow hh-glow-b" />
           <span className="hh-glow hh-glow-c" />
         </div>
+
+        {/* Dashed light lines fanning from the hub into the module ring / city. */}
+        <HeroFlow />
 
         {/* Left: the hub and the empty aura hexes growing out of it. */}
         <div className="hh-left">

@@ -1384,3 +1384,52 @@
     to   { opacity: 1; transform: none; }
   }
 }
+
+/* ---- Outgoing flow lines (ported from the hero's .hero-flow SVG; see HeroFlow) ---- */
+.hh-flow {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  overflow: visible;
+}
+.hh-flow-trace {
+  fill: none;
+  stroke: color-mix(in oklab, var(--accent) 24%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 1 6;
+  stroke-linecap: round;
+  opacity: 0.4;
+}
+.hh-flow-pulse {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  /* A short lit "packet" with a long gap; the dashoffset animation drags it along the path. */
+  stroke-dasharray: 55 700;
+  stroke-dashoffset: 755;
+  filter: drop-shadow(0 0 6px color-mix(in oklab, var(--accent) 55%, transparent));
+  animation: hhFlowPulse 4s cubic-bezier(0.42, 0.05, 0.28, 0.98) infinite;
+}
+@keyframes hhFlowPulse {
+  0% {
+    stroke-dashoffset: 755;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hh-flow-pulse {
+    animation: none;
+    opacity: 0;
+  }
+}
