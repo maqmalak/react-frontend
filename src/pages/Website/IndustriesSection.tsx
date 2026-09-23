@@ -10,24 +10,23 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { ArrowDown, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import "./industry-honeycomb.css";
 import {
   FIG_W,
-  GROUP_ORDER,
   HEX_GROUPS,
   HEXH,
   HEXPAD,
   HEXW,
   MODULE_HEX,
   layoutHoneycomb,
-  moduleSequence,
   onInk,
   type HexCellModel,
 } from "./industry-honeycomb";
 import { INDUSTRIES, MODULES, type ModuleProfile } from "./website-data";
-import { TextileProcessDiagram } from "./TextileProcessDiagram";
-import { TextileProcessSite } from "./TextileProcessSite";
+import { ProcessFlowDiagram, TextileProcessDiagram } from "./TextileProcessDiagram";
+import { ProcessFlowSite, TextileProcessSite } from "./TextileProcessSite";
+import { PROCESS_FLOWS } from "./industry-process-data";
 
 const moduleById = (id: string) => MODULES.find((m) => m.id === id);
 
@@ -212,14 +211,6 @@ export function IndustriesSection({ heading, className }: { heading: ReactNode; 
     select(Math.max(0, Math.min(INDUSTRIES.length - 1, next)), true);
   };
 
-  // Disciplines this industry touches, in canonical order, with a count each.
-  const legend = useMemo(() => {
-    const sequence = moduleSequence(industry.modules);
-    return GROUP_ORDER.map((gid) => ({ gid, count: sequence.filter((m) => m.gid === gid).length })).filter(
-      (g) => g.count > 0,
-    );
-  }, [industry.modules]);
-
   const IndustryIcon = industry.icon;
   const boxW = HEXW - HEXPAD;
   const boxH = HEXH - HEXPAD;
@@ -266,88 +257,89 @@ export function IndustriesSection({ heading, className }: { heading: ReactNode; 
   return (
     <section id="industries" className={`cp-scope ${className ?? ""}`}>
       <div className="mx-auto w-full max-w-6xl px-4 py-16 lg:py-20">
-        {heading}
-
         <div className="cp-wrap">
           <div className="cp-grid">
-            <div
-              className="cp-profiles"
-              role="tablist"
-              aria-label="Industries"
-              onKeyDown={onPickerKeyDown}
-            >
-              {INDUSTRIES.map((item, index) => {
-                const Icon = item.icon;
-                const active = index === activeIndex;
-                const tags = item.modules
-                  .map(moduleById)
-                  .filter((m): m is NonNullable<typeof m> => Boolean(m))
-                  .slice(0, 3);
-                return (
-                  <button
-                    key={item.id}
-                    ref={(el) => {
-                      cardRefs.current[index] = el;
-                    }}
-                    type="button"
-                    role="tab"
-                    aria-selected={active}
-                    tabIndex={active ? 0 : -1}
-                    className={active ? "cp-card cp-active" : "cp-card"}
-                    onMouseEnter={() => select(index, false)}
-                    onFocus={() => select(index, false)}
-                    onClick={() => select(index, true)}
-                  >
-                    <span className="cp-card-ico">
-                      <Icon />
-                    </span>
-                    <span className="cp-card-body">
-                      <span className="cp-cname">{item.label}</span>
-                      <span className="cp-cmeta">{item.modules.length} modules</span>
-                      <span className="cp-ctags">
-                        {tags.map((tag) => (
-                          <span key={tag.id} className="cp-ctag">
-                            {tag.label}
-                          </span>
-                        ))}
+            {/* LEFT: heading, then the picker right underneath it. */}
+            <div>
+              {heading}
+              <div
+                className="cp-profiles mt-8"
+                role="tablist"
+                aria-label="Industries"
+                onKeyDown={onPickerKeyDown}
+              >
+                {INDUSTRIES.map((item, index) => {
+                  const Icon = item.icon;
+                  const active = index === activeIndex;
+                  const tags = item.modules
+                    .map(moduleById)
+                    .filter((m): m is NonNullable<typeof m> => Boolean(m))
+                    .slice(0, 3);
+                  return (
+                    <button
+                      key={item.id}
+                      ref={(el) => {
+                        cardRefs.current[index] = el;
+                      }}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      tabIndex={active ? 0 : -1}
+                      className={active ? "cp-card cp-active" : "cp-card"}
+                      onMouseEnter={() => select(index, false)}
+                      onFocus={() => select(index, false)}
+                      onClick={() => select(index, true)}
+                    >
+                      <span className="cp-card-ico">
+                        <Icon />
                       </span>
-                    </span>
-                  </button>
-                );
-              })}
+                      <span className="cp-card-body">
+                        <span className="cp-cname">{item.label}</span>
+                        <span className="cp-cmeta">{item.modules.length} modules</span>
+                        <span className="cp-ctags">
+                          {tags.map((tag) => (
+                            <span key={tag.id} className="cp-ctag">
+                              {tag.label}
+                            </span>
+                          ))}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
+            {/* RIGHT: module title, then every industry's own "process, start
+                to finish" — Option B then Option A — then the honeycomb.
+                Textile & Garments keeps its bespoke hand-drawn version; every
+                other industry uses its own flow from industry-process-data.ts
+                with the same two components fed generic (lucide-icon) stages. */}
             <div className="cp-stage-col">
               <div className="cp-head">
                 <div className="cp-caption" aria-live="polite">
                   <b>{industry.modules.length} modules</b> <span>· {industry.label}</span>
                 </div>
-                {industry.id === "textile" ? (
-                  // In place of the module legend + "Discuss this setup" link: the site-styled
-                  // process diagram, reusing this vertical space instead of a block further down.
-                  <div className="mt-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
-                      {industry.label} — the process, start to finish
-                    </p>
-                    <TextileProcessSite />
-                  </div>
-                ) : (
-                  <>
-                    <ul className="cp-modlist" aria-label="Modules by discipline">
-                      {legend.map(({ gid, count }) => (
-                        <li key={gid} className="cp-ml" style={{ "--cp-gc": HEX_GROUPS[gid].color } as CSSProperties}>
-                          <i />
-                          <span className="cp-ml-name">{HEX_GROUPS[gid].label}</span>
-                          <span className="cp-ml-n">{count}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <a className="cp-install" href="#contact" aria-label={`Discuss this setup - ${industry.label}`}>
-                      <ArrowDown className="cp-install-ic" aria-hidden="true" />
-                      <span>Discuss this setup</span>
-                    </a>
-                  </>
-                )}
+                <div className="mt-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
+                    {industry.label} — the process, start to finish
+                  </p>
+                  {industry.id === "textile" ? (
+                    <>
+                      <TextileProcessSite />
+                      <div className="mt-6">
+                        <TextileProcessDiagram />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <ProcessFlowSite stages={PROCESS_FLOWS[industry.id]} />
+                      <div className="mt-6">
+                        <ProcessFlowDiagram stages={PROCESS_FLOWS[industry.id]} />
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
 
               {/* Not aria-hidden: the cells are real, focusable controls (hover / focus opens a module's feature list). */}
@@ -381,38 +373,14 @@ export function IndustriesSection({ heading, className }: { heading: ReactNode; 
             </div>
           </div>
 
+          {/* Overview / What you get — the same for every industry now that
+              Option A/B live up in the right column instead of this slot. */}
           <div className="cp-gain">
             <div>
               <p className="cp-gain-h">Overview</p>
               <p className="cp-gain-summary">{industry.summary}</p>
             </div>
             <div>
-              {industry.id === "textile" ? (
-                // Swapped with "What you get": the infographic-styled process diagram
-                // takes this slot, and "What you get" moves down to where it used to sit
-                // (below) — reusing space that already existed instead of adding a block.
-                <>
-                  <p className="cp-gain-h">{industry.label} — the process, start to finish</p>
-                  <TextileProcessDiagram />
-                </>
-              ) : (
-                <>
-                  <p className="cp-gain-h">What you get</p>
-                  <ul className="cp-gain-list">
-                    {industry.features.map((feature) => (
-                      <li key={feature}>
-                        <Check aria-hidden="true" />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-            </div>
-          </div>
-
-          {industry.id === "textile" && (
-            <div className="mt-8">
               <p className="cp-gain-h">What you get</p>
               <ul className="cp-gain-list">
                 {industry.features.map((feature) => (
@@ -423,7 +391,7 @@ export function IndustriesSection({ heading, className }: { heading: ReactNode; 
                 ))}
               </ul>
             </div>
-          )}
+          </div>
 
           <p className="cp-foot">
             <b>Every implementation starts from the standard ERPNext core.</b> Industries never lock anything away —

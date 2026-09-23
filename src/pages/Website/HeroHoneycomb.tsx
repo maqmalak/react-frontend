@@ -125,7 +125,7 @@ function Hub() {
  * top 51% of `.hh-left`, which is 540px wide) to points fanning into the
  * module ring / city on the right, in the source's own proportions.
  */
-const FLOW_HUB = { x: 270 + 84.6, y: 640 * 0.51 }; // hub centre (270, 326.4) + half its width (169.2 / 2)
+const FLOW_HUB = { x: 270 + 84.6, y: 640 * 0.46 }; // hub centre, matching .hero-hub's top: 46% in hero-honeycomb.css
 const FLOW_PATHS: { d: string; gradient: "A" | "B" | "C"; delay: string }[] = [
   { d: `M ${FLOW_HUB.x} ${FLOW_HUB.y} Q 443.9 190.4, 554.4 139.4`, gradient: "A", delay: "0s" },
   { d: `M ${FLOW_HUB.x} ${FLOW_HUB.y} Q 486.4 215.9, 630.9 181.9`, gradient: "B", delay: "0.55s" },

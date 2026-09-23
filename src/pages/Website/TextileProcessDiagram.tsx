@@ -1,14 +1,20 @@
 import { useEffect, useState } from "react";
+import type { ProcessStage } from "./industry-process-data";
 import "./textile-process.css";
 
 /* ------------------------------------------------------------------ *
- * Textile process diagram — the seven-stage flow from raw fibre to a
- * finished garment (raw material -> collection -> processing -> threads ->
- * fabric -> tailoring -> ready-made clothes), styled after a textile-
- * industry infographic: a dark teal grid card, a white zigzag connector
- * with circular joints, and one small illustrated icon per stage. A
- * glowing pulse travels the connector on a loop, lighting each stage's
- * icon as it arrives, so the diagram narrates the flow on its own.
+ * Process diagram ("Option A") — a dark-teal-infographic-styled card, a
+ * zigzag connector with circular joints, and one icon per stage. A glowing
+ * pulse travels the connector on a loop, lighting each stage's icon as it
+ * arrives, so the diagram narrates the flow on its own.
+ *
+ * `ProcessFlowDiagram` is the reusable version for every industry (see
+ * industry-process-data.ts) — a lucide icon per stage, since a bespoke
+ * hand-drawn illustration for every stage of all twelve industries isn't
+ * practical. `TextileProcessDiagram` is Textile & Garments' own version,
+ * kept exactly as first built (seven hand-drawn stage illustrations), since
+ * it was tuned first and other call sites already import it by that name.
+ * Both share the same seven-slot zigzag layout, connector and card styling.
  * ------------------------------------------------------------------ */
 
 interface Stage {
@@ -20,7 +26,6 @@ interface Stage {
   icon: (color: string) => JSX.Element;
 }
 
-const TEAL = "#0f3b46";
 const TEAL_LINE = "#d7ece9";
 const RED = "#e2483c";
 const ORANGE = "#f5a623";
@@ -133,52 +138,78 @@ function GarmentIcon() {
 // Spaced so every stage's ring + number badge + two-line label clears its
 // neighbours with real margin, and the leftmost/topmost stages sit well
 // clear of the viewBox edges rather than flush against the card's corner.
+// This is also the generic seven-slot layout ProcessFlowDiagram reuses below
+// — the zigzag shape is generic; only each stage's own content changes.
+const POSITIONS: { x: number; y: number }[] = [
+  { x: 140, y: 170 },
+  { x: 420, y: 120 },
+  { x: 700, y: 170 },
+  { x: 560, y: 340 },
+  { x: 210, y: 340 },
+  { x: 470, y: 460 },
+  { x: 750, y: 460 },
+];
+
 const STAGES: Stage[] = [
-  { n: 1, label: "Raw Material", sub: "cotton & fibre", x: 140, y: 170, icon: () => <CottonIcon /> },
-  { n: 2, label: "Collection", sub: "of raw materials", x: 420, y: 120, icon: () => <CollectionIcon /> },
-  { n: 3, label: "Processing", sub: "of raw materials", x: 700, y: 170, icon: () => <ProcessingIcon /> },
-  { n: 4, label: "Threads", sub: "spun & dyed", x: 560, y: 340, icon: () => <ThreadsIcon /> },
-  { n: 5, label: "Fabric Manufacture", sub: "weaving & folding", x: 210, y: 340, icon: () => <FabricIcon /> },
-  { n: 6, label: "Tailoring", sub: "cut & sewn", x: 470, y: 460, icon: () => <TailoringIcon /> },
-  { n: 7, label: "Ready-Made Clothes", sub: "garment manufacturing", x: 750, y: 460, icon: () => <GarmentIcon /> },
+  { n: 1, label: "Raw Material", sub: "cotton & fibre", ...POSITIONS[0], icon: () => <CottonIcon /> },
+  { n: 2, label: "Collection", sub: "of raw materials", ...POSITIONS[1], icon: () => <CollectionIcon /> },
+  { n: 3, label: "Processing", sub: "of raw materials", ...POSITIONS[2], icon: () => <ProcessingIcon /> },
+  { n: 4, label: "Threads", sub: "spun & dyed", ...POSITIONS[3], icon: () => <ThreadsIcon /> },
+  { n: 5, label: "Fabric Manufacture", sub: "weaving & folding", ...POSITIONS[4], icon: () => <FabricIcon /> },
+  { n: 6, label: "Tailoring", sub: "cut & sewn", ...POSITIONS[5], icon: () => <TailoringIcon /> },
+  { n: 7, label: "Ready-Made Clothes", sub: "garment manufacturing", ...POSITIONS[6], icon: () => <GarmentIcon /> },
 ];
 
 /** Elbow path between two stage centres — flat runs with one bend, like a circuit trace. */
-function elbow(a: Stage, b: Stage): { d: string; corner: { x: number; y: number } | null } {
+function elbow(a: { x: number; y: number }, b: { x: number; y: number }): { d: string; corner: { x: number; y: number } | null } {
   const midX = (a.x + b.x) / 2;
   const corner = a.y === b.y ? null : { x: midX, y: b.y };
   return { d: `M ${a.x} ${a.y} L ${midX} ${a.y} L ${midX} ${b.y} L ${b.x} ${b.y}`, corner };
 }
 
-const LINKS = STAGES.slice(1).map((stage, i) => {
-  const { d, corner } = elbow(STAGES[i], stage);
-  return { from: STAGES[i], to: stage, d, corner };
-});
-
 const CYCLE_MS = 900;
 
-/** Animated seven-stage textile process flow, styled after a textile-industry infographic. */
-export function TextileProcessDiagram() {
+/** The shared card/connector/pulse chrome — only the per-stage icon nodes differ between the two exports below. */
+function DiagramShell({
+  positioned,
+  ariaLabel,
+  renderIcon,
+}: {
+  positioned: { n: number; label: string; sub: string; x: number; y: number }[];
+  ariaLabel: string;
+  renderIcon: (stage: { n: number; label: string; sub: string; x: number; y: number }, index: number) => JSX.Element;
+}) {
   const [active, setActive] = useState(0);
 
   useEffect(() => {
-    const id = window.setInterval(() => setActive((a) => (a + 1) % STAGES.length), CYCLE_MS);
+    setActive(0);
+    const id = window.setInterval(() => setActive((a) => (a + 1) % positioned.length), CYCLE_MS);
     return () => window.clearInterval(id);
-  }, []);
+  }, [positioned]);
+
+  const links = positioned.slice(1).map((stage, i) => {
+    const { d, corner } = elbow(positioned[i], stage);
+    return { d, corner };
+  });
 
   return (
     <div className="tpd-scope">
       <div className="tpd-card">
-        <svg viewBox="0 0 900 580" className="tpd-svg" role="img" aria-label="Textile process: raw material, collection, processing, threads, fabric manufacture, tailoring, ready-made clothes">
+        {/* Wider/taller than the stage layout itself (which still spans roughly
+            0..900 x 0..580) — the extra margin on every side "zooms out" the
+            diagram within the card and, since the card's height follows this
+            viewBox's own aspect ratio, also makes the card noticeably shorter.
+            (Margin trimmed down from an earlier, more zoomed-out pass.) */}
+        <svg viewBox="-60 25 1020 565" className="tpd-svg" role="img" aria-label={ariaLabel}>
           <defs>
             <pattern id="tpdGrid" width="30" height="30" patternUnits="userSpaceOnUse">
-              <path d="M 30 0 L 0 0 0 30" fill="none" stroke={TEAL_LINE} strokeOpacity={0.08} strokeWidth={1} />
+              <path d="M 30 0 L 0 0 0 30" fill="none" className="tpd-grid-line" strokeWidth={1} />
             </pattern>
           </defs>
-          <rect width="900" height="580" fill={TEAL} />
-          <rect width="900" height="580" fill="url(#tpdGrid)" />
+          <rect x="-60" y="25" width="1020" height="565" className="tpd-bg-rect" />
+          <rect x="-60" y="25" width="1020" height="565" fill="url(#tpdGrid)" />
 
-          {LINKS.map((link, i) => (
+          {links.map((link, i) => (
             <g key={i}>
               <path d={link.d} className="tpd-trace" />
               <path d={link.d} className="tpd-pulse" style={{ animationDelay: `${i * (CYCLE_MS / 1000)}s` }} />
@@ -186,7 +217,7 @@ export function TextileProcessDiagram() {
             </g>
           ))}
 
-          {STAGES.map((stage, i) => (
+          {positioned.map((stage, i) => (
             // Position is a plain SVG `transform` attribute (translate only) —
             // simple and unambiguous. The active-state "grow" effect drives the
             // ring's own `r`, not a CSS transform: scale() on this group, because
@@ -197,16 +228,16 @@ export function TextileProcessDiagram() {
             // corner — instead of in place. `r` has no such ambiguity: it's
             // always centred on the circle's own (untransformed) position.
             <g key={stage.n} transform={`translate(${stage.x}, ${stage.y})`} className={i === active ? "tpd-stage is-active" : "tpd-stage"}>
-              <circle r={i === active ? 38 : 34} className="tpd-stage-ring" />
-              <g className="tpd-stage-icon">{stage.icon(NAVY)}</g>
-              <circle cx={-27} cy={-27} r={11} className="tpd-num-badge" />
-              <text x={-27} y={-23} className="tpd-num-text" textAnchor="middle">
+              <circle r={i === active ? 44 : 40} className="tpd-stage-ring" />
+              {renderIcon(stage, i)}
+              <circle cx={-31} cy={-31} r={12} className="tpd-num-badge" />
+              <text x={-31} y={-27} className="tpd-num-text" textAnchor="middle">
                 {stage.n}
               </text>
-              <text y={48} textAnchor="middle" className="tpd-stage-label">
+              <text y={56} textAnchor="middle" className="tpd-stage-label">
                 {stage.label}
               </text>
-              <text y={62} textAnchor="middle" className="tpd-stage-sub">
+              <text y={71} textAnchor="middle" className="tpd-stage-sub">
                 {stage.sub}
               </text>
             </g>
@@ -214,5 +245,51 @@ export function TextileProcessDiagram() {
         </svg>
       </div>
     </div>
+  );
+}
+
+/** Any industry's process flow (see industry-process-data.ts) — a lucide icon per stage. */
+export function ProcessFlowDiagram({ stages }: { stages: ProcessStage[] }) {
+  const positioned = stages.map((s, i) => ({ ...s, ...POSITIONS[i % POSITIONS.length] }));
+  return (
+    <DiagramShell
+      positioned={positioned}
+      ariaLabel={`Process: ${stages.map((s) => s.label).join(", ")}`}
+      renderIcon={(stage) => {
+        const match = positioned.find((p) => p.n === stage.n)!;
+        const Icon = match.icon;
+        return (
+          <g>
+            {/* A soft disc in the stage's own colour behind the icon, plus the
+                icon itself in that same colour (via currentColor) — a coloured
+                symbol on a coloured badge, the same idea as Textile & Garments'
+                own hand-coloured icons, rather than one flat outline in the
+                page's neutral ink colour for every stage. */}
+            <circle r={30} fill={match.color} fillOpacity={0.16} />
+            <g style={{ color: match.color }}>
+              <Icon x={-19} y={-19} width={38} height={38} strokeWidth={2} />
+            </g>
+          </g>
+        );
+      }}
+    />
+  );
+}
+
+/** Textile & Garments' own process flow — its seven hand-drawn stage illustrations, unchanged. */
+export function TextileProcessDiagram() {
+  return (
+    <DiagramShell
+      positioned={STAGES}
+      ariaLabel="Textile process: raw material, collection, processing, threads, fabric manufacture, tailoring, ready-made clothes"
+      renderIcon={(stage) => {
+        const match = STAGES.find((s) => s.n === stage.n)!;
+        return (
+          <g className="tpd-stage-icon" transform="scale(1.25)">
+            {match.icon(NAVY)}
+          </g>
+        );
+      }}
+    />
   );
 }

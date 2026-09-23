@@ -83,7 +83,8 @@ const DEAL_CARD_LABELS: Record<DealCard, string> = { pipeline: "Pipeline Value",
 
 export function DealsPage() {
   const navigate = useNavigate();
-  const [view, setView] = useState<ViewMode>("list");
+  // Deals open in Pipeline (kanban) mode by default; List is one click away.
+  const [view, setView] = useState<ViewMode>("kanban");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [pendingDelete, setPendingDelete] = useState<CrmDeal | null>(null);

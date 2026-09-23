@@ -996,16 +996,21 @@ export function CompanyWebsitePage() {
             SECTION_CLASS,
           )}
           heading={
-            <SectionHeading
-              eyebrow="Built for your industry"
-              eyebrowIcon={Building2}
-              title={
-                <>
-                  One platform, shaped to how you <span className="italic text-primary">build</span>.
-                </>
-              }
-              description="Pick the kind of business you run and the platform switches on exactly the modules it needs, already wired together in one shared database. Hover or tap an industry to watch its module honeycomb light up, grouped by discipline and linked as a single connected system."
-            />
+            // Narrower than SectionHeading's own default (max-w-3xl) — sized to
+            // match the picker column underneath it instead of overhanging into
+            // the honeycomb column's space.
+            <div className="max-w-xl">
+              <SectionHeading
+                eyebrow="Built for your industry"
+                eyebrowIcon={Building2}
+                title={
+                  <>
+                    One platform, shaped to how you <span className="italic text-primary">build</span>.
+                  </>
+                }
+                description="Pick the kind of business you run and the platform switches on exactly the modules it needs, already wired together in one shared database. Hover or tap an industry to watch its module honeycomb light up, grouped by discipline and linked as a single connected system."
+              />
+            </div>
           }
         />
         <ModulesSection />

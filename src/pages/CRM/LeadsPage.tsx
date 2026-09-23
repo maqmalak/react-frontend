@@ -175,7 +175,8 @@ const LEAD_CARD_LABELS: Record<LeadCard, string> = { new: "New", active: "Active
 
 export function LeadsPage() {
   const navigate = useNavigate();
-  const [view, setView] = useState<ViewMode>("list");
+  // Leads open in Pipeline (kanban) mode by default; List is one click away.
+  const [view, setView] = useState<ViewMode>("kanban");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [pendingDelete, setPendingDelete] = useState<CrmLead | null>(null);

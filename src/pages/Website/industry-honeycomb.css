@@ -452,11 +452,6 @@
   }
 }
 
-/* The source's `margin: 0 auto` on .cp-wrap would remove the gap under the section heading. */
-.cp-scope .cp-wrap {
-  margin-top: 40px;
-}
-
 /* The source lays 24 profiles out three across; with ten industries two across reads better. */
 .cp-scope .cp-profiles {
   grid-template-columns: repeat(2, minmax(0, 1fr));
