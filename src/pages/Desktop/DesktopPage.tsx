@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { APPS } from "@/app/apps";
+import { APPS, APP_GROUPS } from "@/app/apps";
 import { AppCard } from "@/components/common/app-card";
 import { Logo } from "@/components/common/logo";
 import { useAuth } from "@/hooks/useAuth";
@@ -61,8 +61,13 @@ export function DesktopPage() {
     return names.length > 0 ? [...new Set(names)].slice(0, FEATURES_PER_APP) : undefined;
   };
 
+  // Sections in APP_GROUPS order; tiles keep their APPS order inside each section.
+  const sections = [...APP_GROUPS, "More"]
+    .map((group) => ({ group, items: apps.filter((a) => (a.group ?? "More") === group) }))
+    .filter((sec) => sec.items.length > 0);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex items-center gap-4">
         <Logo variant="mark" className="h-12 w-auto shrink-0" />
         <div>
@@ -75,11 +80,20 @@ export function DesktopPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
-        {apps.map((app) => (
-          <AppCard key={app.id} app={app} features={featuresFor(app)} />
-        ))}
-      </div>
+      {sections.map(({ group, items }) => (
+        <section key={group} className="space-y-3">
+          <div className="flex items-center gap-3">
+            <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{group}</h2>
+            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">{items.length}</span>
+            <span className="h-px flex-1 bg-border" aria-hidden="true" />
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {items.map((app) => (
+              <AppCard key={app.id} app={app} features={featuresFor(app)} />
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }

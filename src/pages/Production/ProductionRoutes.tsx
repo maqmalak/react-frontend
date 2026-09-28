@@ -1,7 +1,8 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { DocListPage } from "@/components/doc/doc-list-page";
 import { DocFormPage } from "@/components/doc/doc-form-page";
-import { ProductionDashboardPage } from "./ProductionDashboardPage";
+import { AnalyticsSuitePage } from "@/pages/Analytics/AnalyticsSuitePage";
+import { ProductionGanttPage } from "./ProductionGanttPage";
 import {
   BOM_CONFIG,
   DOWNTIME_CONFIG,
@@ -11,11 +12,12 @@ import {
   WORKSTATION_CONFIG,
 } from "./production-configs";
 
-/** /production/* — overview plus a list and a form for each production DocType (the form also serves `/new`). */
+/** /production/* — the Production + WO Analysis overview (one page with a section nav) plus a list and a form for each production DocType (the form also serves `/new`). */
 export function ProductionRoutes() {
   return (
     <Routes>
-      <Route index element={<ProductionDashboardPage />} />
+      <Route index element={<AnalyticsSuitePage suite="production" />} />
+      <Route path="schedule" element={<ProductionGanttPage />} />
       <Route path="status" element={<Navigate to="/production" replace />} />
       <Route path="production-plans" element={<DocListPage config={PRODUCTION_PLAN_CONFIG} />} />
       <Route path="production-plans/:name" element={<DocFormPage config={PRODUCTION_PLAN_CONFIG} />} />

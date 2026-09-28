@@ -3,6 +3,7 @@ import {
   ResponsiveContainer,
   BarChart as RCBar,
   Bar,
+  ComposedChart as RCComposed,
   LineChart as RCLine,
   Line,
   AreaChart as RCArea,
@@ -18,6 +19,7 @@ import {
   Legend,
 } from "recharts";
 import { formatMoney, formatNumber } from "@/utils/currency";
+import { cn } from "@/utils/cn";
 
 const CHART_COLORS = [
   "hsl(221 83% 53%)", // primary blue
@@ -63,31 +65,59 @@ export interface ChartProps<T = Record<string, any>> {
    * one series, where a single color-per-category wouldn't be meaningful.
    */
   colorKey?: string;
+  /** BarChart only: stack the series instead of drawing them side by side. */
+  stacked?: boolean;
+  /** Values are percentages — axis and tooltip show "12%". Ignored when `money` is set. */
+  percent?: boolean;
+  /** BarChart only: tilt the category labels so long names all fit (every label is shown). */
+  angledLabels?: boolean;
 }
 
-function axisFormatter(money: boolean, currency: string, v: number) {
-  return money ? formatMoney(v, currency, { compact: true }) : formatNumber(v, 0);
+function axisFormatter(money: boolean, currency: string, v: number, percent?: boolean) {
+  if (money) return formatMoney(v, currency, { compact: true });
+  return percent ? `${formatNumber(v, 0)}%` : formatNumber(v, 0);
 }
 
-export function BarChart({ data, series, xKey, height = 260, money, currency = "USD", legend, colorKey }: ChartProps) {
+/** Tooltip value formatter shared by the cartesian charts (undefined = plain number). */
+function valueFormatter(money: boolean | undefined, currency: string, percent?: boolean) {
+  if (money) return (v: number) => formatMoney(v, currency);
+  if (percent) return (v: number) => `${formatNumber(v, 1)}%`;
+  return undefined;
+}
+
+export function BarChart({ data, series, xKey, height = 260, money, currency = "USD", legend, colorKey, stacked, percent, angledLabels }: ChartProps) {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <RCBar data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" />
-        <XAxis dataKey={xKey} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+        <XAxis
+          dataKey={xKey}
+          tick={{ fontSize: angledLabels ? 11 : 12, fill: "hsl(var(--muted-foreground))" }}
+          tickLine={false}
+          axisLine={false}
+          {...(angledLabels ? { angle: -35, textAnchor: "end", height: 78, interval: 0 } : {})}
+        />
         <YAxis
-          tickFormatter={(v: number) => axisFormatter(!!money, currency, v)}
+          tickFormatter={(v: number) => axisFormatter(!!money, currency, v, percent)}
           tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
           tickLine={false}
           axisLine={false}
         />
         <Tooltip
-          content={<ChartTooltip formatter={money ? (v: number) => formatMoney(v, currency) : undefined} />}
+          content={<ChartTooltip formatter={valueFormatter(money, currency, percent)} />}
           cursor={{ fill: "hsl(var(--muted) / 0.4)" }}
         />
         {legend && <Legend wrapperStyle={{ fontSize: 12 }} />}
         {series.map((s, i) => (
-          <Bar key={s.key} dataKey={s.key} name={s.label} fill={s.color ?? CHART_COLORS[i % CHART_COLORS.length]} radius={[4, 4, 0, 0]} maxBarSize={40}>
+          <Bar
+            key={s.key}
+            dataKey={s.key}
+            name={s.label}
+            fill={s.color ?? CHART_COLORS[i % CHART_COLORS.length]}
+            stackId={stacked ? "stack" : undefined}
+            radius={stacked && i < series.length - 1 ? [0, 0, 0, 0] : [4, 4, 0, 0]}
+            maxBarSize={40}
+          >
             {colorKey && series.length === 1 && data.map((d, di) => <Cell key={di} fill={(d as any)[colorKey] ?? s.color ?? CHART_COLORS[i % CHART_COLORS.length]} />)}
           </Bar>
         ))}
@@ -96,14 +126,14 @@ export function BarChart({ data, series, xKey, height = 260, money, currency = "
   );
 }
 
-export function LineChart({ data, series, xKey, height = 260, money, currency = "USD", legend }: ChartProps) {
+export function LineChart({ data, series, xKey, height = 260, money, currency = "USD", legend, percent }: ChartProps) {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <RCLine data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" />
         <XAxis dataKey={xKey} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
-        <YAxis tickFormatter={(v: number) => axisFormatter(!!money, currency, v)} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
-        <Tooltip content={<ChartTooltip formatter={money ? (v: number) => formatMoney(v, currency) : undefined} />} />
+        <YAxis tickFormatter={(v: number) => axisFormatter(!!money, currency, v, percent)} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+        <Tooltip content={<ChartTooltip formatter={valueFormatter(money, currency, percent)} />} />
         {legend && <Legend wrapperStyle={{ fontSize: 12 }} />}
         {series.map((s, i) => (
           <Line
@@ -120,7 +150,67 @@ export function LineChart({ data, series, xKey, height = 260, money, currency = 
     </ResponsiveContainer>
   );
 }
-export function AreaChart({ data, series, xKey, height = 260, money, currency = "USD" }: ChartProps) {
+/**
+ * One series of a `ComboChart` — bars and lines share the same panel, so a total
+ * (bars) and a ratio derived from it (line) can be read together.
+ * `axis: "right"` moves the series onto a second, right-hand scale, which a ratio
+ * against a much larger total needs to stay legible; requires `dualAxis`.
+ */
+export interface ComboSeries {
+  key: string;
+  label: string;
+  color?: string;
+  /** Draw as a bar (default) or a line. */
+  type?: "bar" | "line";
+  /** Which Y axis to measure against. Defaults to "left". */
+  axis?: "left" | "right";
+}
+
+export interface ComboChartProps<T = Record<string, any>> {
+  data: T[];
+  series: ComboSeries[];
+  xKey: string;
+  height?: number;
+  money?: boolean;
+  /** Currency code for `money` formatting. Defaults to USD. */
+  currency?: string;
+  legend?: boolean;
+  /** Render the right-hand Y axis used by series with `axis: "right"`. */
+  dualAxis?: boolean;
+}
+
+/** Bars and lines in a single panel (recharts ComposedChart). */
+export function ComboChart({ data, series, xKey, height = 260, money, currency = "USD", legend, dualAxis }: ComboChartProps) {
+  const tickFormatter = (v: number) => axisFormatter(!!money, currency, v);
+  const tick = { fontSize: 12, fill: "hsl(var(--muted-foreground))" };
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <RCComposed data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" />
+        <XAxis dataKey={xKey} tick={tick} tickLine={false} axisLine={false} />
+        <YAxis yAxisId="left" tickFormatter={tickFormatter} tick={tick} tickLine={false} axisLine={false} />
+        {dualAxis && <YAxis yAxisId="right" orientation="right" tickFormatter={tickFormatter} tick={tick} tickLine={false} axisLine={false} />}
+        <Tooltip
+          content={<ChartTooltip formatter={money ? (v: number) => formatMoney(v, currency) : undefined} />}
+          cursor={{ fill: "hsl(var(--muted) / 0.4)" }}
+        />
+        {legend && <Legend wrapperStyle={{ fontSize: 12 }} />}
+        {series.map((s, i) => {
+          const color = s.color ?? CHART_COLORS[i % CHART_COLORS.length];
+          // Bars/lines must name the axis they belong to once `dualAxis` adds a second one.
+          const yAxisId = dualAxis && s.axis === "right" ? "right" : "left";
+          return s.type === "line" ? (
+            <Line key={s.key} yAxisId={yAxisId} type="monotone" dataKey={s.key} name={s.label} stroke={color} strokeWidth={2} dot={{ r: 3 }} />
+          ) : (
+            <Bar key={s.key} yAxisId={yAxisId} dataKey={s.key} name={s.label} fill={color} radius={[4, 4, 0, 0]} maxBarSize={40} />
+          );
+        })}
+      </RCComposed>
+    </ResponsiveContainer>
+  );
+}
+
+export function AreaChart({ data, series, xKey, height = 260, money, currency = "USD", legend, percent }: ChartProps) {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <RCArea data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -134,8 +224,9 @@ export function AreaChart({ data, series, xKey, height = 260, money, currency = 
         </defs>
         <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" />
         <XAxis dataKey={xKey} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
-        <YAxis tickFormatter={(v: number) => axisFormatter(!!money, currency, v)} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
-        <Tooltip content={<ChartTooltip formatter={money ? (v: number) => formatMoney(v, currency) : undefined} />} />
+        <YAxis tickFormatter={(v: number) => axisFormatter(!!money, currency, v, percent)} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+        <Tooltip content={<ChartTooltip formatter={valueFormatter(money, currency, percent)} />} />
+        {legend && <Legend wrapperStyle={{ fontSize: 12 }} />}
         {series.map((s, i) => (
           <Area
             key={s.key}
@@ -188,10 +279,17 @@ export function PieChart({ data, height = 260, money, currency = "USD", innerRad
   const isDonut = innerRadius !== 0 && innerRadius !== "0";
   const total = safeData.reduce((s, d) => s + d.value, 0);
   const fmt = (v: number) => (money ? formatMoney(v, currency) : formatNumber(v));
+  // Centre text must fit inside the hole: compact amounts and a clipped label (the full one is in the legend/tooltip).
+  const fmtShort = (v: number) => (money ? formatMoney(v, currency, { compact: true }) : formatNumber(v, 0));
+  const clip = (t: string, n = 18) => (t.length > n ? `${t.slice(0, n - 1)}…` : t);
   const active = activeIndex != null ? safeData[activeIndex] : undefined;
+  // Legend lives below the chart as HTML so long account/group names truncate instead of wrapping and
+  // squeezing the pie; the chart keeps a fixed share of the height.
+  const chartH = legend ? Math.max(170, Math.round(height * 0.66)) : height;
 
   return (
-    <ResponsiveContainer width="100%" height={height}>
+    <div style={{ height }} className="flex flex-col">
+    <ResponsiveContainer width="100%" height={chartH}>
       <RCPie>
         <Pie
           data={safeData}
@@ -223,10 +321,10 @@ export function PieChart({ data, height = 260, money, currency = "USD", innerRad
         {isDonut && (
           <>
             <text x="50%" y="50%" dy={active ? -10 : -4} textAnchor="middle" className="fill-foreground text-lg font-bold">
-              {fmt(active ? active.value : total)}
+              {fmtShort(active ? active.value : total)}
             </text>
             <text x="50%" y="50%" dy={14} textAnchor="middle" className="fill-muted-foreground text-xs">
-              {active ? active.label : "Total"}
+              {active ? clip(active.label.replace(/^\d+\s*-\s*/, "")) : "Total"}
             </text>
             {active && total > 0 && (
               <text x="50%" y="50%" dy={30} textAnchor="middle" className="fill-muted-foreground text-[10px]">
@@ -236,9 +334,26 @@ export function PieChart({ data, height = 260, money, currency = "USD", innerRad
           </>
         )}
         <Tooltip content={<ChartTooltip formatter={money ? (v: number) => formatMoney(v, currency) : undefined} />} />
-        {legend && <Legend wrapperStyle={{ fontSize: 12 }} formatter={(value) => <span className="text-foreground">{value}</span>} />}
       </RCPie>
     </ResponsiveContainer>
+    {legend && (
+      <ul className="mt-2 grid min-h-0 flex-1 grid-cols-1 content-start gap-x-4 gap-y-1 overflow-y-auto pr-1 text-xs scrollbar-thin sm:grid-cols-2">
+        {safeData.map((d, i) => (
+          <li
+            key={d.label}
+            title={`${d.label}: ${fmt(d.value)}`}
+            onMouseEnter={() => setActiveIndex(i)}
+            onMouseLeave={() => setActiveIndex(null)}
+            className={cn("flex min-w-0 cursor-default items-center gap-1.5 rounded px-1 py-0.5 transition-colors hover:bg-muted", activeIndex === i && "bg-muted")}
+          >
+            <i className="h-2 w-2 shrink-0 rounded-full" style={{ background: d.color ?? CHART_COLORS[i % CHART_COLORS.length] }} />
+            <span className="min-w-0 flex-1 truncate text-foreground">{d.label}</span>
+            <span className="shrink-0 tabular-nums text-muted-foreground">{total ? Math.round((d.value / total) * 100) : 0}%</span>
+          </li>
+        ))}
+      </ul>
+    )}
+    </div>
   );
 }
 
@@ -247,3 +362,62 @@ export function DonutChart(props: PieChartProps) {
 }
 
 export { CHART_COLORS };
+/**
+ * Horizontal bar gauge: one row per item — label and value above, a full-width track with a
+ * gradient fill scaled to the largest value, segment ticks, and the item's share of the total.
+ */
+export function BarGauge({
+  data,
+  money,
+  currency,
+  height,
+  format,
+}: {
+  data: { label: string; value: number; color?: string }[];
+  money?: boolean;
+  currency?: string;
+  height?: number;
+  format?: (v: number) => string;
+}) {
+  const rows = data.filter((d) => Number(d.value));
+  const max = Math.max(...rows.map((d) => Math.abs(Number(d.value))), 0);
+  const total = rows.reduce((s, d) => s + Math.abs(Number(d.value)), 0);
+  const fmt = format ?? ((v: number) => (money ? formatMoney(v, currency, { compact: true }) : formatNumber(v, 0)));
+  if (!rows.length) return <p className="py-8 text-center text-sm text-muted-foreground">No data in this period.</p>;
+  return (
+    <div className="space-y-3 overflow-y-auto pr-1 scrollbar-thin" style={height ? { maxHeight: height } : undefined}>
+      {rows.map((d, i) => {
+        const v = Math.abs(Number(d.value));
+        const pct = max ? (v / max) * 100 : 0;
+        const share = total ? (v / total) * 100 : 0;
+        const color = d.color ?? CHART_COLORS[i % CHART_COLORS.length];
+        return (
+          <div key={d.label} className="group" title={`${d.label}: ${fmt(Number(d.value))} · ${formatNumber(share, 1)}% of total`}>
+            <div className="mb-1 flex items-baseline justify-between gap-3 text-xs">
+              <span className="flex min-w-0 items-center gap-1.5">
+                <i className="h-2 w-2 shrink-0 rounded-full" style={{ background: color }} />
+                <span className="truncate font-medium">{d.label}</span>
+              </span>
+              <span className="shrink-0 tabular-nums">
+                <b className="font-semibold">{fmt(Number(d.value))}</b>
+                <span className="ml-1.5 inline-block w-11 text-right text-muted-foreground">{formatNumber(share, 1)}%</span>
+              </span>
+            </div>
+            <div className="relative h-3.5 overflow-hidden rounded-md bg-muted ring-1 ring-inset ring-border/60">
+              <div
+                className="absolute inset-y-0 left-0 rounded-md transition-[width] duration-700 ease-out group-hover:brightness-110"
+                style={{
+                  width: `${Math.max(pct, 1.5)}%`,
+                  background: `linear-gradient(90deg, color-mix(in srgb, ${color} 35%, transparent), ${color})`,
+                  boxShadow: `0 0 10px -2px ${color}`,
+                }}
+              />
+              {/* segment ticks give the gauge look */}
+              <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent_0_9px,hsl(var(--card)/0.55)_9px_11px)]" />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}

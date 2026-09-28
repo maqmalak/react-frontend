@@ -22,9 +22,9 @@ function accentTextTokens(colorClass: string): string {
  * - a one-shot diagonal sheen that sweeps across on hover-in (CSS animation
  *   re-triggered each time via `group-hover:animate-card-sheen`)
  *
- * `features`, when provided, are real doctype names fetched live from
- * ERPNext for this app's module (see `useModuleDocTypes`) — not hardcoded
- * copy — shown as a short list below the title bar.
+ * Layout: icon tile + title + tagline, a two-line description, up to four
+ * feature chips (curated in apps.ts, or live doctype names for the module),
+ * and an "Open …" footer.
  */
 export function AppCard({ app, features }: { app: AppTile; features?: string[] }) {
   const Icon = app.icon;
@@ -63,39 +63,45 @@ export function AppCard({ app, features }: { app: AppTile; features?: string[] }
         <span className="absolute inset-y-0 -left-1/3 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/40 to-transparent opacity-0 group-hover:animate-card-sheen group-hover:opacity-100 dark:via-white/20" />
       </span>
 
-      {/* Title bar — icon, name, arrow, on its own tinted band */}
-      <div
-        className={cn(
-          "relative z-10 flex items-center gap-3 border-b border-border/60 px-4 py-3 dark:border-white/10",
-          app.colorClass,
-        )}
-      >
+      {/* Header — icon tile, title and tagline */}
+      <div className="relative z-10 flex items-start gap-3 px-4 pt-4">
         <span
           className={cn(
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-background/60 transition-all duration-300 ease-out",
-            "group-hover:scale-110 group-hover:rotate-6 group-hover:shadow-[0_0_18px_2px_hsl(var(--primary)/0.35)]",
+            "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset ring-black/5 dark:ring-white/10 transition-all duration-300 ease-out",
+            "group-hover:scale-110 group-hover:-rotate-3 group-hover:shadow-[0_0_20px_2px_hsl(var(--primary)/0.30)]",
+            app.colorClass,
           )}
         >
           <Icon className="h-5 w-5" aria-hidden="true" />
         </span>
-        <h3 className="min-w-0 flex-1 break-words text-sm font-semibold tracking-tight">
-          {app.label}
-        </h3>
-        <ArrowRight className="h-4 w-4 shrink-0 -translate-x-2 opacity-0 transition-all duration-300 ease-out group-hover:translate-x-0 group-hover:opacity-100" aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-[15px] font-semibold leading-tight tracking-tight">{app.label}</h3>
+          {app.tagline && (
+            <p className={cn("mt-0.5 truncate text-[11px] font-medium uppercase tracking-wider", accentTextTokens(app.colorClass))}>{app.tagline}</p>
+          )}
+        </div>
       </div>
 
-      <div className="relative z-10 flex-1 px-4 py-3.5">
-        <p className="text-xs leading-relaxed text-muted-foreground">{app.description}</p>
+      <div className="relative z-10 flex flex-1 flex-col px-4 pb-3 pt-2.5">
+        <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">{app.description}</p>
         {features && features.length > 0 && (
-          <ul className="mt-3 space-y-1.5 border-t border-border/60 pt-3 dark:border-white/10">
-            {features.map((f) => (
-              <li key={f} className="flex items-start gap-2 text-[11.5px] leading-snug text-muted-foreground">
-                <span className={cn("mt-1.5 h-1 w-1 shrink-0 rounded-full bg-current", accentTextTokens(app.colorClass))} />
-                <span className="truncate">{f}</span>
+          <ul className="mt-3 flex flex-wrap gap-1.5">
+            {features.slice(0, 4).map((f) => (
+              <li
+                key={f}
+                className="max-w-full truncate rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-[10.5px] font-medium text-foreground/80 transition-colors group-hover:border-primary/30 dark:border-white/10 dark:bg-white/5"
+              >
+                {f}
               </li>
             ))}
           </ul>
         )}
+      </div>
+
+      {/* Footer */}
+      <div className="relative z-10 mt-auto flex items-center justify-between border-t border-border/60 px-4 py-2 text-[11px] font-medium text-muted-foreground transition-colors group-hover:text-primary dark:border-white/10">
+        <span>Open {app.label}</span>
+        <ArrowRight className="h-3.5 w-3.5 -translate-x-1 transition-transform duration-300 ease-out group-hover:translate-x-0.5" aria-hidden="true" />
       </div>
     </Link>
   );

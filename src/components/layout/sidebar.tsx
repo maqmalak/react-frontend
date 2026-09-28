@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { X, LayoutGrid } from "lucide-react";
 import { cn } from "@/utils/cn";
 import type { NavGroup } from "@/app/navigation";
@@ -36,6 +36,13 @@ function NavLinks({
   onNavigate?: () => void;
 }) {
   const { hasRole } = useAuth();
+  const location = useLocation();
+  // Links that jump to a section (`/production#wo_analysis--top`) are active only on that hash; the plain page
+  // link then steps aside so just one item is highlighted.
+  const hashLinks = groups.flatMap((g) => g.items.map((i) => i.to)).filter((to) => to.includes("#"));
+  const activeHashLink = hashLinks.find((to) => to === location.pathname + location.hash);
+  const linkClass = (to: string) => ({ isActive }: { isActive: boolean }) =>
+    navLinkClass({ isActive: to.includes("#") ? to === activeHashLink : isActive && !(activeHashLink && activeHashLink.startsWith(to + "#")) });
   const visibleGroups = groups
     .map((group) => ({
       ...group,
@@ -60,7 +67,7 @@ function NavLinks({
           {group.items.map((item) => {
             const Icon = item.icon;
             return (
-              <NavLink key={item.to} to={item.to} end={item.to === "/"} onClick={onNavigate} className={navLinkClass}>
+              <NavLink key={item.to} to={item.to} end={item.to === "/"} onClick={onNavigate} className={linkClass(item.to)}>
                 {Icon && <Icon className="h-4 w-4 shrink-0" />}
                 <span className="truncate">{item.label}</span>
               </NavLink>
@@ -100,7 +107,8 @@ export function Sidebar({
   return (
     <>
       {/* Desktop */}
-      <aside className="hidden w-60 shrink-0 flex-col bg-sidebar lg:flex">
+      {/* Pinned to the viewport: the page scrolls, the sidebar stays; its own nav scrolls inside it when long. */}
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col bg-sidebar lg:flex">
         <Brand />
         <BackToDesktop />
         <NavLinks groups={groups} appLabel={appLabel} />

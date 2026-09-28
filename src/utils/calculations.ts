@@ -27,7 +27,12 @@ export function calculateLCProforma(rows: LCProformaItem[]) {
   return { items, totals };
 }
 
-/** Import Cost Sheet item: total landed cost per row and per unit. */
+/**
+ * Import Cost Sheet item: total landed cost per row and per unit, per Pakistan import costing.
+ * Landed cost = purchase value + freight, insurance, customs / additional / regulatory duty, clearing,
+ * port and other charges. Sales tax at import (s.7 STA) and income tax u/s 148 ITO are adjustable taxes,
+ * so they are NOT part of the stock's cost (mirrors import_cost_sheet.py).
+ */
 export function importCostItemTotals(row: ImportCostSheetItem): {
   totalLandedCost: number;
   landedCostPerUnit: number;
@@ -38,7 +43,6 @@ export function importCostItemTotals(row: ImportCostSheetItem): {
     asNumber(row.insurance) +
     asNumber(row.customs_duty) +
     asNumber(row.additional_duty) +
-    asNumber(row.sales_tax) +
     asNumber(row.regulatory_duty) +
     asNumber(row.clearing_charges) +
     asNumber(row.port_charges) +

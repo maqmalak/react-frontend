@@ -1187,6 +1187,11 @@ export interface Account {
   account_currency?: string;
   company?: string;
   disabled?: 0 | 1 | boolean;
+  /**
+   * "CPS Applicable" tag (micromax custom field) — set on the Expense accounts whose GL
+   * postings feed the Production dashboard's cost-per-spindle figures.
+   */
+  cps_applicable?: 0 | 1 | boolean;
   lft?: number;
   rgt?: number;
 }

@@ -41,6 +41,7 @@ const ACCOUNT_FIELDS = [
   "account_currency",
   "company",
   "disabled",
+  "cps_applicable",
   "lft",
 ] as const;
 
@@ -62,6 +63,27 @@ export function useChartOfAccounts(company?: string, enabled = true) {
 export function usePostableAccounts(company?: string) {
   const { data, isLoading } = useChartOfAccounts(company);
   return { data: (data ?? []).filter((a) => !a.is_group), isLoading };
+}
+
+/**
+ * Expense accounts tagged "CPS Applicable" (the micromax custom field on Account).
+ *
+ * The Production dashboard derives its cost-per-spindle figures from the GL postings
+ * against these accounts, so it needs their names to filter GL Entry on. Returns the
+ * docs rather than just names so callers can also report how many accounts are tagged
+ * (and show a "nothing tagged yet" hint when there are none).
+ */
+export function useCpsAccounts(company?: string, enabled = true) {
+  return useFrappeGetDocList<Account>(
+    "Account",
+    {
+      fields: ["name", "account_name", "root_type"] as unknown as (keyof Account)[],
+      filters: [...(company ? [["company", "=", company]] : []), ["cps_applicable", "=", 1]] as any,
+      limit: 0,
+      orderBy: { field: "lft", order: "asc" },
+    },
+    enabled && company ? `micromax.cps-accounts.${company}` : null,
+  );
 }
 
 /** Create / update / delete for the Account doctype — Chart of Accounts management. */

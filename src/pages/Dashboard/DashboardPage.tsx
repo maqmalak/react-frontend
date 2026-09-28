@@ -1,205 +1,464 @@
-import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import {
-  DollarSign,
-  Ship,
-  FileText,
-  AlertTriangle,
-  Package,
-  Factory,
-  Container,
-  Landmark,
-} from "lucide-react";
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { AlertOctagon, AlertTriangle, ArrowRight, CheckCircle2, Gauge, RefreshCw, Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { ChartCard } from "@/components/charts/chart-card";
-import { BarChart, PieChart, DonutChart, LineChart } from "@/components/charts/charts";
-import { KpiCard } from "./KpiCard";
-import { useSalesOrders } from "@/hooks/useSalesOrders";
-import { useLCProformas, lcStatusDistribution } from "@/hooks/useLCProforma";
-import { useExportShipments } from "@/hooks/useExportShipments";
-import { useImportShipments } from "@/hooks/useImportShipments";
-import { useImportCostSheets } from "@/hooks/useImportCostSheets";
-import { useCompanyContext, companyFilter } from "@/hooks/useCompanyContext";
-import { formatMoney, compactNumber } from "@/utils/currency";
-import { asNumber } from "@/utils/cn";
-import { daysUntil, monthKeyAndLabel } from "@/utils/dates";
+import { BarChart, CHART_COLORS, ComboChart, LineChart } from "@/components/charts/charts";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
+import { cn } from "@/utils/cn";
+import {
+  AnalyticsTabs,
+  DeltaPill,
+  DrillDialog,
+  INSIGHT_STYLE,
+  InsightRow,
+  MODULES,
+  PeriodBar,
+  Sparkline,
+  formatKpi,
+  useModuleDashboard,
+  usePeriod,
+  type DashboardData,
+  type Insight,
+  type Kpi,
+  type ModuleId,
+} from "@/pages/Analytics/analytics-kit";
 
-/** Group a numeric field by month label for the last 12 months. */
-function monthlySeries<T extends Record<string, any>>(
-  rows: T[] | undefined,
-  dateKey: string,
-  valueKey: string,
-  seriesKey: string,
-) {
+const kpiOf = (d: DashboardData | undefined, key: string): Kpi | undefined => d?.kpis.find((k) => k.key === key);
+const widgetOf = (d: DashboardData | undefined, id: string) => d?.widgets.find((w) => w.id === id);
+
+/** The KPIs each module card shows (first one also drives the card's sparkline). */
+const CARD_KPIS: Record<ModuleId, string[]> = {
+  accounts: ["income", "profit", "margin"],
+  sales: ["sales", "collected", "outstanding"],
+  purchase: ["purchases", "po_count", "payable"],
+  stock: ["value", "inward", "turnover"],
+  hr: ["headcount", "attendance", "absent"],
+  payroll: ["gross", "net", "employees"],
+  production: ["produced", "yield", "downtime"],
+  wo_analysis: ["ontime", "open", "completion"],
+  jc_analysis: ["efficiency", "wait", "rework"],
+  assets: ["gross", "nbv", "depreciation"],
+  financials: ["gross_profit", "total_assets", "current_ratio"],
+  procurement: ["cycle", "ontime", "ppv_rate"],
+  so_analysis: ["booked", "otif", "open_book"],
+  do_analysis: ["deliveries", "ontime", "unbilled"],
+  export_analysis: ["export_value", "export_share", "open_lc"],
+  import_analysis: ["import_value", "uplift", "dwell"],
+  quality: ["acceptance", "rft", "open_nc"],
+};
+
+/** Merge several monthly series (all labelled "Jul 26" …) into one row per month. */
+function mergeMonths(...parts: { rows?: Record<string, any>[]; pick: Record<string, string> }[]) {
   const map = new Map<string, Record<string, any>>();
-  (rows ?? []).forEach((r) => {
-    const bucket = monthKeyAndLabel(r[dateKey]);
-    if (!bucket) return;
-    const { key, label } = bucket;
-    const entry = map.get(key) ?? { month: label, [seriesKey]: 0 };
-    entry[seriesKey] = asNumber(entry[seriesKey]) + asNumber(r[valueKey]);
-    map.set(key, entry);
-  });
-  return [...map.entries()]
-    .sort((a, b) => (a[0] < b[0] ? -1 : 1))
-    .map(([, v]) => v)
-    .slice(-12);
+  parts.forEach(({ rows, pick }) =>
+    (rows ?? []).forEach((r) => {
+      const row = map.get(r.month) ?? { month: r.month };
+      Object.entries(pick).forEach(([from, to]) => (row[to] = Number(r[from] ?? 0)));
+      map.set(r.month, row);
+    }),
+  );
+  return [...map.values()];
 }
 
-/** Group by a categorical field, summing a value (or counting). */
-function groupBy<T extends Record<string, any>>(rows: T[] | undefined, key: string, valueKey?: string) {
-  const map = new Map<string, number>();
-  (rows ?? []).forEach((r) => {
-    const label = String(r[key] ?? "Unspecified") || "Unspecified";
-    map.set(label, (map.get(label) ?? 0) + (valueKey ? asNumber(r[valueKey]) : 1));
-  });
-  return [...map.entries()]
-    .map(([label, value]) => ({ label, value }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 8);
-}
-
-export function DashboardPage() {
-  const navigate = useNavigate();
-  const { company } = useCompanyContext();
-  const coFilter = companyFilter(company);
-
-  const { data: orders, isLoading: ordersLoading } = useSalesOrders({
-    filters: [...coFilter, ["docstatus", "<", 2]],
-    limit: 500,
-  });
-  const { data: lcs, isLoading: lcsLoading } = useLCProformas({
-    filters: [...coFilter, ["docstatus", "<", 2]],
-    limit: 500,
-  });
-  const { data: expShipments, isLoading: expLoading } = useExportShipments({ limit: 500 });
-  const { data: impShipments, isLoading: impLoading } = useImportShipments({ limit: 500 });
-  const { data: costSheets, isLoading: costLoading } = useImportCostSheets({
-    filters: coFilter,
-    limit: 500,
-  });
-
-  const kpis = useMemo(() => {
-    const exportValue = (orders ?? []).reduce((s, o) => s + asNumber(o.grand_total), 0);
-    const importValue = (costSheets ?? []).reduce((s, c) => s + asNumber(c.total_landed_cost), 0);
-
-    const openLcs = (lcs ?? []).filter(
-      (l) => !["Closed", "Cancelled", "Expired"].includes(l.lc_status ?? l.workflow_state ?? ""),
-    );
-    const lcValue = openLcs.reduce((s, l) => s + asNumber(l.lc_amount || l.total_proforma_value), 0);
-
-    const inTransit =
-      (expShipments ?? []).filter((s) => s.shipment_status === "In Transit").length +
-      (impShipments ?? []).filter((s) => s.shipment_status === "In Transit").length;
-
-    // Delayed = ETA in the past but not yet Arrived/Delivered/Closed.
-    const isDelayed = (eta?: string, status?: string) => {
-      const d = daysUntil(eta);
-      return d !== null && d < 0 && !["Arrived", "Delivered", "Closed"].includes(status ?? "");
-    };
-    const delayed =
-      (expShipments ?? []).filter((s) => isDelayed(s.eta, s.shipment_status)).length +
-      (impShipments ?? []).filter((s) => isDelayed(s.eta, s.shipment_status)).length;
-
-    const pendingOrders = (orders ?? []).filter(
-      (o) => !["Closed", "Completed", "Cancelled"].includes(o.status ?? ""),
-    ).length;
-
-    const totalQty = (orders ?? []).reduce((s, o) => s + asNumber(o.total_qty), 0);
-    const shippedOrders = (orders ?? []).filter((o) =>
-      ["Shipped", "Closed", "Completed"].includes(o.export_status ?? o.status ?? ""),
-    ).length;
-    const completion =
-      (orders ?? []).length > 0 ? Math.round((shippedOrders / (orders ?? []).length) * 100) : 0;
-
-    return {
-      exportValue,
-      importValue,
-      openLcCount: openLcs.length,
-      lcValue,
-      inTransit,
-      delayed,
-      pendingOrders,
-      completion,
-      totalQty,
-    };
-  }, [orders, lcs, expShipments, impShipments, costSheets]);
-
-  const monthlyExport = monthlySeries(orders, "transaction_date", "grand_total", "value");
-  const monthlyImport = monthlySeries(costSheets, "cost_sheet_date", "total_landed_cost", "value");
-  const buyerExport = groupBy(orders, "customer", "grand_total");
-  const countryExport = groupBy(orders, "country_of_destination", "grand_total");
-  const lcStatus = lcStatusDistribution(lcs);
-  const shipmentStatus = groupBy(expShipments, "shipment_status");
-  const productionStatus = groupBy(orders, "export_status");
-
-  const costBreakdown = useMemo(() => {
-    const totals: Record<string, number> = { Purchase: 0, Duty: 0, Tax: 0, Other: 0 };
-    (costSheets ?? []).forEach((c) => {
-      totals.Purchase += asNumber(c.total_purchase_value);
-      const delta = asNumber(c.total_landed_cost) - asNumber(c.total_purchase_value);
-      if (delta > 0) totals.Other += delta;
-    });
-    (impShipments ?? []).forEach((s) => {
-      totals.Duty += asNumber(s.duty_amount);
-      totals.Tax += asNumber(s.tax_amount);
-    });
-    return Object.entries(totals)
-      .map(([label, value]) => ({ label, value }))
-      .filter((d) => d.value > 0);
-  }, [costSheets, impShipments]);
-
-  const loading = ordersLoading || lcsLoading || expLoading || impLoading || costLoading;
-
+// ------------------------------------------------------------------ hero
+function HeroMetric({ label, kpi, currency, sub, onClick }: { label: string; kpi?: Kpi; currency: string; sub?: string; onClick?: () => void }) {
   return (
-    <div className="space-y-5">
-      <PageHeader
-        title="Executive Dashboard"
-        subtitle={company ? `Company: ${company}` : "All companies"}
-      />
-
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label="Export Value" value={formatMoney(kpis.exportValue, undefined, { compact: true })} icon={DollarSign} tone="success" loading={loading} onClick={() => navigate("/export/orders")} />
-        <KpiCard label="Import Value" value={formatMoney(kpis.importValue, undefined, { compact: true })} icon={Container} tone="info" loading={loading} onClick={() => navigate("/import/cost-sheets")} />
-        <KpiCard label="Open LC" value={kpis.openLcCount} icon={FileText} loading={loading} onClick={() => navigate("/export/lc-proforma")} />
-        <KpiCard label="LC Value" value={formatMoney(kpis.lcValue, undefined, { compact: true })} icon={Landmark} tone="warning" loading={loading} onClick={() => navigate("/reports/lc")} />
-        <KpiCard label="Shipments In Transit" value={kpis.inTransit} icon={Ship} tone="info" loading={loading} onClick={() => navigate("/export/shipments")} />
-        <KpiCard label="Delayed Shipments" value={kpis.delayed} icon={AlertTriangle} tone="destructive" loading={loading} onClick={() => navigate("/reports/shipments")} />
-        <KpiCard label="Pending Export Orders" value={kpis.pendingOrders} icon={Package} loading={loading} onClick={() => navigate("/export/orders")} />
-        <KpiCard label="Production Completion" value={`${kpis.completion}%`} hint={`${compactNumber(kpis.totalQty)} pcs ordered`} icon={Factory} tone="success" loading={loading} onClick={() => navigate("/production/status")} />
+    <div
+      role={kpi && onClick ? "button" : undefined}
+      tabIndex={kpi && onClick ? 0 : undefined}
+      title={kpi && onClick ? "Show the documents behind this figure" : undefined}
+      onClick={kpi ? onClick : undefined}
+      onKeyDown={(e) => {
+        if (kpi && onClick && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className={cn(
+        "flex min-w-0 flex-col gap-1.5 rounded-xl bg-white/10 p-4 ring-1 ring-white/15 backdrop-blur",
+        kpi && onClick && "cursor-pointer transition hover:bg-white/15 hover:ring-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate text-xs font-medium uppercase tracking-wide text-white/70">{label}</span>
+        {kpi && <DeltaPill delta={kpi.delta} invert={kpi.invert} className="bg-white/15 text-white" />}
       </div>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <ChartCard title="Monthly Export Value" subtitle="Sales Orders by month">
-          <BarChart data={monthlyExport} xKey="month" series={[{ key: "value", label: "Export" }]} money />
-        </ChartCard>
-        <ChartCard title="Monthly Import Value" subtitle="Landed cost by month">
-          <LineChart data={monthlyImport} xKey="month" series={[{ key: "value", label: "Import" }]} money />
-        </ChartCard>
-        <ChartCard title="Buyer-wise Export" subtitle="Top buyers by order value">
-          <PieChart data={buyerExport} money />
-        </ChartCard>
-        <ChartCard title="Country-wise Export" subtitle="Destination markets">
-          <PieChart data={countryExport} money />
-        </ChartCard>
-        <ChartCard title="LC Status" subtitle="Distribution of LC Proformas">
-          <DonutChart data={lcStatus} />
-        </ChartCard>
-        <ChartCard title="Shipment Status" subtitle="Export shipments by stage">
-          <DonutChart data={shipmentStatus} />
-        </ChartCard>
-        <ChartCard title="Production Status" subtitle="Export orders by production stage">
-          <BarChart
-            data={productionStatus.map((d) => ({ label: d.label, count: d.value }))}
-            xKey="label"
-            series={[{ key: "count", label: "Orders" }]}
-          />
-        </ChartCard>
-        <ChartCard title="Import Cost Breakdown" subtitle="Purchase vs duties, taxes and charges">
-          <DonutChart data={costBreakdown} money />
-        </ChartCard>
-      </div>
+      {kpi ? (
+        <>
+          <p className="truncate text-3xl font-bold tabular-nums text-white">{formatKpi(kpi.value, kpi.format, currency)}</p>
+          <p className="truncate text-xs text-white/70">{sub ?? (kpi.avg != null ? `Avg ${formatKpi(kpi.avg, kpi.format, currency)} per month` : " ")}</p>
+          <div className="-mx-4 -mb-4">
+            <Sparkline values={kpi.spark} color="rgba(255,255,255,0.9)" height={44} />
+          </div>
+        </>
+      ) : (
+        <div className="space-y-2 py-1">
+          <div className="h-8 w-32 animate-pulse rounded bg-white/15" />
+          <div className="h-3 w-24 animate-pulse rounded bg-white/10" />
+          <div className="h-10" />
+        </div>
+      )}
     </div>
   );
 }
 
+// ------------------------------------------------------------------ module card
+function ModuleCard({ id, dash, currency }: { id: ModuleId; dash?: DashboardData; currency: string }) {
+  const meta = MODULES.find((m) => m.id === id)!;
+  const Icon = meta.icon;
+  const kpis = CARD_KPIS[id].map((k) => kpiOf(dash, k)).filter(Boolean) as Kpi[];
+  const top = dash?.insights?.find((i) => i.level !== "info") ?? dash?.insights?.[0];
+  return (
+    <Link to={`/analytics/${id}`} className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+      <Card className="hover-lift flex h-full flex-col overflow-hidden">
+        <div className="flex items-center gap-3 p-4 pb-2">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: `${meta.accent.replace(")", " / 0.12)")}`, color: meta.accent }}>
+            <Icon className="h-4.5 w-4.5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold">{meta.label}</p>
+            <p className="truncate text-[11px] text-muted-foreground">{meta.subtitle}</p>
+          </div>
+          <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+        </div>
+        {dash ? (
+          <>
+            <div className="grid grid-cols-3 gap-2 px-4 py-2">
+              {kpis.map((k) => (
+                <div key={k.key} className="min-w-0">
+                  <p className="truncate text-[11px] text-muted-foreground">{k.label}</p>
+                  <p className="truncate text-base font-bold tabular-nums">{formatKpi(k.value, k.format, currency)}</p>
+                </div>
+              ))}
+            </div>
+            <div className="h-12">{kpis[0] && <Sparkline values={kpis[0].spark} color={meta.accent} height={48} />}</div>
+            {top && (
+              <div className="mt-auto flex items-start gap-2 border-t border-border bg-muted/30 px-4 py-2.5">
+                {(() => {
+                  const S = INSIGHT_STYLE[top.level];
+                  return <S.icon className={cn("mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full", S.chip)} />;
+                })()}
+                <p className="line-clamp-2 text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">{top.title}:</span> {top.text}
+                </p>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="space-y-3 p-4">
+            <Skeleton className="h-10" />
+            <Skeleton className="h-12" />
+          </div>
+        )}
+      </Card>
+    </Link>
+  );
+}
+
+// ------------------------------------------------------------------ page
+export function DashboardPage() {
+  const { company, companyCurrency } = useCompanyContext();
+  const currency = companyCurrency ?? "PKR";
+  const period = usePeriod();
+  const [drill, setDrill] = useState<{ module: ModuleId; kpi: Kpi } | null>(null);
+  const openDrill = (module: ModuleId, kpi?: Kpi) => kpi && setDrill({ module, kpi });
+  const [refreshToken, setRefreshToken] = useState(0);
+  const on = !period.invalid;
+
+  // One call per module, in parallel; each section renders as soon as its module arrives.
+  const accounts = useModuleDashboard("accounts", period.range, company, refreshToken, on);
+  const sales = useModuleDashboard("sales", period.range, company, refreshToken, on);
+  const purchase = useModuleDashboard("purchase", period.range, company, refreshToken, on);
+  const stock = useModuleDashboard("stock", period.range, company, refreshToken, on);
+  const hr = useModuleDashboard("hr", period.range, company, refreshToken, on);
+  const payroll = useModuleDashboard("payroll", period.range, company, refreshToken, on);
+  const production = useModuleDashboard("production", period.range, company, refreshToken, on);
+  const assets = useModuleDashboard("assets", period.range, company, refreshToken, on);
+  const financials = useModuleDashboard("financials", period.range, company, refreshToken, on);
+  const procurement = useModuleDashboard("procurement", period.range, company, refreshToken, on);
+  const so_analysis = useModuleDashboard("so_analysis", period.range, company, refreshToken, on);
+  const do_analysis = useModuleDashboard("do_analysis", period.range, company, refreshToken, on);
+  const export_analysis = useModuleDashboard("export_analysis", period.range, company, refreshToken, on);
+  const import_analysis = useModuleDashboard("import_analysis", period.range, company, refreshToken, on);
+  const quality = useModuleDashboard("quality", period.range, company, refreshToken, on);
+  const wo_analysis = useModuleDashboard("wo_analysis", period.range, company, refreshToken, on);
+  const jc_analysis = useModuleDashboard("jc_analysis", period.range, company, refreshToken, on);
+  const all: Record<ModuleId, typeof accounts> = { accounts, purchase, procurement, production, wo_analysis, jc_analysis, stock, sales, so_analysis, do_analysis, export_analysis, import_analysis, quality, hr, payroll, assets, financials };
+  const busy = Object.values(all).some((m) => m.isValidating);
+  const loaded = Object.values(all).filter((m) => m.dash).length;
+
+  const A = accounts.dash, S = sales.dash, P = production.dash, PY = payroll.dash, ST = stock.dash;
+
+  const insights: Insight[] = useMemo(() => {
+    const rank = { critical: 0, warning: 1, positive: 2, info: 3 } as const;
+    return Object.values(all)
+      .flatMap((m) => m.dash?.insights ?? [])
+      .sort((a, b) => rank[a.level] - rank[b.level]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accounts.dash, sales.dash, purchase.dash, procurement.dash, so_analysis.dash, do_analysis.dash, export_analysis.dash, import_analysis.dash, quality.dash, stock.dash, hr.dash, payroll.dash, production.dash, wo_analysis.dash, jc_analysis.dash, assets.dash, financials.dash]);
+  const counts = { critical: 0, warning: 0, positive: 0, info: 0 } as Record<Insight["level"], number>;
+  insights.forEach((i) => (counts[i.level] += 1));
+  const [levelFilter, setLevelFilter] = useState<Insight["level"] | "all">("all");
+  const shown = levelFilter === "all" ? insights : insights.filter((i) => i.level === levelFilter);
+
+  // Cross-module series
+  const pnl = useMemo(
+    () =>
+      mergeMonths(
+        { rows: widgetOf(A, "pl")?.data, pick: { income: "income", expense: "expense" } },
+        { rows: widgetOf(PY, "trend")?.data, pick: { gross: "payroll" } },
+      ),
+    [A, PY],
+  );
+  const soldVsMade = useMemo(
+    () =>
+      mergeMonths(
+        { rows: widgetOf(S, "trend")?.data, pick: { q: "sold" } },
+        { rows: widgetOf(P, "output")?.data, pick: { produced: "produced" } },
+      ),
+    [S, P],
+  );
+  const cashConv = widgetOf(S, "flow")?.data;
+  const costMix = widgetOf(A, "exp_mix")?.data as { label: string; value: number }[] | undefined;
+  /** Largest expense accounts as vertical bars: "5101-1 - Cost of goods manufactured" → "Cost of goods manu…". */
+  const costBars = useMemo(
+    () =>
+      costMix?.map((r, i) => {
+        const name = r.label.replace(/^[\d-]+\s*-\s*/, "");
+        return { account: name.length > 18 ? `${name.slice(0, 17)}…` : name, v: r.value, color: CHART_COLORS[i % CHART_COLORS.length] };
+      }),
+    [costMix],
+  );
+  const workingCapital = useMemo(() => {
+    const rows = [
+      { item: "Receivables", v: kpiOf(A, "receivable")?.value, c: "hsl(221 83% 53%)" },
+      { item: "Stock", v: kpiOf(ST, "value")?.value, c: "hsl(199 89% 48%)" },
+      { item: "Cash & bank", v: kpiOf(A, "cash")?.value, c: "hsl(160 84% 39%)" },
+      { item: "Payables", v: kpiOf(A, "payable")?.value, c: "hsl(351 95% 59%)" },
+    ];
+    return rows.every((r) => r.v == null) ? undefined : rows.map((r) => ({ item: r.item, v: r.v ?? 0, color: r.c }));
+  }, [A, ST]);
+  const payrollShare = kpiOf(PY, "gross") && kpiOf(A, "income")?.value ? (kpiOf(PY, "gross")!.value / kpiOf(A, "income")!.value) * 100 : null;
+
+  const chartSkeleton = <Skeleton className="h-[280px] rounded-md" />;
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Executive Dashboard"
+        subtitle={`Whole-mill performance · ${period.label}${company ? ` · ${company}` : ""}`}
+        icon={<Gauge className="h-5 w-5" />}
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => {
+              setRefreshToken((t) => t + 1);
+              Object.values(all).forEach((m) => void m.mutate());
+            }}
+          >
+            <RefreshCw className={cn("mr-1.5 h-4 w-4", busy && "animate-spin")} /> Refresh
+          </Button>
+        }
+      />
+
+      <div className="-mt-2">
+        <AnalyticsTabs />
+      </div>
+
+      <PeriodBar period={period} company={company} />
+
+      {/* Hero */}
+      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-900 to-teal-800 p-5 text-white shadow-lg sm:p-6">
+        <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-teal-400/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 left-1/3 h-64 w-64 rounded-full bg-indigo-400/20 blur-3xl" />
+        <div className="relative mb-4 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-teal-200">{period.label}</p>
+            <h2 className="text-xl font-semibold sm:text-2xl">How the mill is performing</h2>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs">
+            {(["critical", "warning", "positive"] as const).map((lvl) => {
+              const st = INSIGHT_STYLE[lvl];
+              const Icon = lvl === "critical" ? AlertOctagon : lvl === "warning" ? AlertTriangle : CheckCircle2;
+              return (
+                <button
+                  key={lvl}
+                  type="button"
+                  onClick={() => setLevelFilter((f) => (f === lvl ? "all" : lvl))}
+                  className={cn("flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 ring-1 ring-white/15 transition hover:bg-white/20", levelFilter === lvl && "bg-white/25")}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  <span className="font-semibold tabular-nums">{counts[lvl]}</span> {st.label}
+                </button>
+              );
+            })}
+            <span className="flex items-center rounded-full bg-white/10 px-3 py-1 text-white/70 ring-1 ring-white/15">
+              {loaded}/{MODULES.length} modules loaded
+            </span>
+          </div>
+        </div>
+        <div className="relative grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <HeroMetric label="Revenue" kpi={kpiOf(A, "income")} currency={currency} onClick={() => openDrill("accounts", kpiOf(A, "income"))} />
+          <HeroMetric
+            label="Net profit"
+            kpi={kpiOf(A, "profit")}
+            currency={currency}
+            onClick={() => openDrill("accounts", kpiOf(A, "profit"))}
+            sub={kpiOf(A, "margin") ? `Margin ${formatKpi(kpiOf(A, "margin")!.value, "percent", currency)}` : undefined}
+          />
+          <HeroMetric label="Cash & bank" kpi={kpiOf(A, "cash")} currency={currency} sub={kpiOf(A, "cash")?.hint ?? undefined} onClick={() => openDrill("accounts", kpiOf(A, "cash"))} />
+          <HeroMetric
+            label="Yarn produced"
+            kpi={kpiOf(P, "produced")}
+            currency={currency}
+            onClick={() => openDrill("production", kpiOf(P, "produced"))}
+            sub={kpiOf(P, "yield") ? `Yield ${formatKpi(kpiOf(P, "yield")!.value, "percent", currency)} · plan ${formatKpi(kpiOf(P, "achievement")?.value ?? 0, "percent", currency)}` : undefined}
+          />
+        </div>
+      </section>
+
+      {/* Insights + headline charts */}
+      <div className="grid gap-4 xl:grid-cols-3">
+        <Card className="flex flex-col xl:row-span-2">
+          <div className="flex items-center justify-between gap-2 border-b border-border p-4">
+            <div className="flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Sparkles className="h-4 w-4" />
+              </span>
+              <div>
+                <h3 className="text-sm font-semibold">Key insights</h3>
+                <p className="text-[11px] text-muted-foreground">Generated from all modules for the period</p>
+              </div>
+            </div>
+            {levelFilter !== "all" && (
+              <button type="button" className="text-xs text-primary hover:underline" onClick={() => setLevelFilter("all")}>
+                Show all
+              </button>
+            )}
+          </div>
+          {insights.length ? (
+            <ul className="max-h-[660px] flex-1 space-y-0.5 overflow-y-auto p-2 scrollbar-thin">
+              {shown.map((i, n) => (
+                <InsightRow key={`${i.module}-${n}`} i={i} showModule />
+              ))}
+            </ul>
+          ) : (
+            <div className="space-y-3 p-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-12" />
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <ChartCard
+          className="xl:col-span-2"
+          title="Revenue, expenses & payroll"
+          subtitle={payrollShare != null ? `Payroll is ${payrollShare.toFixed(1)}% of revenue` : "Monthly"}
+        >
+          {pnl.length ? (
+            <ComboChart
+              data={pnl}
+              xKey="month"
+              money
+              currency={currency}
+              legend
+              series={[
+                { key: "income", label: "Revenue" },
+                { key: "expense", label: "Expenses", color: "hsl(351 95% 59%)" },
+                { key: "payroll", label: "Payroll", type: "line", color: "hsl(35 92% 50%)" },
+              ]}
+            />
+          ) : (
+            chartSkeleton
+          )}
+        </ChartCard>
+
+        <ChartCard className="xl:col-span-2" title="Sold vs produced" subtitle="Quantity invoiced to customers against quantity produced">
+          {soldVsMade.length ? (
+            <LineChart
+              data={soldVsMade}
+              xKey="month"
+              legend
+              series={[
+                { key: "produced", label: "Produced", color: "hsl(173 80% 36%)" },
+                { key: "sold", label: "Sold", color: "hsl(221 83% 53%)" },
+              ]}
+            />
+          ) : (
+            chartSkeleton
+          )}
+        </ChartCard>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <ChartCard title="Working capital" subtitle={`Balances on ${period.range.to}`}>
+          {workingCapital ? (
+            <BarChart data={workingCapital} xKey="item" money currency={currency} colorKey="color" series={[{ key: "v", label: "Amount" }]} />
+          ) : (
+            chartSkeleton
+          )}
+        </ChartCard>
+        <ChartCard title="Cash conversion" subtitle="Ordered, invoiced and collected each month">
+          {cashConv ? (
+            <LineChart
+              data={cashConv}
+              xKey="month"
+              money
+              currency={currency}
+              legend
+              series={[
+                { key: "ordered", label: "Ordered" },
+                { key: "invoiced", label: "Invoiced" },
+                { key: "collected", label: "Collected" },
+              ]}
+            />
+          ) : (
+            chartSkeleton
+          )}
+        </ChartCard>
+        <ChartCard title="Cost structure" subtitle="Largest expense accounts">
+          {costBars ? (
+            <BarChart data={costBars} xKey="account" money currency={currency} colorKey="color" angledLabels height={280} series={[{ key: "v", label: "Expense" }]} />
+          ) : (
+            chartSkeleton
+          )}
+        </ChartCard>
+      </div>
+
+      {/* Module cards */}
+      <div>
+        <div className="mb-3 flex items-baseline justify-between">
+          <h3 className="text-sm font-semibold">By module</h3>
+          <Link to="/analytics/accounts" className="text-xs text-primary hover:underline">
+            Open analytics <ArrowRight className="inline h-3 w-3" />
+          </Link>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          {MODULES.map((m) => (
+            <ModuleCard key={m.id} id={m.id} dash={all[m.id].dash} currency={currency} />
+          ))}
+        </div>
+      </div>
+
+      <p className="text-right text-[11px] text-muted-foreground">
+        Deltas compare the last month in the period with the month before · figures cached up to 15 minutes
+      </p>
+
+      <DrillDialog
+        module={drill?.module ?? "accounts"}
+        kpi={drill?.kpi ?? null}
+        range={period.range}
+        company={company}
+        currency={currency}
+        onClose={() => setDrill(null)}
+      />
+    </div>
+  );
+}

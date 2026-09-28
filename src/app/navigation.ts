@@ -1,5 +1,12 @@
 import {
   LayoutDashboard,
+  AlertOctagon,
+  Target,
+  FlaskConical,
+  ClipboardCheck,
+  LayoutList,
+  Gauge,
+  Landmark,
   Radar,
   Ship,
   FileText,
@@ -53,6 +60,7 @@ import {
   CalendarDays,
   Radio,
   ListChecks,
+  GanttChartSquare,
   MapPin,
   Quote,
   LayoutGrid,
@@ -73,6 +81,7 @@ import {
   FolderKanban,
   ListTodo,
 } from "lucide-react";
+import { APPS, APP_GROUPS } from "./apps";
 
 export interface NavItem {
   label: string;
@@ -95,6 +104,12 @@ export interface NavGroup {
 // segments point at this same array so the sidebar looks identical no
 // matter which of the two (still-separate) URL prefixes you're on.
 const BUYING_NAV: NavGroup[] = [
+  {
+    items: [
+      { label: "Buying Analysis", to: "/analytics/suite/purchase", icon: LayoutDashboard },
+      { label: "Buying Cycle", to: "/analytics/procurement", icon: Timer },
+    ],
+  },
   {
     title: "Procurement",
     items: [
@@ -123,6 +138,13 @@ const BUYING_NAV: NavGroup[] = [
 // second titled section. Both `selling` and `export` segments share this array.
 const SELLING_NAV: NavGroup[] = [
   {
+    items: [
+      { label: "Sales Analysis", to: "/analytics/suite/sales", icon: LayoutDashboard },
+      { label: "SO Analysis", to: "/analytics/so_analysis", icon: ClipboardList },
+      { label: "DO Analysis", to: "/analytics/do_analysis", icon: Truck },
+    ],
+  },
+  {
     title: "Selling",
     items: [
       { label: "Sales Orders", to: "/selling/sales-orders", icon: Handshake },
@@ -133,6 +155,7 @@ const SELLING_NAV: NavGroup[] = [
   {
     title: "Export",
     items: [
+      { label: "Export Dashboard", to: "/export/dashboard", icon: LayoutDashboard },
       { label: "LC Proforma", to: "/export/lc-proforma", icon: FileText },
       { label: "Export Orders", to: "/export/orders", icon: Package },
       { label: "Export Packing", to: "/export/packing", icon: Boxes },
@@ -145,27 +168,120 @@ const SELLING_NAV: NavGroup[] = [
   },
 ];
 
+const ANALYTICS_NAV: NavGroup[] = [
+  {
+    title: "Dashboards",
+    items: [
+      { label: "Executive", to: "/dashboard", icon: Gauge },
+      { label: "Accounts", to: "/analytics/accounts", icon: Landmark },
+    ],
+  },
+  {
+    title: "Buying Analysis",
+    items: [
+      { label: "Overview (one page)", to: "/analytics/suite/purchase", icon: LayoutList },
+      { label: "Purchases", to: "/analytics/purchase", icon: ShoppingCart },
+      { label: "Buying Cycle", to: "/analytics/procurement", icon: Timer },
+      { label: "Import", to: "/analytics/import_analysis", icon: Container },
+    ],
+  },
+  {
+    title: "Sales Analysis",
+    items: [
+      { label: "Overview (one page)", to: "/analytics/suite/sales", icon: LayoutList },
+      { label: "Sales", to: "/analytics/sales", icon: TrendingUp },
+      { label: "SO Analysis", to: "/analytics/so_analysis", icon: ClipboardList },
+      { label: "DO Analysis", to: "/analytics/do_analysis", icon: Truck },
+      { label: "Export", to: "/analytics/export_analysis", icon: Ship },
+    ],
+  },
+  {
+    title: "Import & Export",
+    items: [
+      { label: "Overview (one page)", to: "/analytics/suite/trade", icon: LayoutList },
+      { label: "Export Analysis", to: "/analytics/export_analysis", icon: Ship },
+      { label: "Import Analysis", to: "/analytics/import_analysis", icon: Container },
+      { label: "Trade documents", to: "/analytics/export", icon: FileText },
+    ],
+  },
+  {
+    title: "Quality",
+    items: [
+      { label: "QA/QC Analysis", to: "/analytics/quality", icon: ClipboardCheck },
+      { label: "Quality app", to: "/quality/inspections", icon: FlaskConical },
+    ],
+  },
+  {
+    title: "Operations & Finance",
+    items: [
+      { label: "Production", to: "/production", icon: Factory },
+      { label: "WO Analysis", to: "/production#wo_analysis--top", icon: ListChecks },
+      { label: "Job Card Analysis", to: "/production#jc_analysis--top", icon: Timer },
+      { label: "Stock", to: "/analytics/stock", icon: Warehouse },
+      { label: "HR", to: "/analytics/hr", icon: Users2 },
+      { label: "Payroll", to: "/analytics/payroll", icon: Banknote },
+      { label: "Assets", to: "/analytics/assets", icon: Building2 },
+      { label: "Financial", to: "/analytics/financials", icon: Scale },
+    ],
+  },
+];
+
 /**
  * Per-app sidebar navigation, keyed by the route's first path segment (which
  * lines up 1:1 with each tile's `to` in `app/apps.ts`, except `stock` which
  * shares the `inventory` segment/pages). The Desktop app-launcher (`/`) is
  * the one route with no entry here — it renders without a sidebar entirely.
  */
+/** The Desktop launcher's sidebar: every app, in the same sections and order as the cards. */
+const HOME_NAV: NavGroup[] = [...APP_GROUPS, "More"]
+  .map((group) => ({
+    title: group,
+    items: APPS.filter((app) => (app.group ?? "More") === group).map((app) => ({ label: app.label, to: app.to, icon: app.icon, roles: app.roles })),
+  }))
+  .filter((g) => g.items.length > 0);
+
 export const APP_NAVIGATION: Record<string, NavGroup[]> = {
-  dashboard: [
-    { items: [{ label: "Overview", to: "/dashboard", icon: LayoutDashboard }] },
+  home: HOME_NAV,
+  quality: [
+    { title: "Overview", items: [{ label: "QA/QC Analysis", to: "/quality", icon: Gauge }] },
+    {
+      title: "Inspection",
+      items: [
+        { label: "Quality Inspections", to: "/quality/inspections", icon: ClipboardCheck },
+        { label: "Inspection Templates", to: "/quality/templates", icon: ListChecks },
+        { label: "Parameters", to: "/quality/parameters", icon: FlaskConical },
+        { label: "Parameter Groups", to: "/quality/parameter-groups", icon: Layers },
+      ],
+    },
+    {
+      title: "Quality Management",
+      items: [
+        { label: "Procedures (SOPs)", to: "/quality/procedures", icon: ScrollText },
+        { label: "Quality Goals", to: "/quality/goals", icon: Target },
+        { label: "Quality Reviews", to: "/quality/reviews", icon: ClipboardList },
+        { label: "Non Conformances", to: "/quality/non-conformances", icon: AlertOctagon },
+        { label: "Quality Actions (CAPA)", to: "/quality/actions", icon: Wrench },
+      ],
+    },
   ],
+  dashboard: ANALYTICS_NAV,
+  analytics: ANALYTICS_NAV,
   import: BUYING_NAV,
   purchase: BUYING_NAV,
   export: SELLING_NAV,
   production: [
     {
-      items: [{ label: "Overview", to: "/production", icon: LayoutDashboard }],
+      items: [
+        { label: "Overview", to: "/production", icon: BarChart3 },
+        { label: "WO Analysis", to: "/production#wo_analysis--top", icon: ListChecks },
+        { label: "Job Card Analysis", to: "/production#jc_analysis--top", icon: Timer },
+      ],
     },
     {
       title: "Planning",
       items: [
         { label: "Production Plans", to: "/production/production-plans", icon: CalendarRange },
+        { label: "Schedule (Gantt)", to: "/production/schedule", icon: GanttChartSquare },
         { label: "Bills of Materials", to: "/production/boms", icon: Layers },
       ],
     },
@@ -183,6 +299,7 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
     },
   ],
   inventory: [
+    { items: [{ label: "Dashboard", to: "/analytics/stock", icon: LayoutDashboard }] },
     {
       title: "Stock",
       items: [
@@ -220,7 +337,8 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
     {
       title: "Overview",
       items: [
-        { label: "Dashboard", to: "/accounting", icon: LayoutDashboard },
+        { label: "Dashboard", to: "/analytics/accounts", icon: LayoutDashboard },
+        { label: "GL Overview", to: "/accounting", icon: BarChart3 },
         { label: "Getting Started", to: "/accounting/getting-started", icon: Rocket },
       ],
     },
@@ -337,7 +455,10 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
   subcontracting: [{ items: [{ label: "Subcontracting", to: "/subcontracting", icon: Cog }] }],
   "asset-management": [
     {
-      items: [{ label: "Overview", to: "/asset-management", icon: LayoutDashboard }],
+      items: [
+        { label: "Dashboard", to: "/analytics/assets", icon: LayoutDashboard },
+        { label: "Overview", to: "/asset-management", icon: BarChart3 },
+      ],
     },
     {
       title: "Register",
@@ -370,6 +491,7 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
   ],
   support: [{ items: [{ label: "Support", to: "/support", icon: LifeBuoy }] }],
   hr: [
+    { items: [{ label: "Dashboard", to: "/analytics/hr", icon: LayoutDashboard }] },
     {
       title: "Employees",
       items: [
@@ -404,6 +526,7 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
     },
   ],
   payroll: [
+    { items: [{ label: "Dashboard", to: "/analytics/payroll", icon: LayoutDashboard }] },
     {
       title: "Payroll",
       items: [
@@ -442,7 +565,10 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
 
 /** Route segment -> human label for the sidebar's app header. */
 export const APP_LABELS: Record<string, string> = {
+  home: "Apps",
   dashboard: "Dashboard",
+  quality: "Quality",
+  analytics: "Analytics",
   import: "Buying",
   purchase: "Buying",
   export: "Selling",
@@ -470,13 +596,29 @@ export function appSegmentForPath(pathname: string): string {
 }
 
 /** All sidebar nav groups flattened — used for the login page's live stat count. */
-export const NAVIGATION: NavGroup[] = Object.values(APP_NAVIGATION).flat();
+// The home sidebar only re-lists the apps, so it isn't counted as navigation of its own.
+export const NAVIGATION: NavGroup[] = Object.entries(APP_NAVIGATION)
+  .filter(([segment]) => segment !== "home")
+  .flatMap(([, groups]) => groups);
 
 /** Human-readable breadcrumb segments for a pathname. */
 export const ROUTE_TITLES: Record<string, string> = {
   "": "Desktop",
   home: "Desktop",
   dashboard: "Dashboard",
+  schedule: "Production Schedule",
+  quality: "Quality",
+  inspections: "Quality Inspections",
+  templates: "Inspection Templates",
+  parameters: "Parameters",
+  "parameter-groups": "Parameter Groups",
+  procedures: "Procedures",
+  goals: "Quality Goals",
+  reviews: "Quality Reviews",
+  "non-conformances": "Non Conformances",
+  actions: "Quality Actions",
+  analytics: "Analytics",
+  accounts: "Accounts",
   admin: "Administration",
   users: "Users",
   roles: "Roles",

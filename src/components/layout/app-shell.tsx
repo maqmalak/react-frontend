@@ -10,9 +10,8 @@ import { APP_NAVIGATION, APP_LABELS, appSegmentForPath } from "@/app/navigation"
  * Authenticated application shell: header + routed content, with a sidebar
  * scoped to whichever app the current route belongs to.
  *
- * The Desktop launcher (`/home`) is the one route with no app context, so it
- * renders full-width with no sidebar at all — the sidebar only appears once
- * you're inside a specific app, showing just that app's own nav.
+ * On the Desktop launcher (`/home`) the sidebar lists every app, grouped like the
+ * launcher cards; inside an app it shows just that app's own nav.
  */
 export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -40,7 +39,7 @@ export function AppShell() {
           onOpenSearch={() => setSearchOpen(true)}
           brand={!showSidebar}
         />
-        <main className="flex-1 overflow-x-hidden px-3 py-5 sm:px-5 lg:px-6">
+        <main className="flex-1 overflow-x-clip px-3 py-5 sm:px-5 lg:px-6">
           <div className="mx-auto w-full max-w-[1400px]">
             <Outlet />
           </div>

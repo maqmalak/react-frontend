@@ -67,7 +67,13 @@ const ACCOUNT_TYPE_OPTIONS = [
   "Temporary",
 ];
 
-function accountFormFields(company?: string): FormFieldMeta[] {
+/**
+ * Fields for the account dialog. `rootType` is the *effective* root type — the
+ * account's own when set, otherwise the parent's (Frappe stores a root type on
+ * every account but lets a child inherit it) — and decides whether the
+ * cost-per-spindle tag applies.
+ */
+function accountFormFields(company?: string, rootType?: string): FormFieldMeta[] {
   return [
     { fieldname: "account_name", label: "Account Name", fieldtype: "Data", reqd: true },
     { fieldname: "account_number", label: "Account Number", fieldtype: "Data" },
@@ -89,6 +95,17 @@ function accountFormFields(company?: string): FormFieldMeta[] {
     },
     { fieldname: "account_type", label: "Account Type", fieldtype: "Select", options: ["", ...ACCOUNT_TYPE_OPTIONS].join("\n") },
     { fieldname: "account_category", label: "Account Category", fieldtype: "Link", options: "Account Category" },
+    // Cost-per-spindle tagging only makes sense on the expense side of the P&L.
+    ...(rootType === "Expense"
+      ? [
+          {
+            fieldname: "cps_applicable",
+            label: "CPS Applicable",
+            fieldtype: "Check" as const,
+            description: "Count this account's expenses towards the cost-per-spindle figures on the Production dashboard.",
+          },
+        ]
+      : []),
     { fieldname: "disabled", label: "Disabled", fieldtype: "Check" },
   ];
 }
@@ -101,6 +118,7 @@ const COLUMNS: ColumnDef<Account>[] = [
   { key: "account_type", label: "Account Type" },
   { key: "is_group", label: "Type", render: (r) => (r.is_group ? <Badge variant="secondary">Group</Badge> : <Badge variant="outline">Leaf</Badge>) },
   { key: "disabled", label: "Status", render: (r) => (r.disabled ? <Badge variant="destructive">Disabled</Badge> : <Badge variant="success">Active</Badge>) },
+  { key: "cps_applicable", label: "CPS", render: (r) => (r.cps_applicable ? <Badge variant="info">CPS applicable</Badge> : "—") },
 ];
 
 const IMPORT_FIELDS = [
@@ -110,6 +128,7 @@ const IMPORT_FIELDS = [
   { fieldname: "is_group", label: "Is Group (0/1)", boolean: true },
   { fieldname: "root_type", label: "Root Type" },
   { fieldname: "account_type", label: "Account Type" },
+  { fieldname: "cps_applicable", label: "CPS Applicable (0/1)", boolean: true },
   { fieldname: "disabled", label: "Disabled (0/1)", boolean: true },
 ];
 
@@ -139,6 +158,16 @@ export function ChartOfAccountsPage() {
         raw: a,
       })),
     [data],
+  );
+
+  /**
+   * What the account's root type will end up as: its own when set, otherwise the
+   * selected parent's (a blank root type means "inherit"). Drives the
+   * cost-per-spindle tag offered in the dialog.
+   */
+  const effectiveRootType = useMemo(
+    () => formValues.root_type || (data ?? []).find((a) => a.name === formValues.parent_account)?.root_type,
+    [formValues.root_type, formValues.parent_account, data],
   );
 
   /** Prints the tree with a company-root row and the same group-first hierarchy shown on screen. */
@@ -214,6 +243,7 @@ export function ChartOfAccountsPage() {
     root_type: r.root_type ?? "",
     account_type: r.account_type ?? "",
     is_group: r.is_group ? "Group" : "Leaf",
+    cps_applicable: r.cps_applicable ? "CPS Applicable" : "",
     disabled: r.disabled ? "Disabled" : "Active",
   }));
 
@@ -330,7 +360,7 @@ export function ChartOfAccountsPage() {
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} size="lg" title={editing ? "Edit Account" : "New Account"}>
         <div className="space-y-5">
           <FrappeForm
-            fields={accountFormFields(company)}
+            fields={accountFormFields(company, effectiveRootType)}
             values={formValues}
             onChange={(fieldname, value) => setFormValues((v) => ({ ...v, [fieldname]: value }))}
             errors={formErrors}

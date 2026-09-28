@@ -52,6 +52,7 @@ const LandedCostVouchersPage = lazy(() => import("@/pages/Purchase/LandedCostVou
 const LandedCostVoucherFormPage = lazy(() => import("@/pages/Purchase/LandedCostVoucherFormPage").then((m) => ({ default: m.LandedCostVoucherFormPage })));
 const LandedCostVoucherDetailPage = lazy(() => import("@/pages/Purchase/LandedCostVoucherDetailPage").then((m) => ({ default: m.LandedCostVoucherDetailPage })));
 const ProductionRoutes = lazy(() => import("@/pages/Production/ProductionRoutes").then((m) => ({ default: m.ProductionRoutes })));
+const QualityRoutes = lazy(() => import("@/pages/Quality/QualityRoutes").then((m) => ({ default: m.QualityRoutes })));
 const AssetsRoutes = lazy(() => import("@/pages/Assets/AssetsRoutes").then((m) => ({ default: m.AssetsRoutes })));
 const ProjectsRoutes = lazy(() => import("@/pages/Projects/ProjectsRoutes").then((m) => ({ default: m.ProjectsRoutes })));
 const SellingSettingsPage = lazy(() => import("@/pages/Selling/SellingSettingsPage").then((m) => ({ default: m.SellingSettingsPage })));
@@ -125,6 +126,9 @@ const AccountProfilePage = lazy(() => import("@/pages/Account/AccountProfilePage
 
 // Accounting
 const AccountingDashboardPage = lazy(() => import("@/pages/Accounting/AccountingDashboardPage").then((m) => ({ default: m.AccountingDashboardPage })));
+const ExportDashboardPage = lazy(() => import("@/pages/Dashboard/ExportDashboardPage").then((m) => ({ default: m.ExportDashboardPage })));
+const AnalyticsSuitePage = lazy(() => import("@/pages/Analytics/AnalyticsSuitePage").then((m) => ({ default: m.AnalyticsSuitePage })));
+const AnalyticsDashboardPage = lazy(() => import("@/pages/Analytics/AnalyticsDashboardPage").then((m) => ({ default: m.AnalyticsDashboardPage })));
 const GettingStartedPage = lazy(() => import("@/pages/Accounting/GettingStartedPage").then((m) => ({ default: m.GettingStartedPage })));
 const NotificationsPage = lazy(() => import("@/pages/Settings/NotificationsPage").then((m) => ({ default: m.NotificationsPage })));
 const ChartOfAccountsPage = lazy(() => import("@/pages/Accounting/ChartOfAccountsPage").then((m) => ({ default: m.ChartOfAccountsPage })));
@@ -177,6 +181,8 @@ export function AppRoutes() {
       <Route element={<AppShell />}>
         <Route path="home" element={<DesktopPage />} />
         <Route path="dashboard" element={<DashboardPage />} />
+        <Route path="dashboard/export" element={<Suspense fallback={<FullPageLoader />}><ExportDashboardPage /></Suspense>} />
+        <Route path="export/dashboard" element={<Suspense fallback={<FullPageLoader />}><ExportDashboardPage /></Suspense>} />
 
         {/* Import */}
         <Route path="import/material-requests" element={<Suspense fallback={<FullPageLoader />}><MaterialRequestsPage /></Suspense>} />
@@ -263,6 +269,16 @@ export function AppRoutes() {
         <Route path="masters/supplier-groups/:name" element={<SupplierGroupFormPage />} />
 
         {/* Accounting */}
+        <Route path="analytics" element={<Navigate to="/analytics/accounts" replace />} />
+        <Route path="analytics/export" element={<Suspense fallback={<FullPageLoader />}><ExportDashboardPage /></Suspense>} />
+        <Route path="analytics/import" element={<Suspense fallback={<FullPageLoader />}><ExportDashboardPage /></Suspense>} />
+        {/* Production analytics live on the Production app's overview page. */}
+        <Route path="analytics/suite/production" element={<Navigate to="/production" replace />} />
+        <Route path="analytics/production" element={<Navigate to="/production" replace />} />
+        <Route path="analytics/wo_analysis" element={<Navigate to="/production#wo_analysis--top" replace />} />
+        <Route path="analytics/jc_analysis" element={<Navigate to="/production#jc_analysis--top" replace />} />
+        <Route path="analytics/suite/:suite" element={<Suspense fallback={<FullPageLoader />}><AnalyticsSuitePage /></Suspense>} />
+        <Route path="analytics/:module" element={<Suspense fallback={<FullPageLoader />}><AnalyticsDashboardPage /></Suspense>} />
         <Route path="accounting" element={<Suspense fallback={<FullPageLoader />}><AccountingDashboardPage /></Suspense>} />
         <Route path="accounting/getting-started" element={<Suspense fallback={<FullPageLoader />}><GettingStartedPage /></Suspense>} />
         <Route path="accounting/chart-of-accounts" element={<Suspense fallback={<FullPageLoader />}><ChartOfAccountsPage /></Suspense>} />
@@ -374,6 +390,7 @@ export function AppRoutes() {
         />
 
         <Route path="subcontracting" element={<ComingSoonPage title="Subcontracting" description="Subcontracting orders and receipts" />} />
+        <Route path="quality/*" element={<Suspense fallback={<FullPageLoader />}><QualityRoutes /></Suspense>} />
         <Route path="asset-management/*" element={<Suspense fallback={<FullPageLoader />}><AssetsRoutes /></Suspense>} />
         <Route path="projects/*" element={<Suspense fallback={<FullPageLoader />}><ProjectsRoutes /></Suspense>} />
         <Route path="support" element={<ComingSoonPage title="Support" description="Issues and customer support tickets" />} />

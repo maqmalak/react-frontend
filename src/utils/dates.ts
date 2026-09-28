@@ -180,3 +180,13 @@ export function clampToToday(date?: string | null): string | undefined {
   const today = todayISO();
   return date < today ? date : today;
 }
+
+/**
+ * Fiscal year (1 July – 30 June) containing `iso` (defaults to today), as ISO dates —
+ * e.g. 2026-09-28 → { from: "2026-07-01", to: "2027-06-30" }.
+ */
+export function fiscalYearRange(iso: string = todayISO()): { from: string; to: string } {
+  const [y, m] = iso.split("-").map(Number);
+  const start = m >= 7 ? y : y - 1;
+  return { from: `${start}-07-01`, to: `${start + 1}-06-30` };
+}
