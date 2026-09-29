@@ -5,7 +5,13 @@
 # originally provisioned (site "demo", Frappe v16 backend, bench at
 # ~/frappe-bench, React frontend at ~/react-frontend served by nginx).
 #
-# It does three independent, idempotent things, in this order:
+# It does these independent, idempotent things, in this order:
+#
+#   A0. Add new bench apps — fetches + installs any app in EXTRA_APPS that
+#      the site doesn't have yet (currently POS Awesome, `posawesome`), and
+#      pulls/rebuilds it when it's already there. Runs with the backend
+#      update (skip both with UPDATE_BACKEND=0; skip just this with
+#      UPDATE_EXTRA_APPS=0).
 #
 #   A. Update the custom backend app (`micromax`) — git pull, site backup,
 #      `bench migrate`, rebuild, clear cache, restart. This is what applies
@@ -15,6 +21,22 @@
 #      frontend, so a new frontend never goes live against an old backend.
 #      Non-destructive; skip it with UPDATE_BACKEND=0. Needs `micromax`
 #      already installed on the site (see C for a box still on `apparel`).
+#      New micromax Custom Fields (e.g. CRM Lead second_contact_*, BOM
+#      bom_category) need no extra step — micromax's before_migrate hook
+#      runs micromax.install.make_custom_fields on every migrate.
+#
+#   (B2, after the frontend build: patches the React nginx server block so
+#   /app/... and /printview reach Frappe — "Open in desk", Print, POS Awesome.)
+#
+#   A2. Post-migrate DB tuning + data backfills — idempotent:
+#      - GL Entry covering indexes (micromax_gl_analysis/_party) that the
+#        React financial reports + accounts dashboard insights rely on
+#        (the General Ledger insights went from ~100s to ~14s with them).
+#      - BOM.bom_category for BOMs created before that field existed, so the
+#        BOM list's Production / Conversion filter doesn't come up empty.
+#      - Production Plan raw materials (mr_items) for plans that have none
+#        (micromax.production_plan.backfill; only touches empty plans).
+#      Skip with RUN_BACKFILLS=0.
 #
 #   B. Redeploy the React frontend  — git pull, npm ci, npm run build.
 #      Safe to re-run any time; this is the normal "ship a frontend change"
@@ -36,6 +58,9 @@
 # Run as root (same as install.sh):
 #   sudo bash update.sh                        # backend update + frontend
 #   sudo UPDATE_BACKEND=0 bash update.sh       # frontend only
+#   sudo RUN_BACKFILLS=0 bash update.sh        # skip A2's indexes/backfills
+#   sudo POSAWESOME_REPO=https://github.com/<you>/posawesome.git bash update.sh
+#                                              # deploy your own POS Awesome fork
 #   sudo REMOVE_APPAREL=1 bash update.sh       # frontend + one-time app swap
 #
 # Idempotency: safe to re-run — already-applied steps (app already removed,
@@ -72,6 +97,21 @@ UPDATE_BACKEND="${UPDATE_BACKEND:-1}"
 # undone otherwise) — set to 1 to skip it.
 SKIP_BACKUP="${SKIP_BACKUP:-0}"
 
+# Section A0: bench apps added after install.sh ran. Same repo/branch table
+# style as install.sh. Defaults to the maqmalak/posawesome fork (upstream
+# defendicon/POS-Awesome-V15 plus the local closing-shift + item-card fixes);
+# override POSAWESOME_REPO/POSAWESOME_BRANCH to deploy another source (the server can only pull what's
+# on GitHub).
+UPDATE_EXTRA_APPS="${UPDATE_EXTRA_APPS:-1}"
+POSAWESOME_REPO="${POSAWESOME_REPO:-https://github.com/maqmalak/posawesome.git}"
+POSAWESOME_BRANCH="${POSAWESOME_BRANCH:-main}"
+declare -A EXTRA_APP_REPO=([posawesome]="$POSAWESOME_REPO")
+declare -A EXTRA_APP_BRANCH=([posawesome]="$POSAWESOME_BRANCH")
+EXTRA_APPS=(posawesome)
+
+# Section A2 (indexes + data backfills) — on by default, RUN_BACKFILLS=0 skips.
+RUN_BACKFILLS="${RUN_BACKFILLS:-1}"
+
 # Opt-in switch for section C (see header comment) — deliberately off by
 # default because uninstall-app is destructive (drops that app's data).
 REMOVE_APPAREL="${REMOVE_APPAREL:-0}"
@@ -87,6 +127,14 @@ die()  { echo -e "\033[1;31mERROR:\033[0m $*" >&2; exit 1; }
 [[ $EUID -eq 0 ]] || die "Run this as root (sudo bash update.sh)."
 id "$FRAPPE_USER" &>/dev/null || die "System user '${FRAPPE_USER}' does not exist — is install.sh's setup actually on this box?"
 [[ -d "$BENCH_DIR" ]] || die "No bench at ${BENCH_DIR} — run install.sh first."
+# SITE_NAME is the Frappe *site* (sites/<name>: the database every migrate/
+# install-app/backfill below runs against), not a domain. install.sh creates
+# it as "demo"; both erpnext.<apex> (desk, via bench add-domain) and
+# demo.<apex> (React, via nginx X-Frappe-Site-Name) serve this one site.
+if [[ ! -f "${BENCH_DIR}/sites/${SITE_NAME}/site_config.json" ]]; then
+  die "Site '${SITE_NAME}' not found at ${BENCH_DIR}/sites/${SITE_NAME}. Sites on this bench: $(find "${BENCH_DIR}/sites" -mindepth 2 -maxdepth 2 -name site_config.json -printf '%h ' 2>/dev/null | xargs -rn1 basename | tr '\n' ' ') — re-run with SITE_NAME=<one of those>."
+fi
+log "Target Frappe site: ${SITE_NAME} ($(grep -o '"db_name": *"[^"]*"' "${BENCH_DIR}/sites/${SITE_NAME}/site_config.json" || echo 'db_name unknown'))"
 
 UV_BIN_DIR="${FRAPPE_HOME}/.local/bin"
 BENCH_BIN="${UV_BIN_DIR}/bench"
@@ -119,6 +167,60 @@ NODE_BIN_DIR="$(as_frappe bash -c "export NVM_DIR=\"\$HOME/.nvm\"; . \"\$NVM_DIR
 RESOLVED_NODE_VERSION="$(as_frappe_sh "'${NODE_BIN_DIR}/node' --version")"
 log "Using node ${RESOLVED_NODE_VERSION} from ${NODE_BIN_DIR}"
 [[ "$RESOLVED_NODE_VERSION" == v${NODE_MAJOR}.* ]] || warn "Resolved node ${RESOLVED_NODE_VERSION}, expected v${NODE_MAJOR}.x — double check 'nvm alias default' for ${FRAPPE_USER} (sudo -iu ${FRAPPE_USER} nvm alias default ${NODE_MAJOR})."
+
+# ================================================== A0. New bench apps
+EXTRA_APPS_DONE=()
+if [[ "$UPDATE_BACKEND" != "1" || "$UPDATE_EXTRA_APPS" != "1" ]]; then
+  log "A0. Skipping new-app install (UPDATE_BACKEND=${UPDATE_BACKEND}, UPDATE_EXTRA_APPS=${UPDATE_EXTRA_APPS})"
+else
+  A0_INSTALLED_APPS="$(as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' list-apps" 2>/dev/null | awk '{print $1}' || true)"
+  for app in "${EXTRA_APPS[@]}"; do
+    APP_DIR="${BENCH_DIR}/apps/${app}"
+    if [[ -d "$APP_DIR" ]]; then
+      log "A0. '${app}' already fetched — pulling latest ${EXTRA_APP_BRANCH[$app]}"
+      # Use whichever remote points at the configured repo (bench get-app names
+      # it 'upstream'); add 'origin' if none does.
+      REMOTE="$(as_frappe git -C "$APP_DIR" remote -v | awk -v u="${EXTRA_APP_REPO[$app]}" '$2==u {print $1; exit}')"
+      if [[ -z "$REMOTE" ]]; then
+        if as_frappe git -C "$APP_DIR" remote get-url origin >/dev/null 2>&1; then
+          as_frappe git -C "$APP_DIR" remote set-url origin "${EXTRA_APP_REPO[$app]}"
+        else
+          as_frappe git -C "$APP_DIR" remote add origin "${EXTRA_APP_REPO[$app]}"
+        fi
+        REMOTE=origin
+      fi
+      [[ -z "$(as_frappe git -C "$APP_DIR" status --porcelain)" ]] || warn "'${APP_DIR}' has local changes — the reset below DISCARDS them."
+      APP_BEFORE="$(as_frappe git -C "$APP_DIR" rev-parse HEAD)"
+      as_frappe git -C "$APP_DIR" fetch "$REMOTE" "${EXTRA_APP_BRANCH[$app]}" \
+        || die "Could not fetch ${EXTRA_APP_BRANCH[$app]} of ${EXTRA_APP_REPO[$app]}."
+      as_frappe git -C "$APP_DIR" checkout -f -B "${EXTRA_APP_BRANCH[$app]}" "${REMOTE}/${EXTRA_APP_BRANCH[$app]}"
+      APP_AFTER="$(as_frappe git -C "$APP_DIR" rev-parse HEAD)"
+      if [[ "$APP_BEFORE" != "$APP_AFTER" ]]; then
+        log "'${app}' updated ${APP_BEFORE:0:8} -> ${APP_AFTER:0:8} — reinstalling python deps and rebuilding assets"
+        as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' setup requirements --python '${app}'" || warn "bench setup requirements for '${app}' failed — check its pyproject dependencies."
+        as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' build --app '${app}'"
+      else
+        log "'${app}' already at latest (${APP_AFTER:0:8})"
+      fi
+    else
+      log "A0. Fetching new app '${app}' (${EXTRA_APP_REPO[$app]} @ ${EXTRA_APP_BRANCH[$app]}) — installs deps and builds its assets, takes a few minutes"
+      as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' get-app --branch '${EXTRA_APP_BRANCH[$app]}' '${EXTRA_APP_REPO[$app]}'"
+    fi
+
+    if grep -qx "$app" <<<"$A0_INSTALLED_APPS"; then
+      log "'${app}' already installed on site '${SITE_NAME}'"
+    else
+      if [[ "$SKIP_BACKUP" != "1" ]]; then
+        log "Backing up '${SITE_NAME}' before installing '${app}'"
+        as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' backup" \
+          || die "Backup failed — not installing '${app}' (re-run with SKIP_BACKUP=1 to accept the risk)."
+      fi
+      log "Installing '${app}' on site '${SITE_NAME}'"
+      as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' install-app '${app}'"
+    fi
+    EXTRA_APPS_DONE+=("$app")
+  done
+fi
 
 # ===================================================== A. Backend app update
 if [[ "$REMOVE_APPAREL" == "1" ]]; then
@@ -182,6 +284,56 @@ else
   fi
 fi
 
+# ======================================== A2. DB indexes + data backfills
+if [[ "$UPDATE_BACKEND" != "1" || "$RUN_BACKFILLS" != "1" ]]; then
+  log "A2. Skipping DB indexes / data backfills (UPDATE_BACKEND=${UPDATE_BACKEND}, RUN_BACKFILLS=${RUN_BACKFILLS})"
+elif ! grep -qx "$MICROMAX_APP" <<<"$(as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' list-apps" 2>/dev/null | awk '{print $1}' || true)"; then
+  warn "A2. '${MICROMAX_APP}' isn't installed on '${SITE_NAME}' — skipping indexes/backfills."
+else
+  log "A2. GL Entry report indexes + BOM category / Production Plan raw-material backfills"
+  A2_PY="$(mktemp "${TMPDIR:-/tmp}/micromax_update.XXXXXX.py")"
+  cat > "$A2_PY" <<'A2EOF'
+import frappe
+
+# GL Entry covering indexes for the React financial reports / accounts
+# dashboard (micromax.financial_insights, micromax.dashboards). Adding an
+# index to a large tabGL Entry takes a while but runs once — skipped if present.
+INDEXES = {
+    "micromax_gl_analysis": ["company", "posting_date", "is_cancelled", "voucher_type", "account", "debit", "credit"],
+    "micromax_gl_party": ["company", "posting_date", "is_cancelled", "voucher_no", "account", "party_type", "party", "debit", "credit"],
+}
+for name, cols in INDEXES.items():
+    if frappe.db.sql("show index from `tabGL Entry` where Key_name=%s", name):
+        print("index exists:", name)
+        continue
+    print("creating index", name, "...")
+    frappe.db.sql_ddl("alter table `tabGL Entry` add index `%s` (%s)" % (name, ", ".join("`%s`" % c for c in cols)))
+    print("index created:", name)
+
+# BOM.bom_category — set on save by micromax.mfg_logic.bom_before_validate;
+# fill it for BOMs saved before the field existed (direct update, so
+# submitted BOMs aren't re-validated or re-costed).
+from micromax.mfg_logic import bom_category
+if frappe.db.has_column("BOM", "bom_category"):
+    rows = frappe.db.sql("select name, item from `tabBOM` where ifnull(bom_category, '') = ''", as_dict=True)
+    for r in rows:
+        frappe.db.set_value("BOM", r.name, "bom_category", bom_category(r.item), update_modified=False)
+    frappe.db.commit()
+    print("BOM categories filled:", len(rows))
+
+# Production Plan raw materials — only plans with an empty table.
+from micromax.production_plan import backfill
+print("Production Plan raw materials:", backfill())
+frappe.db.commit()
+print("A2 DONE")
+A2EOF
+  chmod 644 "$A2_PY"; chown "${FRAPPE_USER}:${FRAPPE_USER}" "$A2_PY"
+  as_frappe_sh "cd '$BENCH_DIR' && echo \"exec(open('${A2_PY}').read(), {})\" | '$BENCH_BIN' --site '$SITE_NAME' console" \
+    || warn "A2 backfill script failed — the app still works (reports are just slower / BOM filter may miss old BOMs). Re-run later."
+  rm -f "$A2_PY"
+  as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' clear-cache"
+fi
+
 # ======================================================== B. Frontend deploy
 log "B. Updating React frontend (${FRONTEND_DIR})"
 if [[ ! -d "$FRONTEND_DIR" ]]; then
@@ -209,6 +361,49 @@ log "Re-applying nginx (www-data) read access to the new build output"
 chmod -R o+rx "$FRAPPE_HOME"
 
 log "Frontend deployed — nginx serves ${FRONTEND_DIR}/dist directly off disk, no reload needed."
+
+# ================================================ B2. nginx desk passthrough
+# The React app now links into the Frappe desk on its own domain — "Open in
+# desk" (/app/<doctype>/<name>), Print (/printview?...) and the POS Awesome
+# launcher (/app/posapp). install.sh's frontend server block only proxies
+# /api /files /private, so those URLs fell through to the SPA's index.html.
+# Adds one proxied location for them, once (marker comment = idempotent).
+REACT_NGINX_CONF="${REACT_NGINX_CONF:-/etc/nginx/conf.d/${SITE_NAME}-react.conf}"
+if [[ ! -f "$REACT_NGINX_CONF" ]]; then
+  warn "B2. ${REACT_NGINX_CONF} not found — skipping the /app + /printview nginx passthrough (set REACT_NGINX_CONF)."
+elif grep -q "micromax: desk passthrough" "$REACT_NGINX_CONF"; then
+  log "B2. nginx already proxies /app and /printview to the backend"
+else
+  log "B2. Adding /app + /printview passthrough to ${REACT_NGINX_CONF}"
+  cp "$REACT_NGINX_CONF" "${REACT_NGINX_CONF}.bak.$(date +%Y%m%d%H%M%S)"
+  python3 - "$REACT_NGINX_CONF" "$SITE_NAME" <<'NGEOF'
+import sys
+path, site = sys.argv[1], sys.argv[2]
+conf = open(path).read()
+anchor = "    location /socket.io/ {"
+block = f"""    # micromax: desk passthrough — /app (desk, POS Awesome) and /printview (print) served by Frappe
+    location ~ ^/(app|printview)(/|$) {{
+        proxy_pass http://{site}_backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Frappe-Site-Name {site};
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 240;
+    }}
+
+"""
+if anchor not in conf:
+    sys.exit("socket.io location not found — add the /app|/printview location by hand")
+open(path, "w").write(conf.replace(anchor, block + anchor, 1))
+NGEOF
+  if nginx -t; then
+    systemctl reload nginx
+  else
+    warn "nginx -t failed after the edit — restoring the backup."
+    cp "$(ls -t "${REACT_NGINX_CONF}".bak.* | head -1)" "$REACT_NGINX_CONF"
+    nginx -t && systemctl reload nginx
+  fi
+fi
 
 # =============================================== C. apparel -> micromax swap
 if [[ "$REMOVE_APPAREL" != "1" ]]; then
@@ -327,6 +522,8 @@ log "Done."
 cat <<EOF
 
   Backend:   $([[ "$REMOVE_APPAREL" == "1" ]] && echo "handled by the app swap (C)" || { [[ "$UPDATE_BACKEND" == "1" ]] && echo "'${MICROMAX_APP}' updated + migrated (A) — see any WARN above if it was skipped" || echo "not updated this run (UPDATE_BACKEND=0)"; })
+  New apps:  ${EXTRA_APPS_DONE[*]:-none this run} (A0 — fetched/updated + installed on the site)
+  Backfills: $([[ "$UPDATE_BACKEND" == "1" && "$RUN_BACKFILLS" == "1" ]] && echo "GL indexes, BOM categories, Production Plan raw materials (A2)" || echo "skipped")
   Frontend:  ${FRONTEND_DIR} (rebuilt, served by nginx from dist/)
   Site:      ${SITE_NAME}
   Bench:     ${BENCH_DIR}
