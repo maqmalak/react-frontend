@@ -19,7 +19,7 @@ const IMPORT_FIELDS = [
   { fieldname: "disabled", label: "Disabled (0/1)", boolean: true },
 ];
 
-/** Item master — full page create/edit lives at /masters/items/:name (see MasterFormPage / item-form-config). */
+/** Item master — full page create/edit lives at /masters/items/:name (DocFormPage with ITEM_CONFIG, masters-configs.tsx). */
 export function ItemsPage() {
   const navigate = useNavigate();
   const { data, error, isLoading, mutate } = useItems({ limit: 0 });

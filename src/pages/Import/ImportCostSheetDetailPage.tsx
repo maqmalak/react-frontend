@@ -1,3 +1,5 @@
+import { DocActionsMenu } from "@/components/doc/doc-actions-menu";
+import { DocPageTabs } from "@/components/doc/doc-page-tabs";
 import { useMemo, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -136,6 +138,7 @@ export function ImportCostSheetDetailPage() {
           const editable = canWrite && (doc?.docstatus ?? 0) === 0;
           return (
             <>
+              <DocActionsMenu doctype="Import Cost Sheet" doc={sheet as any} onChanged={() => void mutate()} />
               {doc.purchase_receipt && (
                 <Button size="sm" variant="outline" onClick={() => void handleGenerateLCV()} disabled={generatingLCV}>
                   <FilePlus className="h-4 w-4" /> Generate Landed Cost Voucher
@@ -159,6 +162,7 @@ export function ImportCostSheetDetailPage() {
           );
         })()}
       />
+      <DocPageTabs doctype="Import Cost Sheet" name={sheet?.name ?? name} />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <SectionCard

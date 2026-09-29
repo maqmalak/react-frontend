@@ -24,6 +24,7 @@ import { RequireRole } from "@/components/common/require-role";
 // Heavier / less-frequently visited modules are code-split.
 const ExportOrdersPage = lazy(() => import("@/pages/Export/ExportOrdersPage").then((m) => ({ default: m.ExportOrdersPage })));
 const ExportPackingPage = lazy(() => import("@/pages/Export/ExportPackingPage").then((m) => ({ default: m.ExportPackingPage })));
+const ExportPackingFormPage = lazy(() => import("@/pages/Export/ExportPackingPage").then((m) => ({ default: m.ExportPackingFormPage })));
 const ExportShipmentsPage = lazy(() => import("@/pages/Export/ExportShipmentsPage").then((m) => ({ default: m.ExportShipmentsPage })));
 const ExportShipmentDetailPage = lazy(() => import("@/pages/Export/ExportShipmentDetailPage").then((m) => ({ default: m.ExportShipmentDetailPage })));
 const MaterialRequestsPage = lazy(() => import("@/pages/Import/MaterialRequestsPage").then((m) => ({ default: m.MaterialRequestsPage })));
@@ -54,6 +55,19 @@ const LandedCostVoucherDetailPage = lazy(() => import("@/pages/Purchase/LandedCo
 const ProductionRoutes = lazy(() => import("@/pages/Production/ProductionRoutes").then((m) => ({ default: m.ProductionRoutes })));
 const QualityRoutes = lazy(() => import("@/pages/Quality/QualityRoutes").then((m) => ({ default: m.QualityRoutes })));
 const AssetsRoutes = lazy(() => import("@/pages/Assets/AssetsRoutes").then((m) => ({ default: m.AssetsRoutes })));
+const SubcontractingRoutes = lazy(() => import("@/pages/Subcontracting/SubcontractingRoutes").then((m) => ({ default: m.SubcontractingRoutes })));
+const SupportRoutes = lazy(() => import("@/pages/Support/SupportRoutes").then((m) => ({ default: m.SupportRoutes })));
+const POSRoutes = lazy(() => import("@/pages/POS/POSRoutes").then((m) => ({ default: m.POSRoutes })));
+const ApprovalsRoutes = lazy(() => import("@/pages/Approvals/ApprovalsRoutes").then((m) => ({ default: m.ApprovalsRoutes })));
+const StockMasterList = lazy(() => import("@/pages/Inventory/StockMasters").then((m) => ({ default: m.StockMasterList })));
+const StockMasterForm = lazy(() => import("@/pages/Inventory/StockMasters").then((m) => ({ default: m.StockMasterForm })));
+const SellingMasterList = lazy(() => import("@/pages/Selling/SellingMasters").then((m) => ({ default: m.SellingMasterList })));
+const SellingMasterForm = lazy(() => import("@/pages/Selling/SellingMasters").then((m) => ({ default: m.SellingMasterForm })));
+/** Selling DocConfigs (quotations, pricing, sales team…) under /selling. Kept in sync with selling-masters-configs.tsx. */
+const SELLING_MASTER_BASES = ["/selling/quotations", "/selling/blanket-orders", "/selling/pricing-rules", "/selling/product-bundles", "/selling/price-lists", "/selling/tax-templates",
+  "/selling/sales-partners", "/selling/sales-persons", "/selling/territories"];
+/** Stock masters (DocConfig): list + form routes under /inventory. Kept in sync with stock-configs.tsx. */
+const STOCK_MASTER_BASES = ["/inventory/stock", "/inventory/warehouses", "/inventory/reconciliations", "/inventory/item-prices", "/inventory/batches", "/inventory/serial-nos", "/inventory/pick-lists"];
 const ProjectsRoutes = lazy(() => import("@/pages/Projects/ProjectsRoutes").then((m) => ({ default: m.ProjectsRoutes })));
 const SellingSettingsPage = lazy(() => import("@/pages/Selling/SellingSettingsPage").then((m) => ({ default: m.SellingSettingsPage })));
 const SalesOrdersPage = lazy(() => import("@/pages/Selling/SalesOrdersPage").then((m) => ({ default: m.SalesOrdersPage })));
@@ -228,6 +242,7 @@ export function AppRoutes() {
         <Route path="export/orders" element={<Suspense fallback={<FullPageLoader />}><ExportOrdersPage /></Suspense>} />
         <Route path="export/orders/:name" element={<Suspense fallback={<FullPageLoader />}><ExportOrdersPage /></Suspense>} />
         <Route path="export/packing" element={<Suspense fallback={<FullPageLoader />}><ExportPackingPage /></Suspense>} />
+        <Route path="export/packing/:name" element={<Suspense fallback={<FullPageLoader />}><ExportPackingFormPage /></Suspense>} />
         <Route path="export/shipments" element={<Suspense fallback={<FullPageLoader />}><ExportShipmentsPage /></Suspense>} />
         <Route path="export/shipments/:name" element={<Suspense fallback={<FullPageLoader />}><ExportShipmentDetailPage /></Suspense>} />
 
@@ -235,7 +250,10 @@ export function AppRoutes() {
         <Route path="production/*" element={<Suspense fallback={<FullPageLoader />}><ProductionRoutes /></Suspense>} />
 
         {/* Inventory */}
-        <Route path="inventory/stock" element={<ComingSoonPage title="Stock" description="Stock balances from ERPNext Bin / Stock Ledger Entry" />} />
+        {STOCK_MASTER_BASES.flatMap((base) => [
+          <Route key={base} path={base.slice(1)} element={<Suspense fallback={<FullPageLoader />}><StockMasterList base={base} /></Suspense>} />,
+          <Route key={`${base}/:name`} path={`${base.slice(1)}/:name`} element={<Suspense fallback={<FullPageLoader />}><StockMasterForm base={base} /></Suspense>} />,
+        ])}
         <Route path="inventory/stock-entries" element={<Suspense fallback={<FullPageLoader />}><StockEntriesPage /></Suspense>} />
         <Route path="inventory/stock-entries/new" element={<Suspense fallback={<FullPageLoader />}><StockEntryFormPage /></Suspense>} />
         <Route path="inventory/stock-entries/:name" element={<Suspense fallback={<FullPageLoader />}><StockEntryDetailPage /></Suspense>} />
@@ -337,6 +355,10 @@ export function AppRoutes() {
 
         {/* New module previews (Desktop / login only for now) */}
         <Route path="selling/settings" element={<Suspense fallback={<FullPageLoader />}><SellingSettingsPage /></Suspense>} />
+        {SELLING_MASTER_BASES.flatMap((base) => [
+          <Route key={base} path={base.slice(1)} element={<Suspense fallback={<FullPageLoader />}><SellingMasterList base={base} /></Suspense>} />,
+          <Route key={`${base}/:name`} path={`${base.slice(1)}/:name`} element={<Suspense fallback={<FullPageLoader />}><SellingMasterForm base={base} /></Suspense>} />,
+        ])}
         <Route path="selling/sales-orders" element={<Suspense fallback={<FullPageLoader />}><SalesOrdersPage /></Suspense>} />
         <Route path="selling/sales-orders/new" element={<Suspense fallback={<FullPageLoader />}><SalesOrderFormPage /></Suspense>} />
         <Route path="selling/sales-orders/:name" element={<Suspense fallback={<FullPageLoader />}><SalesOrderDetailPage /></Suspense>} />
@@ -389,15 +411,15 @@ export function AppRoutes() {
           }
         />
 
-        <Route path="subcontracting" element={<ComingSoonPage title="Subcontracting" description="Subcontracting orders and receipts" />} />
+        <Route path="subcontracting/*" element={<Suspense fallback={<FullPageLoader />}><SubcontractingRoutes /></Suspense>} />
         <Route path="quality/*" element={<Suspense fallback={<FullPageLoader />}><QualityRoutes /></Suspense>} />
         <Route path="asset-management/*" element={<Suspense fallback={<FullPageLoader />}><AssetsRoutes /></Suspense>} />
         <Route path="projects/*" element={<Suspense fallback={<FullPageLoader />}><ProjectsRoutes /></Suspense>} />
-        <Route path="support" element={<ComingSoonPage title="Support" description="Issues and customer support tickets" />} />
-        <Route path="pos" element={<ComingSoonPage title="Point of Sale" description="Counter billing posting straight into stock and the ledger" />} />
+        <Route path="support/*" element={<Suspense fallback={<FullPageLoader />}><SupportRoutes /></Suspense>} />
+        <Route path="pos/*" element={<Suspense fallback={<FullPageLoader />}><POSRoutes /></Suspense>} />
         <Route path="hospital" element={<ComingSoonPage title="Hospital & Clinic" description="Patient registration, OPD queue, clinical documentation and billing" />} />
         <Route path="education" element={<ComingSoonPage title="Education" description="Admissions, academics and fee collection for schools and institutes" />} />
-        <Route path="approvals" element={<ComingSoonPage title="Approvals & Alerts" description="Multi-step document approvals, escalation and SLA reminders" />} />
+        <Route path="approvals/*" element={<Suspense fallback={<FullPageLoader />}><ApprovalsRoutes /></Suspense>} />
         {/* HR */}
         <Route path="hr" element={<Navigate to="/hr/employees" replace />} />
         <Route path="hr/settings" element={<Suspense fallback={<FullPageLoader />}><HRSettingsPage /></Suspense>} />

@@ -21,6 +21,8 @@ const SALES_ORDER_FIELDS = [
   "currency",
   "grand_total",
   "total_qty",
+  "per_delivered",
+  "per_billed",
   "status",
   "docstatus",
   "export_status",

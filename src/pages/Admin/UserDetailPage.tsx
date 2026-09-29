@@ -1,3 +1,5 @@
+import { DocActionsMenu } from "@/components/doc/doc-actions-menu";
+import { DocPageTabs } from "@/components/doc/doc-page-tabs";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -91,11 +93,15 @@ export function UserDetailPage() {
           </button>
         }
         actions={
-          <Button variant={user.enabled ? "destructive" : "primary"} size="sm" onClick={() => void toggleEnabled()}>
-            {user.enabled ? "Disable User" : "Enable User"}
-          </Button>
+          <>
+            <DocActionsMenu doctype="User" doc={user as any} onChanged={() => void mutate()} />
+            <Button variant={user.enabled ? "destructive" : "primary"} size="sm" onClick={() => void toggleEnabled()}>
+              {user.enabled ? "Disable User" : "Enable User"}
+            </Button>
+          </>
         }
       />
+      <DocPageTabs doctype="User" name={user?.name ?? name} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-1">

@@ -16,6 +16,8 @@ let breaks = 0;
 
 export const sec = (label = ""): DocField => ({ fieldname: `__section_${breaks++}`, fieldtype: "Section Break", label });
 export const colBreak = (): DocField => ({ fieldname: `__column_${breaks++}`, fieldtype: "Column Break" });
+/** Starts a form tab: fields after it (until the next tab) belong to it. Child tables / panels join a tab by its label. */
+export const tab = (label: string): DocField => ({ fieldname: `__tab_${breaks++}`, fieldtype: "Tab Break", label });
 
 const make = (fieldtype: DocField["fieldtype"]) => (fieldname: string, label: string, extra: Extra = {}): DocField => ({ fieldname, fieldtype, label, ...extra });
 export const data = make("Data");
@@ -129,3 +131,5 @@ export const percentCol = <T extends Record<string, any>>(key: string, label: st
 
 /** A number formatted for summary cards. */
 export const fmt = (v: unknown, digits = 2) => asNumber(v).toLocaleString(undefined, { maximumFractionDigits: digits });
+/** Money amounts: always exactly 2 decimals (e.g. 1,923.40, 0.35). */
+export const fmtMoney = (v: unknown) => asNumber(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });

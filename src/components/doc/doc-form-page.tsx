@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { ArrowLeft, Ban, Save, Send, Trash2 } from "lucide-react";
+import { ArrowLeft, Ban, ChevronDown, History, Copy, ExternalLink, Link as LinkIcon, Link2, PlusCircle, Printer, RefreshCw, Save, Send, Trash2 } from "lucide-react";
+import { DropdownMenu, type DropdownItem } from "@/components/ui/dropdown-menu";
+import { deskUrl, docUrl, printUrl } from "@/app/doc-routes";
+import useSWR from "swr";
+import { GitBranch } from "lucide-react";
+import { postCall } from "@/services/frappe";
+import { DOC_MAKES } from "./doc-actions-menu";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/common/status-badge";
@@ -16,7 +22,10 @@ import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { useAuth } from "@/hooks/useAuth";
 import { notifyDataChanged } from "@/hooks/useRealtime";
 import { humanizeError } from "@/services/frappe";
-import type { ChildRows, ChildTableSpec, DocConfig, DocField, DocValues } from "./doc-config";
+import type { ChildRows, ChildTableSpec, DocConfig, DocField, DocValues, ExtraContext, FormAction } from "./doc-config";
+import { ConnectionsPanel } from "./connections-panel";
+import { ActivityPanel } from "./activity-panel";
+import { cn } from "@/utils/cn";
 
 interface FormState {
   values: DocValues;
@@ -35,9 +44,12 @@ const newUuid = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ?
  *  - read-only once submitted; child rows round-trip every field so nothing is lost on save
  */
 export function DocFormPage({ config }: { config: DocConfig }) {
-  const { name: routeName } = useParams<{ name?: string }>();
+  const { name: paramName } = useParams<{ name?: string }>();
+  const routeName = config.single ? config.doctype : paramName;
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  // A "Create …" flow may route to /new with an unsaved, server-mapped document in router state.
+  const prefill = (useLocation().state as { prefill?: DocValues } | null)?.prefill;
   const isNew = !routeName || routeName === "new";
   const { hasRole } = useAuth();
   const canWrite = hasRole();
@@ -51,6 +63,7 @@ export function DocFormPage({ config }: { config: DocConfig }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<"submit" | "cancel" | "delete" | null>(null);
+  const [activeTab, setActiveTab] = useState<string>(() => searchParams.get("tab") ?? "");
   const loadedFor = useRef<string | null>(null);
 
   const specs = config.children ?? [];
@@ -71,7 +84,8 @@ export function DocFormPage({ config }: { config: DocConfig }) {
     if (isNew) {
       if (loadedFor.current === key) return;
       loadedFor.current = key;
-      setState(withCompute({ values: { doctype: config.doctype, ...(config.defaults?.({ company, params: searchParams }) ?? {}) }, rows: Object.fromEntries(specs.map((s) => [s.key, []])) }));
+      const base = { doctype: config.doctype, ...(config.defaults?.({ company, params: searchParams }) ?? {}), ...(prefill ?? {}) };
+      setState(withCompute({ values: base, rows: Object.fromEntries(specs.map((s) => [s.key, ((prefill?.[s.key] as ChildRow[]) ?? []).map((r) => ({ ...r, __uuid: newUuid() }))])) }));
     } else if (doc && loadedFor.current !== `${key}:${doc.modified}`) {
       loadedFor.current = `${key}:${doc.modified}`;
       setState({
@@ -92,6 +106,29 @@ export function DocFormPage({ config }: { config: DocConfig }) {
   }, [isNew, routeName, config.singular]);
 
   const { values, rows } = state;
+
+  // Workflow: the transitions the current user may take from the document's state (none when no workflow).
+  const { data: transitions, mutate: refreshTransitions } = useSWR(
+    !isNew && doc ? `wf-transitions:${config.doctype}:${routeName}:${(doc as Doc).modified}` : null,
+    () => postCall<{ action: string; next_state: string }[]>("frappe.model.workflow.get_transitions", { doc: JSON.stringify(doc) }).catch(() => []),
+    { revalidateOnFocus: false },
+  );
+  const [wfBusy, setWfBusy] = useState<string | null>(null);
+  const applyWorkflow = async (action: string) => {
+    setWfBusy(action);
+    try {
+      await postCall("frappe.model.workflow.apply_workflow", { doc: JSON.stringify(doc), action });
+      toast.success(`${action} — done`);
+      loadedFor.current = null;
+      notifyDataChanged();
+      await mutate();
+      void refreshTransitions();
+    } catch (err) {
+      toast.error(humanizeError(err));
+    } finally {
+      setWfBusy(null);
+    }
+  };
   const docstatus: number | undefined = isNew ? 0 : (doc as Doc | undefined)?.docstatus;
   const readOnly = !canWrite || (config.submittable && (docstatus ?? 0) > 0) || false;
 
@@ -152,6 +189,32 @@ export function DocFormPage({ config }: { config: DocConfig }) {
   // ---- validation + payload --------------------------------------------------------------------
   const visibleFields: DocField[] = useMemo(() => config.fields.filter((f) => !f.showIf || f.showIf(values)), [config.fields, values]);
 
+  // ---- tabs --------------------------------------------------------------------------------------
+  // "Tab Break" fields split the form; child tables join a tab through `spec.tab` (default: the first tab).
+  // Forms without tab breaks get automatic tabs: Details, then one tab per child table when there are two or more.
+  const shownSpecs = specs.filter((sp) => !sp.showIf || sp.showIf(values));
+  const explicitTabs = visibleFields.some((f) => f.fieldtype === "Tab Break");
+  const autoTableTabs = !explicitTabs && shownSpecs.length >= 2;
+  const tabs = useMemo(() => {
+    const out: { label: string; fields: DocField[] }[] = [];
+    visibleFields.forEach((f) => {
+      if (f.fieldtype === "Tab Break") out.push({ label: f.label ?? "", fields: [] });
+      else {
+        if (!out.length) out.push({ label: "Details", fields: [] });
+        out[out.length - 1].fields.push(f);
+      }
+    });
+    if (!out.length) out.push({ label: "Details", fields: [] });
+    if (autoTableTabs) shownSpecs.forEach((sp) => out.push({ label: sp.label, fields: [] }));
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleFields, autoTableTabs, shownSpecs.map((sp) => sp.key).join()]);
+  const tabOfSpec = (sp: ChildTableSpec) => sp.tab ?? (autoTableTabs ? sp.label : tabs[0]?.label);
+  const specsOf = (label: string) => shownSpecs.filter((sp) => tabOfSpec(sp) === label);
+  const tabErrorCount = (t: { label: string; fields: DocField[] }, errs: Record<string, string>) =>
+    t.fields.filter((f) => errs[f.fieldname]).length +
+    specsOf(t.label).reduce((n, sp) => n + Object.keys(errs).filter((k) => k === sp.key || k.startsWith(`${sp.key}_`)).length, 0);
+
   const validate = (): boolean => {
     const next: Record<string, string> = {};
     visibleFields.forEach((f) => {
@@ -172,6 +235,8 @@ export function DocFormPage({ config }: { config: DocConfig }) {
     });
     Object.assign(next, config.validate?.(values, rows) ?? {});
     setErrors(next);
+    const badTab = tabs.find((t) => tabErrorCount(t, next) > 0);
+    if (badTab) setActiveTab(badTab.label);
     if (Object.keys(next).length) {
       const first = Object.values(next)[0];
       toast.error(Object.keys(next).length > 1 ? `${first} (+${Object.keys(next).length - 1} more)` : first);
@@ -279,10 +344,108 @@ export function DocFormPage({ config }: { config: DocConfig }) {
   }
 
   const statusLabel: string | undefined =
+    values.workflow_state ??
     values.status ?? (docstatus === 1 ? "Submitted" : docstatus === 2 ? "Cancelled" : isNew || !config.submittable ? undefined : "Draft");
   const summary = config.summary?.(values, rows) ?? [];
   const title = config.titleOf?.(values) ?? (isNew ? `New ${config.singular}` : routeName ?? config.singular);
   const busyAny = saving || busy;
+
+  const extraCtx: ExtraContext = { name: routeName, isNew, docstatus, readOnly: Boolean(readOnly), values, rows, reload: () => void mutate(), patch: applyPatch };
+  const connectionsOn = config.connections !== false && !isNew && !config.single;
+  const activityOn = !isNew && !config.single;
+  const showTabBar = tabs.length > 1 || connectionsOn || activityOn;
+  const currentTab = tabs.some((t) => t.label === activeTab) || (activeTab === "Connections" && connectionsOn) || (activeTab === "Activity" && activityOn) ? activeTab : tabs[0]?.label ?? "";
+
+  // ---- Actions menu ----------------------------------------------------------------------------
+  const openDoc = (r: { doctype: string; name: string }) => {
+    const u = docUrl(r.doctype, r.name);
+    if (u.external) window.open(u.href, "_blank");
+    else navigate(u.href);
+  };
+  const runServer = async (label: string, fn: () => Promise<{ doctype: string; name: string }>) => {
+    setBusy(true);
+    try {
+      const r = await fn();
+      toast.success(`${label}: ${r.doctype} ${r.name} created as draft`);
+      notifyDataChanged();
+      openDoc(r);
+    } catch (err) {
+      toast.error(humanizeError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const actionItems: DropdownItem[] = [];
+  if (!isNew && routeName) {
+    // The doctype's standard "Create →" mappers (Sales Order → Delivery Note, …) plus the config's own actions.
+    const standard = (DOC_MAKES[config.doctype] ?? [])
+      .filter((m) => (m.show ? m.show({ ...values, name: routeName, docstatus }) : docstatus === 1))
+      .map((m): FormAction => ({
+        label: `Create ${m.label}`,
+        group: "create" as const,
+        make: m.method,
+        makeArgs: m.args ? () => m.args!({ ...values, name: routeName }, config.doctype) : undefined,
+      }));
+    const custom = [...standard, ...(config.actions ?? []).filter((a) => (a.show ? a.show(extraCtx) : true))];
+    const create = custom.filter((a) => a.group === "create" || a.make);
+    const other = custom.filter((a) => !(a.group === "create" || a.make));
+    const toItem = (a: (typeof custom)[number]): DropdownItem => ({
+      label: a.label,
+      icon: a.icon ? <a.icon className="h-4 w-4" /> : a.make ? <PlusCircle className="h-4 w-4" /> : undefined,
+      onClick: () =>
+        a.make
+          ? void runServer(a.label, () => postCall("micromax.form_actions.make_mapped", { method: a.make, source_name: routeName, args: a.makeArgs ? JSON.stringify(a.makeArgs(extraCtx)) : undefined }))
+          : void Promise.resolve(a.run?.(extraCtx)).catch((e) => toast.error(humanizeError(e))),
+    });
+    actionItems.push(...create.map(toItem));
+    if (create.length && other.length) actionItems.push({ label: "", separator: true });
+    actionItems.push(...other.map(toItem));
+    if (custom.length) actionItems.push({ label: "", separator: true });
+    actionItems.push(
+      { label: "Refresh", icon: <RefreshCw className="h-4 w-4" />, onClick: () => { loadedFor.current = null; void mutate(); } },
+      ...(!config.single && canWrite
+        ? [{ label: "Duplicate", icon: <Copy className="h-4 w-4" />, onClick: () => void runServer("Duplicate", () => postCall("micromax.form_actions.duplicate", { doctype: config.doctype, name: routeName })) }]
+        : []),
+      { label: "Print", icon: <Printer className="h-4 w-4" />, onClick: () => window.open(printUrl(config.doctype, routeName), "_blank") },
+      { label: "Open in ERPNext desk", icon: <ExternalLink className="h-4 w-4" />, onClick: () => window.open(deskUrl(config.doctype, config.single ? undefined : routeName), "_blank") },
+      { label: "Copy link", icon: <LinkIcon className="h-4 w-4" />, onClick: () => void navigator.clipboard?.writeText(window.location.href).then(() => toast.success("Link copied")) },
+    );
+  }
+  const renderSpec = (spec: ChildTableSpec) => {
+    const list = rows[spec.key] ?? [];
+    const ro = readOnly || spec.readOnly;
+    return (
+      <SectionCard
+        key={spec.key}
+        title={spec.label}
+        description={spec.description}
+        actions={
+          !ro ? (
+            <Button size="sm" variant="outline" onClick={() => addRow(spec)}>
+              + Add Row
+            </Button>
+          ) : undefined
+        }
+      >
+        {errors[spec.key] && <p className="mb-2 text-sm text-destructive">{errors[spec.key]}</p>}
+        <EditableChildTable
+          columns={spec.columns}
+          rows={spec.derive ? list.map(spec.derive) : list}
+          onChange={onRowChange(spec)}
+          onLinkChange={onRowLinkChange(spec)}
+          onRemoveRow={ro ? undefined : removeRow(spec)}
+          onDuplicateRow={ro ? undefined : duplicateRow(spec)}
+          readOnly={ro}
+          totals={spec.totals?.(list)}
+          editableInDialog={Boolean(spec.dialogColumns?.length)}
+          extraDialogColumns={spec.dialogColumns}
+          columnPicker={spec.wide}
+          fitColumns
+          emptyMessage={ro ? "Nothing here." : "No rows yet. Click Add Row to begin."}
+        />
+      </SectionCard>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -295,7 +458,23 @@ export function DocFormPage({ config }: { config: DocConfig }) {
             <Button variant="outline" onClick={() => navigate(config.base)} disabled={busyAny}>
               <ArrowLeft className="h-4 w-4" /> {readOnly ? "Back" : "Cancel"}
             </Button>
-            {!isNew && canWrite && (!config.submittable || docstatus === 0) && (
+            {(transitions ?? []).slice(0, 3).map((t) => (
+              <Button key={t.action} variant="default" onClick={() => void applyWorkflow(t.action)} disabled={busyAny || Boolean(wfBusy)} title={`→ ${t.next_state}`}>
+                <GitBranch className="h-4 w-4" /> {wfBusy === t.action ? "Working…" : t.action}
+              </Button>
+            ))}
+            {actionItems.length > 0 && (
+              <DropdownMenu
+                width="w-64"
+                items={actionItems}
+                trigger={
+                  <Button variant="outline" disabled={busyAny}>
+                    Actions <ChevronDown className="h-4 w-4" />
+                  </Button>
+                }
+              />
+            )}
+            {!isNew && !config.single && canWrite && (!config.submittable || docstatus === 0) && (
               <Button variant="outline" onClick={() => setConfirm("delete")} disabled={busyAny}>
                 <Trash2 className="h-4 w-4" /> Delete
               </Button>
@@ -305,7 +484,7 @@ export function DocFormPage({ config }: { config: DocConfig }) {
                 <Save className="h-4 w-4" /> {isNew ? "Save" : "Update"}
               </Button>
             )}
-            {!isNew && config.submittable && docstatus === 0 && canWrite && (
+            {!isNew && config.submittable && docstatus === 0 && canWrite && !(transitions ?? []).length && (
               <Button variant="default" onClick={() => setConfirm("submit")} disabled={busyAny}>
                 <Send className="h-4 w-4" /> Submit
               </Button>
@@ -333,45 +512,68 @@ export function DocFormPage({ config }: { config: DocConfig }) {
         </div>
       )}
 
-      <FrappeForm fields={visibleFields} values={values} errors={errors} readOnly={readOnly} onChange={onChange} />
+      {showTabBar ? (
+        <>
+          <div className="sticky top-14 z-20 -mx-1 overflow-x-auto rounded-xl border border-border bg-card/90 p-1 shadow-sm backdrop-blur scrollbar-thin">
+            <div role="tablist" className="flex min-w-max gap-1">
+              {[...tabs.map((t) => t.label), ...(connectionsOn ? ["Connections"] : []), ...(activityOn ? ["Activity"] : [])].map((label) => {
+                const t = tabs.find((x) => x.label === label);
+                const n = t ? tabErrorCount(t, errors) : 0;
+                const TabIcon = label === "Connections" ? Link2 : label === "Activity" ? History : config.tabIcons?.[label];
+                const on = currentTab === label;
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    role="tab"
+                    aria-selected={on}
+                    onClick={() => setActiveTab(label)}
+                    className={cn(
+                      "flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-all",
+                      on ? "bg-primary text-primary-foreground shadow-md shadow-primary/25" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    )}
+                  >
+                    {TabIcon && <TabIcon className="h-4 w-4" />}
+                    {label}
+                    {n > 0 && <span className="rounded-full bg-destructive px-1.5 text-[10px] font-bold text-white">{n}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          {currentTab === "Connections" && routeName ? (
+            <ConnectionsPanel doctype={config.doctype} name={routeName} />
+          ) : currentTab === "Activity" && routeName ? (
+            <ActivityPanel doctype={config.doctype} name={routeName} />
+          ) : (
+            (() => {
+              const t = tabs.find((x) => x.label === currentTab) ?? tabs[0];
+              const panel = config.tabPanels?.[t.label];
+              const hasFields = t.fields.some((f) => f.fieldtype !== "Section Break" && f.fieldtype !== "Column Break");
+              return (
+                <div key={t.label} className="space-y-6">
+                  {panel?.before?.(extraCtx)}
+                  {hasFields && (
+                    <Card className="p-5">
+                      <FrappeForm fields={t.fields} values={values} errors={errors} readOnly={readOnly} onChange={onChange} />
+                    </Card>
+                  )}
+                  {specsOf(t.label).map(renderSpec)}
+                  {panel?.after?.(extraCtx)}
+                </div>
+              );
+            })()
+          )}
+        </>
+      ) : (
+        <>
+          <FrappeForm fields={visibleFields} values={values} errors={errors} readOnly={readOnly} onChange={onChange} />
+          {shownSpecs.map(renderSpec)}
+        </>
+      )}
 
-      {specs.filter((spec) => !spec.showIf || spec.showIf(values)).map((spec) => {
-        const list = rows[spec.key] ?? [];
-        const ro = readOnly || spec.readOnly;
-        return (
-          <SectionCard
-            key={spec.key}
-            title={spec.label}
-            description={spec.description}
-            actions={
-              !ro ? (
-                <Button size="sm" variant="outline" onClick={() => addRow(spec)}>
-                  + Add Row
-                </Button>
-              ) : undefined
-            }
-          >
-            {errors[spec.key] && <p className="mb-2 text-sm text-destructive">{errors[spec.key]}</p>}
-            <EditableChildTable
-              columns={spec.columns}
-              rows={list}
-              onChange={onRowChange(spec)}
-              onLinkChange={onRowLinkChange(spec)}
-              onRemoveRow={ro ? undefined : removeRow(spec)}
-              onDuplicateRow={ro ? undefined : duplicateRow(spec)}
-              readOnly={ro}
-              totals={spec.totals?.(list)}
-              editableInDialog={Boolean(spec.dialogColumns?.length)}
-              extraDialogColumns={spec.dialogColumns}
-              columnPicker={spec.wide}
-              fitColumns
-              emptyMessage={ro ? "Nothing here." : "No rows yet. Click Add Row to begin."}
-            />
-          </SectionCard>
-        );
-      })}
+      {config.extra?.(extraCtx)}
 
-      {config.extra?.({ name: routeName, isNew, docstatus, readOnly: Boolean(readOnly), values, rows, reload: () => void mutate(), patch: applyPatch })}
 
       <ConfirmDialog
         open={confirm === "submit"}

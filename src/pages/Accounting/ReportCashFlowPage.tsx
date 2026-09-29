@@ -1,3 +1,4 @@
+import { ReportInsights } from "@/components/doc/report-insights";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronRight,
@@ -428,6 +429,7 @@ export function ReportCashFlowPage() {
                   colorValue
                 />
               </div>
+              <ReportInsights report="cash_flow" company={company} fromDate={fromDate} toDate={toDate} currency={companyCurrency ?? undefined} omitTiles={["Operating", "Investing", "Financing"]} />
 
               <ChartCard
                 title="Section movement"

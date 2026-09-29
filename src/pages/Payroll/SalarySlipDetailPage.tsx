@@ -1,3 +1,5 @@
+import { DocActionsMenu } from "@/components/doc/doc-actions-menu";
+import { DocPageTabs } from "@/components/doc/doc-page-tabs";
 import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -122,6 +124,7 @@ export default function SalarySlipDetailPage() {
         }
         actions={
           <>
+            <DocActionsMenu doctype="Salary Slip" doc={doc as any} onChanged={() => void mutate()} />
             <StatusBadge status={doc.status} />
             {editable && (
               <>
@@ -140,6 +143,7 @@ export default function SalarySlipDetailPage() {
           </>
         }
       />
+      <DocPageTabs doctype="Salary Slip" name={doc?.name ?? name} />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <Card className="p-4">

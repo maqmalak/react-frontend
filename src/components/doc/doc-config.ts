@@ -50,6 +50,10 @@ export interface ChildTableSpec {
   wide?: boolean;
   /** Only show (and validate) this table when true. */
   showIf?: (values: DocValues) => boolean;
+  /** Display-only values per row (e.g. a rate derived from stored totals) — shown in the grid, never saved. */
+  derive?: (row: ChildRow) => ChildRow;
+  /** Form tab (its label) this table belongs to — defaults to the first tab. */
+  tab?: string;
 }
 
 /** A patch to the form: header values, and/or whole child tables (keyed by the Table fieldname). */
@@ -67,6 +71,22 @@ export interface ExtraContext {
   patch: (patch: FormPatch) => void;
 }
 
+/** An entry in the form's "Actions" menu. */
+export interface FormAction {
+  label: string;
+  icon?: LucideIcon;
+  /** "create" entries are listed under "Create", the rest under "Actions". */
+  group?: "create" | "action";
+  /** Show only when true (default: saved documents). */
+  show?: (ctx: ExtraContext) => boolean;
+  /** Map this document with a whitelisted ERPNext mapper and open the saved draft. Called with `source_name`
+   *  unless `makeArgs` supplies the arguments. */
+  make?: string;
+  makeArgs?: (ctx: ExtraContext) => Record<string, unknown>;
+  /** Custom handler. */
+  run?: (ctx: ExtraContext) => void | Promise<void>;
+}
+
 export interface DocConfig {
   doctype: string;
   /** URL base, e.g. "/production/work-orders" (list) — form lives at `${base}/:name` and `${base}/new`. */
@@ -76,6 +96,8 @@ export interface DocConfig {
   subtitle: string;
   icon: LucideIcon;
   submittable?: boolean;
+  /** A single (settings) DocType: the form always edits the one record, there is no list, new or delete. */
+  single?: boolean;
 
   // ---- list ------------------------------------------------------------------------------------
   listFields: string[];
@@ -111,6 +133,15 @@ export interface DocConfig {
   linkEffects?: Record<string, (value: any, values: DocValues) => Promise<FormPatch | void> | FormPatch | void>;
   /** Extra sections rendered below the form (panels, related lists…). */
   extra?: (ctx: ExtraContext) => ReactNode;
+  /** Panels inside a form tab (keyed by tab label): `before` the tab's fields, `after` its child tables. */
+  tabPanels?: Record<string, { before?: (ctx: ExtraContext) => ReactNode; after?: (ctx: ExtraContext) => ReactNode }>;
+  /** "Connections" tab listing linked documents (server: micromax.connections.get_connections). On by default;
+   *  `false` hides it. */
+  connections?: boolean;
+  /** Entries for the "Actions" menu (next documents to create, custom operations). */
+  actions?: FormAction[];
+  /** Icons for the tab bar, keyed by tab label. */
+  tabIcons?: Record<string, LucideIcon>;
   /** Text under the page title on the form. */
   titleOf?: (values: DocValues) => string;
   /** Business rules beyond "required": return { field: message }. */

@@ -1,0 +1,47 @@
+import { useState } from "react";
+import { History, LayoutList, Link2 } from "lucide-react";
+import { cn } from "@/utils/cn";
+import { ConnectionsPanel } from "./connections-panel";
+import { ActivityPanel } from "./activity-panel";
+
+type TabId = "details" | "connections" | "activity";
+const TABS: { id: TabId; label: string; icon: typeof LayoutList }[] = [
+  { id: "details", label: "Details", icon: LayoutList },
+  { id: "connections", label: "Connections", icon: Link2 },
+  { id: "activity", label: "Activity", icon: History },
+];
+
+/**
+ * Tab bar for hand-built detail pages. Drop it right after the page header: the page's own content (every
+ * following sibling) is the "Details" tab and is hidden while Connections or Activity is shown
+ * (see `.doc-page-tabs[data-active]` in globals.css).
+ */
+export function DocPageTabs({ doctype, name }: { doctype: string; name?: string }) {
+  const [active, setActive] = useState<TabId>("details");
+  if (!name) return null;
+  return (
+    <div className="doc-page-tabs space-y-6" data-active={active}>
+      <div className="sticky top-14 z-20 -mx-1 overflow-x-auto rounded-xl border border-border bg-card/90 p-1 shadow-sm backdrop-blur scrollbar-thin">
+        <div role="tablist" className="flex min-w-max gap-1">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={active === t.id}
+              onClick={() => setActive(t.id)}
+              className={cn(
+                "flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-all",
+                active === t.id ? "bg-primary text-primary-foreground shadow-md shadow-primary/25" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              <t.icon className="h-4 w-4" /> {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {active === "connections" && <ConnectionsPanel doctype={doctype} name={name} />}
+      {active === "activity" && <ActivityPanel doctype={doctype} name={name} />}
+    </div>
+  );
+}

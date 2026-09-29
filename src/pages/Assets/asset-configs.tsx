@@ -2,7 +2,7 @@ import { Building2, MapPin, ArrowLeftRight, Wrench, Tags } from "lucide-react";
 import type { DocConfig, ChildTableSpec } from "@/components/doc/doc-config";
 import {
   sec, colBreak, data, date, datetime, int, float, currency, check, text, link, select, ro, req, when,
-  nameCol, textCol, dateCol, dateTimeCol, moneyCol, statusCol, yesNoCol, docstatusCol, fmt,
+  nameCol, textCol, dateCol, dateTimeCol, moneyCol, statusCol, yesNoCol, docstatusCol, fmtMoney,
 } from "@/components/doc/doc-helpers";
 import { getLinkedValues } from "@/hooks/useDoc";
 import { todayISO, nowERPDateTime } from "@/utils/dates";
@@ -323,7 +323,7 @@ export const ASSET_REPAIR_CONFIG: DocConfig = {
       doctype: "Asset Repair Purchase Invoice",
       columns: [link("purchase_invoice", "Purchase Invoice", "Purchase Invoice"), req(link("expense_account", "Expense Account", "Account")), req(currency("repair_cost", "Repair Cost"))],
       newRow: () => ({ repair_cost: 0 }),
-      totals: (rows) => [{ label: "Repair cost", value: fmt(rows.reduce((s, r) => s + asNumber(r.repair_cost), 0)), align: "right" }],
+      totals: (rows) => [{ label: "Repair cost", value: fmtMoney(rows.reduce((s, r) => s + asNumber(r.repair_cost), 0)), align: "right" }],
     },
     {
       key: "stock_items",

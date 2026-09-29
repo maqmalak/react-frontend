@@ -1,3 +1,4 @@
+import { ReportInsights } from "@/components/doc/report-insights";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { SlidersHorizontal, ChevronUp, ChevronDown, Play, Wallet, ArrowDownRight, ArrowUpRight, Landmark } from "lucide-react";
@@ -80,15 +81,19 @@ export function ReportGeneralLedgerPage() {
   const [searchParams] = useSearchParams();
   const voucherNoParam = searchParams.get("voucher_no") ?? "";
   const companyParam = searchParams.get("company") ?? "";
+  // Drill-downs from Trial Balance / P&L / Balance Sheet link here with an account and their period.
+  const accountParam = searchParams.get("account") ?? "";
+  const fromParam = searchParams.get("from_date") ?? "";
+  const toParam = searchParams.get("to_date") ?? "";
 
   const [filtersOpen, setFiltersOpen] = useState(true);
   // Arriving with a specific voucher to look up (e.g. "View Ledger" from a
   // Journal Entry) — widen the default range so the voucher's own posting
   // date is never accidentally excluded by the usual fiscal-year default.
-  const [fromDate, setFromDate] = useState(voucherNoParam ? "2000-01-01" : "");
-  const [toDate, setToDate] = useState(todayISO());
+  const [fromDate, setFromDate] = useState(fromParam || (voucherNoParam ? "2000-01-01" : ""));
+  const [toDate, setToDate] = useState(toParam || todayISO());
   const [financeBook, setFinanceBook] = useState("");
-  const [account, setAccount] = useState("");
+  const [account, setAccount] = useState(accountParam);
   const [voucherType, setVoucherType] = useState("");
   const [voucherNo, setVoucherNo] = useState(voucherNoParam);
   const [partyType, setPartyType] = useState("");
@@ -273,13 +278,13 @@ export function ReportGeneralLedgerPage() {
   // the filters panel since the user came here to see results, not tweak inputs.
   const autoRan = useRef(false);
   useEffect(() => {
-    if (autoRan.current || !voucherNoParam) return;
+    if (autoRan.current || !(voucherNoParam || accountParam)) return;
     if (!company || !fromDate || !toDate) return;
     autoRan.current = true;
     setGeneratedFiltersKey(filtersKey);
     setFiltersOpen(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [voucherNoParam, company, fromDate, toDate, filtersKey]);
+  }, [voucherNoParam, accountParam, company, fromDate, toDate, filtersKey]);
 
   return (
     <div className="space-y-4">
@@ -449,6 +454,7 @@ export function ReportGeneralLedgerPage() {
                 <KpiCard label="Total Credit" value={formatNumber(totalCredit, 2)} icon={ArrowUpRight} tone="warning" loading={isLoading} />
                 <KpiCard label="Closing Balance" value={balanceWithDrCr(closingBalance)} icon={Landmark} tone="info" loading={isLoading} />
               </div>
+              <ReportInsights report="gl" company={company} fromDate={fromDate} toDate={toDate} omitTiles hideBars extra={{ account: account || undefined, party_type: partyType || undefined, party: party || undefined, voucher_no: voucherNo || undefined }} />
 
               <FrappeDataTable
                 columns={tableColumns}

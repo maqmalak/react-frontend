@@ -10,6 +10,11 @@ import {
   PRODUCTION_PLAN_CONFIG,
   WORK_ORDER_CONFIG,
   WORKSTATION_CONFIG,
+  ROUTING_CONFIG,
+  OPERATION_CONFIG,
+  WORKSTATION_TYPE_CONFIG,
+  ITEM_ALTERNATIVE_CONFIG,
+  MANUFACTURING_SETTINGS_CONFIG,
 } from "./production-configs";
 
 /** /production/* — the Production + WO Analysis overview (one page with a section nav) plus a list and a form for each production DocType (the form also serves `/new`). */
@@ -31,6 +36,15 @@ export function ProductionRoutes() {
       <Route path="downtime/:name" element={<DocFormPage config={DOWNTIME_CONFIG} />} />
       <Route path="workstations" element={<DocListPage config={WORKSTATION_CONFIG} />} />
       <Route path="workstations/:name" element={<DocFormPage config={WORKSTATION_CONFIG} />} />
+      <Route path="routings" element={<DocListPage config={ROUTING_CONFIG} />} />
+      <Route path="routings/:name" element={<DocFormPage config={ROUTING_CONFIG} />} />
+      <Route path="operations" element={<DocListPage config={OPERATION_CONFIG} />} />
+      <Route path="operations/:name" element={<DocFormPage config={OPERATION_CONFIG} />} />
+      <Route path="workstation-types" element={<DocListPage config={WORKSTATION_TYPE_CONFIG} />} />
+      <Route path="workstation-types/:name" element={<DocFormPage config={WORKSTATION_TYPE_CONFIG} />} />
+      <Route path="item-alternatives" element={<DocListPage config={ITEM_ALTERNATIVE_CONFIG} />} />
+      <Route path="item-alternatives/:name" element={<DocFormPage config={ITEM_ALTERNATIVE_CONFIG} />} />
+      <Route path="settings" element={<DocFormPage config={MANUFACTURING_SETTINGS_CONFIG} />} />
       <Route path="*" element={<Navigate to="/production" replace />} />
     </Routes>
   );

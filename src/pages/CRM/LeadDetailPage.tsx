@@ -1,3 +1,5 @@
+import { DocActionsMenu } from "@/components/doc/doc-actions-menu";
+import { DocPageTabs } from "@/components/doc/doc-page-tabs";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -217,6 +219,7 @@ export function LeadDetailPage() {
         icon={<UserPlus className="h-5 w-5" />}
         actions={
           <>
+            <DocActionsMenu doctype="CRM Lead" doc={lead as any} onChanged={() => void mutate()} />
             {!lead.converted && (
               <Button variant="outline" onClick={() => void handleConvertToDeal()} loading={converting} disabled={converting}>
                 <Handshake className="h-4 w-4" /> Convert to Deal
@@ -228,6 +231,7 @@ export function LeadDetailPage() {
           </>
         }
       />
+      <DocPageTabs doctype="CRM Lead" name={lead?.name ?? name} />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <Card className="p-4">

@@ -60,6 +60,56 @@ export function DateInput({ type, value, onValue, disabled, error, className }: 
   );
 }
 
+/** Display precision: money always 2 decimals; quantities up to 3 (small scrap/blend quantities stay visible). */
+const DECIMALS: Partial<Record<FormFieldMeta["fieldtype"], [number, number]>> = { Currency: [2, 2], Float: [0, 3], Int: [0, 0] };
+
+export function formatNumeric(fieldtype: FormFieldMeta["fieldtype"], value: unknown): string {
+  const n = typeof value === "number" ? value : Number(value);
+  if (value === null || value === undefined || value === "" || Number.isNaN(n)) return "";
+  const [min, max] = DECIMALS[fieldtype] ?? [0, 3];
+  return n.toLocaleString("en-US", { minimumFractionDigits: min, maximumFractionDigits: max });
+}
+
+/**
+ * Number box that shows a formatted value (thousands separators, 2-decimal money) while not being edited,
+ * and the raw number while focused — the stored value is never rounded.
+ */
+function NumericInput({ fieldtype, value, disabled, onValue, error, placeholder }: {
+  fieldtype: FormFieldMeta["fieldtype"]; value: unknown; disabled?: boolean; onValue: (v: number | null) => void; error?: string; placeholder?: string;
+}) {
+  const [editing, setEditing] = React.useState(false);
+  if (disabled || !editing) {
+    return (
+      <Input
+        type="text"
+        inputMode="decimal"
+        value={formatNumeric(fieldtype, value)}
+        disabled={disabled}
+        readOnly={disabled}
+        onFocus={() => !disabled && setEditing(true)}
+        onChange={() => undefined}
+        error={error}
+        placeholder={placeholder}
+        className="text-right tabular-nums"
+        title={value !== null && value !== undefined && value !== "" ? String(value) : undefined}
+      />
+    );
+  }
+  return (
+    <Input
+      type="number"
+      step={fieldtype === "Int" ? "1" : "any"}
+      autoFocus
+      value={value === null || value === undefined ? "" : String(value)}
+      onBlur={() => setEditing(false)}
+      onChange={(e) => onValue(e.target.value === "" ? null : Number(e.target.value))}
+      error={error}
+      placeholder={placeholder}
+      className="text-right tabular-nums"
+    />
+  );
+}
+
 export function FieldRenderer({
   meta,
   values,
@@ -112,15 +162,7 @@ export function FieldRenderer({
     case "Float":
     case "Currency":
       input = (
-        <Input
-          type="number"
-          step={fieldtype === "Int" ? "1" : "any"}
-          value={value ?? ""}
-          disabled={disabled}
-          onChange={(e) => onChange(fieldname, e.target.value === "" ? null : Number(e.target.value))}
-          error={error}
-          placeholder={meta.placeholder}
-        />
+        <NumericInput fieldtype={fieldtype} value={value} disabled={disabled} onValue={(v) => onChange(fieldname, v)} error={error} placeholder={meta.placeholder} />
       );
       break;
     case "Select": {
@@ -268,7 +310,7 @@ export function FrappeForm({
                       <Label>{meta.label}</Label>
                       <div
                         className={cn(
-                          "rounded-md border border-dashed border-border px-3 text-sm text-muted-foreground",
+                          "rounded-md border border-dashed border-border bg-muted/40 px-3 text-sm font-medium text-foreground/80 dark:border-slate-600/70 dark:bg-white/[0.035] dark:text-slate-200",
                           longForm
                             ? "whitespace-pre-wrap py-2 leading-relaxed"
                             : "flex h-9 items-center truncate",
@@ -303,6 +345,7 @@ export function FrappeForm({
 export function formatReadonly(meta: FormFieldMeta, value: unknown): string {
   if (value === null || value === undefined || value === "") return "—";
   if (meta.fieldtype === "Check") return value ? "Yes" : "No";
+  if (meta.fieldtype === "Currency" || meta.fieldtype === "Float" || meta.fieldtype === "Int") return formatNumeric(meta.fieldtype, value) || "—";
   return String(value);
 }
 

@@ -1,3 +1,6 @@
+import { useNavigate } from "react-router-dom";
+import { AccountDrillDialog, type DrillSpec } from "./account-drill";
+import { ReportInsights } from "@/components/doc/report-insights";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronRight,
@@ -203,6 +206,9 @@ export function ReportBalanceSheetPage() {
     (r) => r && typeof r.account === "string",
   );
   const bodyRows = allRows.filter((r) => !r.account.startsWith("'"));
+  const navigate = useNavigate();
+  const [drill, setDrill] = useState<DrillSpec | null>(null);
+  const drillAccounts = useMemo(() => bodyRows.filter((r) => !r.is_group).map((r) => ({ account: r.account, name: r.acc_name, amount: Number(r.total) || 0 })), [bodyRows]);
   const shown = visibleRows(bodyRows, collapsed);
   const provisionalPLRow = allRows.find((r) => r.account.startsWith("'Provisional Profit"));
 
@@ -437,6 +443,7 @@ export function ReportBalanceSheetPage() {
                   tone="success"
                   colorValue
                   sparkline={monthlyData.map((m) => m.assets)}
+                  onClick={() => setDrill({ title: "Assets — accounts", rootTypes: ["Asset"] })}
                 />
                 <KpiCard
                   label="Total Liability"
@@ -445,6 +452,7 @@ export function ReportBalanceSheetPage() {
                   tone="warning"
                   colorValue
                   sparkline={monthlyData.map((m) => m.liabilities)}
+                  onClick={() => setDrill({ title: "Liabilities — accounts", rootTypes: ["Liability"] })}
                 />
                 <KpiCard
                   label="Total Equity"
@@ -453,6 +461,7 @@ export function ReportBalanceSheetPage() {
                   tone="info"
                   colorValue
                   sparkline={monthlyData.map((m) => m.equity)}
+                  onClick={() => setDrill({ title: "Equity — accounts", rootTypes: ["Equity"] })}
                 />
                 <KpiCard
                   label={summary.find((s) => s.label.startsWith("Provisional Profit"))?.label ?? "Provisional Profit / Loss"}
@@ -461,8 +470,11 @@ export function ReportBalanceSheetPage() {
                   tone={provisionalProfit >= 0 ? "success" : "destructive"}
                   colorValue
                   sparkline={monthlyData.map((m) => m.provisionalPL)}
+                  onClick={() => navigate("/accounting/reports/profit-and-loss")}
                 />
               </div>
+              <AccountDrillDialog spec={drill} onClose={() => setDrill(null)} accounts={drillAccounts} company={company} fromDate={fromDate} toDate={toDate} currency={companyCurrency ?? undefined} />
+              <ReportInsights report="balance_sheet" company={company} fromDate={fromDate} toDate={toDate} currency={companyCurrency ?? undefined} omitTiles={["Total assets", "Liabilities", "Equity (incl. current profit)"]} hideBars hideChart />
 
               <Card className="p-5">
                 <div className="flex items-baseline justify-between gap-4">

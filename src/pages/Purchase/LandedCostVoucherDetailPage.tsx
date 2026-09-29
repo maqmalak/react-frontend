@@ -1,3 +1,5 @@
+import { DocActionsMenu } from "@/components/doc/doc-actions-menu";
+import { DocPageTabs } from "@/components/doc/doc-page-tabs";
 import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -117,6 +119,7 @@ export function LandedCostVoucherDetailPage() {
         }
         actions={
           <>
+            <DocActionsMenu doctype="Landed Cost Voucher" doc={doc as any} onChanged={() => void mutate()} />
             <StatusBadge status={statusLabel} />
             {editable && (
               <>
@@ -135,6 +138,7 @@ export function LandedCostVoucherDetailPage() {
           </>
         }
       />
+      <DocPageTabs doctype="Landed Cost Voucher" name={doc?.name ?? name} />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card className="p-4">

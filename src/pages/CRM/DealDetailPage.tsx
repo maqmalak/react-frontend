@@ -1,3 +1,5 @@
+import { DocActionsMenu } from "@/components/doc/doc-actions-menu";
+import { DocPageTabs } from "@/components/doc/doc-page-tabs";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -139,11 +141,15 @@ export function DealDetailPage() {
         subtitle={deal.lead_name || deal.email}
         icon={<Handshake className="h-5 w-5" />}
         actions={
-          <Button onClick={() => navigate(`/crm/deals/${encodeURIComponent(name!)}/edit`)}>
-            <Pencil className="h-4 w-4" /> Edit
-          </Button>
+          <>
+            <DocActionsMenu doctype="CRM Deal" doc={deal as any} onChanged={() => void mutate()} />
+            <Button onClick={() => navigate(`/crm/deals/${encodeURIComponent(name!)}/edit`)}>
+              <Pencil className="h-4 w-4" /> Edit
+            </Button>
+          </>
         }
       />
+      <DocPageTabs doctype="CRM Deal" name={deal?.name ?? name} />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <Card className="p-4">

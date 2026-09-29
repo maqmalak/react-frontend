@@ -1,3 +1,5 @@
+import { AccountDrillDialog, type DrillSpec } from "./account-drill";
+import { ReportInsights } from "@/components/doc/report-insights";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronRight,
@@ -205,6 +207,15 @@ export function ReportTrialBalancePage() {
   );
   const totalRow = allRows.find((r) => r.account === "'Total'");
   const bodyRows = allRows.filter((r) => r.account !== "'Total'");
+  // Card drill-down: leaf accounts with their closing balance (debit − credit) and period activity.
+  const [drill, setDrill] = useState<DrillSpec | null>(null);
+  const drillAccounts = useMemo(
+    () => bodyRows.filter((r) => !r.is_group_account).map((r) => ({
+      account: r.account, name: r.acc_name, amount: r.closing_debit - r.closing_credit,
+      sub: `opening ${(r.opening_debit - r.opening_credit).toFixed(2)} · Dr ${r.debit.toFixed(2)} · Cr ${r.credit.toFixed(2)}`,
+    })),
+    [bodyRows],
+  );
   const shown = visibleRows(bodyRows, collapsed);
   const chartCurrency = allRows.find((r) => typeof r.currency === "string")?.currency ?? companyCurrency ?? "USD";
 
@@ -422,10 +433,13 @@ export function ReportTrialBalancePage() {
                   sparkline={monthlyData.map((m) => m[h])}
                   labelClassName="font-bold"
                   valueClassName="text-lg"
+                  onClick={() => setDrill({ title: `${h} — accounts`, rootTypes: [h], negate: DEBIT_NATURED.has(h) ? [] : [h] })}
                 />
               );
             })}
           </div>
+          <AccountDrillDialog spec={drill} onClose={() => setDrill(null)} accounts={drillAccounts} company={company} fromDate={fromDate} toDate={toDate} currency={companyCurrency ?? undefined} />
+          <ReportInsights report="trial_balance" company={company} fromDate={fromDate} toDate={toDate} currency={companyCurrency ?? undefined} hideBars />
 
           <ChartCard
             title="Monthly activity"

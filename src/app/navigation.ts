@@ -22,6 +22,22 @@ import {
   ClipboardList,
   Truck,
   ArrowLeftRight,
+  Percent,
+  MapIcon,
+  Tag,
+  Hash,
+  Barcode,
+  PackageCheck,
+  Flag,
+  DoorOpen,
+  DoorClosed,
+  Workflow,
+  BellRing,
+  Shuffle,
+  Shapes,
+  Settings2,
+  Route,
+  SlidersHorizontal,
   Users,
   ShieldCheck,
   Receipt,
@@ -147,9 +163,30 @@ const SELLING_NAV: NavGroup[] = [
   {
     title: "Selling",
     items: [
+      { label: "Quotations", to: "/selling/quotations", icon: FileText },
       { label: "Sales Orders", to: "/selling/sales-orders", icon: Handshake },
       { label: "Delivery Notes", to: "/selling/delivery-notes", icon: Package },
       { label: "Sales Invoices", to: "/selling/sales-invoices", icon: Receipt },
+      { label: "Blanket Orders", to: "/selling/blanket-orders", icon: CalendarRange },
+    ],
+  },
+  {
+    title: "Pricing",
+    items: [
+      { label: "Price Lists", to: "/selling/price-lists", icon: Tag },
+      { label: "Item Prices", to: "/inventory/item-prices", icon: Tag },
+      { label: "Pricing Rules", to: "/selling/pricing-rules", icon: Percent },
+      { label: "Product Bundles", to: "/selling/product-bundles", icon: Boxes },
+      { label: "Sales Taxes Templates", to: "/selling/tax-templates", icon: Receipt },
+    ],
+  },
+  {
+    title: "Sales Team",
+    items: [
+      { label: "Customers", to: "/masters/customers", icon: Users2 },
+      { label: "Sales Persons", to: "/selling/sales-persons", icon: UserCircle },
+      { label: "Sales Partners", to: "/selling/sales-partners", icon: Users2 },
+      { label: "Territories", to: "/selling/territories", icon: MapIcon },
     ],
   },
   {
@@ -295,7 +332,17 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
     },
     {
       title: "Masters",
-      items: [{ label: "Workstations", to: "/production/workstations", icon: Cog }],
+      items: [
+        { label: "Workstations", to: "/production/workstations", icon: Cog },
+        { label: "Workstation Types", to: "/production/workstation-types", icon: Shapes },
+        { label: "Operations", to: "/production/operations", icon: Settings2 },
+        { label: "Routings", to: "/production/routings", icon: Route },
+        { label: "Item Alternatives", to: "/production/item-alternatives", icon: ArrowLeftRight },
+      ],
+    },
+    {
+      title: "Settings",
+      items: [{ label: "Manufacturing Settings", to: "/production/settings", icon: SlidersHorizontal }],
     },
   ],
   inventory: [
@@ -303,9 +350,67 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
     {
       title: "Stock",
       items: [
-        { label: "Stock", to: "/inventory/stock", icon: Warehouse },
+        { label: "Stock Balance", to: "/inventory/stock", icon: Warehouse },
         { label: "Material Movement", to: "/inventory/stock-entries", icon: ArrowLeftRight },
+        { label: "Stock Reconciliation", to: "/inventory/reconciliations", icon: Scale },
+        { label: "Pick Lists", to: "/inventory/pick-lists", icon: ClipboardList },
         { label: "Stock Ledger", to: "/inventory/reports/stock-ledger", icon: BookOpen },
+      ],
+    },
+    {
+      title: "Masters",
+      items: [
+        { label: "Warehouses", to: "/inventory/warehouses", icon: Warehouse },
+        { label: "Item Prices", to: "/inventory/item-prices", icon: Tag },
+        { label: "Batches", to: "/inventory/batches", icon: Hash },
+        { label: "Serial Numbers", to: "/inventory/serial-nos", icon: Barcode },
+      ],
+    },
+  ],
+  subcontracting: [
+    {
+      title: "Subcontracting",
+      items: [
+        { label: "Subcontracting Orders", to: "/subcontracting/orders", icon: ArrowLeftRight },
+        { label: "Subcontracting Receipts", to: "/subcontracting/receipts", icon: PackageCheck },
+        { label: "Subcontracting BOMs", to: "/subcontracting/boms", icon: Layers },
+      ],
+    },
+  ],
+  support: [
+    {
+      title: "Support",
+      items: [
+        { label: "Issues", to: "/support/issues", icon: LifeBuoy },
+        { label: "Service Level Agreements", to: "/support/slas", icon: ShieldCheck },
+      ],
+    },
+    {
+      title: "Setup",
+      items: [
+        { label: "Issue Types", to: "/support/issue-types", icon: Tag },
+        { label: "Priorities", to: "/support/priorities", icon: Flag },
+      ],
+    },
+  ],
+  pos: [
+    {
+      title: "Point of Sale",
+      items: [
+        { label: "POS Invoices", to: "/pos/invoices", icon: ShoppingCart },
+        { label: "Shift Openings", to: "/pos/openings", icon: DoorOpen },
+        { label: "Shift Closings", to: "/pos/closings", icon: DoorClosed },
+      ],
+    },
+  ],
+  approvals: [
+    {
+      title: "Approvals & Alerts",
+      items: [
+        { label: "Approval Workflows", to: "/approvals/workflows", icon: Workflow },
+        { label: "Alerts & Notifications", to: "/approvals/notifications", icon: BellRing },
+        { label: "Assignment Rules", to: "/approvals/assignment-rules", icon: Shuffle },
+        { label: "Recurring Documents", to: "/approvals/auto-repeats", icon: Repeat },
       ],
     },
   ],
@@ -452,7 +557,6 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
       ],
     },
   ],
-  subcontracting: [{ items: [{ label: "Subcontracting", to: "/subcontracting", icon: Cog }] }],
   "asset-management": [
     {
       items: [
@@ -489,7 +593,6 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
       ],
     },
   ],
-  support: [{ items: [{ label: "Support", to: "/support", icon: LifeBuoy }] }],
   hr: [
     { items: [{ label: "Dashboard", to: "/analytics/hr", icon: LayoutDashboard }] },
     {
@@ -579,6 +682,15 @@ export const APP_LABELS: Record<string, string> = {
   accounting: "Accounting",
   admin: "Administration",
   selling: "Selling",
+  quotations: "Quotations",
+  "blanket-orders": "Blanket Orders",
+  "pricing-rules": "Pricing Rules",
+  "product-bundles": "Product Bundles",
+  "price-lists": "Price Lists",
+  "tax-templates": "Sales Taxes Templates",
+  "sales-partners": "Sales Partners",
+  "sales-persons": "Sales Persons",
+  territories: "Territories",
   crm: "CRM",
   subcontracting: "Subcontracting",
   "asset-management": "Assets",
@@ -607,6 +719,10 @@ export const ROUTE_TITLES: Record<string, string> = {
   home: "Desktop",
   dashboard: "Dashboard",
   schedule: "Production Schedule",
+  routings: "Routings",
+  operations: "Operations",
+  "workstation-types": "Workstation Types",
+  "item-alternatives": "Item Alternatives",
   quality: "Quality",
   inspections: "Quality Inspections",
   templates: "Inspection Templates",

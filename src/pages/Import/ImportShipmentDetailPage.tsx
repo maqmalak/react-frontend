@@ -1,3 +1,5 @@
+import { DocActionsMenu } from "@/components/doc/doc-actions-menu";
+import { DocPageTabs } from "@/components/doc/doc-page-tabs";
 import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useFrappeGetDocList } from "frappe-react-sdk";
@@ -130,6 +132,7 @@ export function ImportShipmentDetailPage() {
         }
         actions={
           <>
+            <DocActionsMenu doctype="Import Shipment" doc={shipment as any} onChanged={() => void mutate()} />
             <StatusBadge status={status || "Draft"} />
             {canWrite && (doc?.docstatus ?? 0) === 0 && (
               <>
@@ -148,6 +151,7 @@ export function ImportShipmentDetailPage() {
           </>
         }
       />
+      <DocPageTabs doctype="Import Shipment" name={shipment?.name ?? name} />
 
       <div className="lg:hidden">
         <StatusTimelineCompact steps={IMPORT_SHIPMENT_FLOW} currentIndex={flowIndex} />

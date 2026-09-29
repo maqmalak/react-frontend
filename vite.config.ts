@@ -40,6 +40,9 @@ export default defineConfig(({ mode }) => {
         "/private": proxyOpts,
         "/assets": proxyOpts,
         "/socket.io": { ...proxyOpts, ws: true },
+        // Desk form and print view, opened from the React forms' Actions menu (same session cookie).
+        "/app": proxyOpts,
+        "/printview": proxyOpts,
       },
     },
     build: {

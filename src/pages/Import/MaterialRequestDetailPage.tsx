@@ -1,3 +1,5 @@
+import { DocActionsMenu } from "@/components/doc/doc-actions-menu";
+import { DocPageTabs } from "@/components/doc/doc-page-tabs";
 import { useState, useCallback, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -189,6 +191,7 @@ export function MaterialRequestDetailPage() {
         }
         actions={
           <>
+            <DocActionsMenu doctype="Material Request" doc={doc as any} onChanged={() => void mutate()} />
             <StatusBadge status={statusLabel} />
             {mr.docstatus === 1 && isPurchaseType && (mr.per_ordered ?? 0) < 100 && (
               <Button size="sm" variant="outline" onClick={() => void handleCreatePO()} disabled={creatingPO}>
@@ -218,6 +221,7 @@ export function MaterialRequestDetailPage() {
           </>
         }
       />
+      <DocPageTabs doctype="Material Request" name={doc?.name ?? name} />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <Card className="p-4">

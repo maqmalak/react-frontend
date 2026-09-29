@@ -1,3 +1,5 @@
+import { DocActionsMenu } from "@/components/doc/doc-actions-menu";
+import { DocPageTabs } from "@/components/doc/doc-page-tabs";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useFrappeGetDocCount } from "frappe-react-sdk";
@@ -347,6 +349,7 @@ export default function EmployeeDetailPage() {
         }
         actions={
           <>
+            <DocActionsMenu doctype="Employee" doc={doc as any} onChanged={() => void mutate()} />
             <StatusBadge status={doc.status} />
             <Button variant="destructive" size="sm" onClick={() => setConfirmDelete(true)} disabled={deleting}>
               <Trash2 className="h-4 w-4" /> Delete
@@ -357,6 +360,7 @@ export default function EmployeeDetailPage() {
           </>
         }
       />
+      <DocPageTabs doctype="Employee" name={doc?.name ?? name} />
 
       <Card className="overflow-x-auto p-1">
         <div className="flex min-w-max gap-1">

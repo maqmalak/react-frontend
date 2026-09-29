@@ -29,7 +29,8 @@ export interface FormFieldMeta {
     | "Attach Image"
     | "Table"
     | "Section Break"
-    | "Column Break";
+    | "Column Break"
+    | "Tab Break";
   options?: string;
   reqd?: boolean;
   read_only?: boolean;

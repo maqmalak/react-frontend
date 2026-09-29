@@ -1,3 +1,4 @@
+import { AccountDrillDialog, type DrillSpec } from "./account-drill";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronRight,
@@ -198,6 +199,8 @@ export function ReportProfitAndLossPage() {
 
   const allRows = ((data?.result ?? []) as unknown as PLRow[]).filter((r) => r && typeof r.account === "string");
   const bodyRows = allRows.filter((r) => !r.account.startsWith("'"));
+  const [drill, setDrill] = useState<DrillSpec | null>(null);
+  const drillAccounts = useMemo(() => bodyRows.filter((r) => !r.is_group).map((r) => ({ account: r.account, name: r.acc_name, amount: Number(r.total) || 0 })), [bodyRows]);
   const shown = visibleRows(bodyRows, collapsed);
 
   const periodColumns: QueryReportColumn[] = (data?.columns ?? []).filter(
@@ -422,6 +425,7 @@ export function ReportProfitAndLossPage() {
                   tone="success"
                   colorValue
                   sparkline={monthlyData.map((m) => m.income)}
+                  onClick={() => setDrill({ title: "Income — accounts", rootTypes: ["Income"] })}
                 />
                 <KpiCard
                   label={summary.find((s) => s.label.startsWith("Total Expense"))?.label ?? "Total Expense"}
@@ -430,6 +434,7 @@ export function ReportProfitAndLossPage() {
                   tone="warning"
                   colorValue
                   sparkline={monthlyData.map((m) => m.expense)}
+                  onClick={() => setDrill({ title: "Expenses — accounts", rootTypes: ["Expense"] })}
                 />
                 <KpiCard
                   label={summary.find((s) => s.label.includes("Profit") || s.label.includes("Loss"))?.label ?? "Profit"}
@@ -438,6 +443,7 @@ export function ReportProfitAndLossPage() {
                   tone={netProfit >= 0 ? "success" : "destructive"}
                   colorValue
                   sparkline={monthlyData.map((m) => m.net)}
+                  onClick={() => setDrill({ title: "Profit — income less expenses by account", rootTypes: ["Income", "Expense"], negate: ["Expense"] })}
                 />
                 <KpiCard
                   label="Net Margin"
@@ -446,8 +452,10 @@ export function ReportProfitAndLossPage() {
                   tone={netMargin >= 0 ? "success" : "destructive"}
                   colorValue
                   sparkline={monthlyData.map((m) => (m.income ? (m.net / m.income) * 100 : 0))}
+                  onClick={() => setDrill({ title: "Net margin — income less expenses by account", rootTypes: ["Income", "Expense"], negate: ["Expense"] })}
                 />
               </div>
+              <AccountDrillDialog spec={drill} onClose={() => setDrill(null)} accounts={drillAccounts} company={company} fromDate={fromDate} toDate={toDate} currency={companyCurrency ?? undefined} />
 
               <Card className="p-5">
                 <div className="flex items-baseline justify-between gap-4">

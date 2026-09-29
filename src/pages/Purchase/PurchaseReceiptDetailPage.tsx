@@ -1,3 +1,5 @@
+import { DocActionsMenu } from "@/components/doc/doc-actions-menu";
+import { DocPageTabs } from "@/components/doc/doc-page-tabs";
 import { useState, useCallback, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -173,6 +175,7 @@ export function PurchaseReceiptDetailPage() {
         }
         actions={
           <>
+            <DocActionsMenu doctype="Purchase Receipt" doc={doc as any} onChanged={() => void mutate()} />
             <StatusBadge status={statusLabel} />
             {submitted && (pr.per_billed ?? 0) < 100 && (
               <Button size="sm" onClick={() => void handleCreateInvoice()} disabled={creatingInvoice}>
@@ -201,6 +204,7 @@ export function PurchaseReceiptDetailPage() {
           </>
         }
       />
+      <DocPageTabs doctype="Purchase Receipt" name={doc?.name ?? name} />
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">

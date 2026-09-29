@@ -1,3 +1,5 @@
+import { DocActionsMenu } from "@/components/doc/doc-actions-menu";
+import { DocPageTabs } from "@/components/doc/doc-page-tabs";
 import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -108,6 +110,7 @@ export function RequestForQuotationDetailPage() {
         }
         actions={
           <>
+            <DocActionsMenu doctype="Request for Quotation" doc={doc as any} onChanged={() => void mutate()} />
             <StatusBadge status={statusLabel} />
             {rfq.docstatus === 1 && rfqSuppliers.length > 0 && (
               <Button
@@ -134,6 +137,7 @@ export function RequestForQuotationDetailPage() {
           </>
         }
       />
+      <DocPageTabs doctype="Request for Quotation" name={doc?.name ?? name} />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card className="p-4">
