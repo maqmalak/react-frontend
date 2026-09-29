@@ -27,7 +27,8 @@ import { KpiCard } from "@/pages/Dashboard/KpiCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChartCard } from "@/components/charts/chart-card";
 import { BarChart, LineChart } from "@/components/charts/charts";
-import { useQueryReport, useFiscalYears, useChartOfAccounts, useMonthlyTrialBalanceTrend } from "@/hooks/useAccounting";
+import { useQueryReport, useFiscalYears, useChartOfAccounts } from "@/hooks/useAccounting";
+import { useFrappeGetCall } from "frappe-react-sdk";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { formatNumber } from "@/utils/currency";
 import { cn } from "@/utils/cn";
@@ -142,7 +143,6 @@ export function ReportTrialBalancePage() {
   // month) — on a large/heavy company that's N extra multi-second+ report
   // runs on top of the one the page actually needs for its headline figures.
   // Opt-in on click rather than firing automatically on every page load.
-  const [trendRequested, setTrendRequested] = useState(false);
   const [hiddenHeads, setHiddenHeads] = useState<Set<Head>>(new Set());
   const toggleHead = (h: Head) =>
     setHiddenHeads((prev) => {
@@ -233,35 +233,16 @@ export function ReportTrialBalancePage() {
     return totals;
   }, [bodyRows, rootTypeMap]);
 
-  // Trial Balance itself has no periodicity filter (it's a single from/to
-  // snapshot), so the monthly trend is built from N small per-month Trial
-  // Balance calls — already server-aggregated per account — rather than
-  // fetching every raw General Ledger posting across the whole range and
-  // bucketing client-side, which for a full fiscal year of a busy company
-  // was heavy enough to push `General Ledger` into background "Prepared
-  // Report" mode (see useMonthlyTrialBalanceTrend). Even so, N of them is
-  // still N full report runs, so this only fires once the user asks for it
-  // (`trendRequested`), not on every page load.
-  const { data: monthlyRoots, isLoading: chartLoading } = useMonthlyTrialBalanceTrend(
-    company,
-    fiscalYear,
-    fromDate,
-    toDate,
-    trendRequested && Boolean(company && fiscalYear && fromDate && toDate),
+  // Monthly movement per root type from one indexed, cached GL pass (micromax.financial_insights) — cheap enough
+  // to load with the report instead of on request, so the chart and the card sparklines show straight away.
+  const trendArgs = { company, from_date: appliedFilters?.from_date ?? fromDate, to_date: appliedFilters?.to_date ?? toDate };
+  const { data: monthlyResp, isLoading: chartLoading } = useFrappeGetCall<{ message: ({ month: string } & Record<Head, number>)[] }>(
+    "micromax.financial_insights.get_monthly_root_movement",
+    trendArgs,
+    hasGenerated && company && trendArgs.from_date && trendArgs.to_date ? `tb-monthly:${JSON.stringify(trendArgs)}` : null,
+    { revalidateOnFocus: false },
   );
-
-  const monthlyData = useMemo(() => {
-    if (!monthlyRoots) return [];
-    return monthlyRoots.map((m) => {
-      const net: Record<Head, number> = { Asset: 0, Liability: 0, Equity: 0, Income: 0, Expense: 0 };
-      Object.entries(m.totals).forEach(([account, { debit, credit }]) => {
-        const rt = rootTypeMap.get(account) as Head | undefined;
-        if (!rt) return;
-        net[rt] += DEBIT_NATURED.has(rt) ? debit - credit : credit - debit;
-      });
-      return { month: m.month, ...net };
-    });
-  }, [monthlyRoots, rootTypeMap]);
+  const monthlyData = useMemo(() => monthlyResp?.message ?? [], [monthlyResp]);
 
   const toggle = (account: string) =>
     setCollapsed((prev) => {
@@ -455,17 +436,7 @@ export function ReportTrialBalancePage() {
               </div>
             }
           >
-            {!trendRequested ? (
-              <div className="flex flex-col items-center gap-3 py-10 text-center">
-                <p className="text-sm text-muted-foreground">
-                  This chart runs one Trial Balance report per month in range — a heavier query than the
-                  headline figures above, so it's opt-in.
-                </p>
-                <Button variant="outline" size="sm" onClick={() => setTrendRequested(true)}>
-                  Load Monthly Activity
-                </Button>
-              </div>
-            ) : chartLoading ? (
+            {chartLoading ? (
               <Skeleton className="h-64 w-full" />
             ) : monthlyData.length === 0 ? (
               <p className="py-10 text-center text-sm text-muted-foreground">No monthly activity to chart.</p>

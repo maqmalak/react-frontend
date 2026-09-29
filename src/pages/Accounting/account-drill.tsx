@@ -21,6 +21,8 @@ export interface DrillSpec {
   rootTypes: string[];
   /** For combined cards (profit): flip the sign of these root types so the list nets correctly. */
   negate?: string[];
+  /** Narrow to these account types (e.g. ["Payable"], ["Bank", "Cash"]). */
+  accountTypes?: string[];
 }
 
 /**
@@ -38,7 +40,8 @@ export function AccountDrillDialog({ spec, onClose, accounts, company, fromDate,
     return accounts
       .filter((r) => {
         const m = meta.get(r.account);
-        return m && !m.is_group && spec.rootTypes.includes(String(m.root_type)) && Math.abs(r.amount) >= 0.005;
+        return m && !m.is_group && spec.rootTypes.includes(String(m.root_type)) && (!spec.accountTypes || spec.accountTypes.includes(String(m.account_type)))
+          && Math.abs(r.amount) >= 0.005;
       })
       .map((r) => ({ ...r, root: String(meta.get(r.account)?.root_type ?? ""), amount: spec.negate?.includes(String(meta.get(r.account)?.root_type)) ? -r.amount : r.amount }))
       .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));

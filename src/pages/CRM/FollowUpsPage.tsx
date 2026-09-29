@@ -5,6 +5,9 @@ import { StatusBadge } from "@/components/common/status-badge";
 import { formatDateTime, todayISO } from "@/utils/dates";
 import { useAuth } from "@/hooks/useAuth";
 import type { CrmTask } from "@/types/frappe";
+import { useMemo } from "react";
+import { Link } from "react-router-dom";
+import { useCrmReferenceLabels, type CrmReference } from "@/hooks/useCrmReferenceLabels";
 
 const STATUSES = ["Todo", "In Progress", "Done", "Cancelled"];
 const PRIORITIES = ["Low", "Medium", "High"];
@@ -12,9 +15,38 @@ const PRIORITIES = ["Low", "Medium", "High"];
 interface FollowUpRow extends Omit<CrmTask, "status"> {
   status?: string;
   assigned_to?: string;
+  reference_doctype?: string;
+  reference_docname?: string;
 }
 
-const columns: ColumnDef<FollowUpRow>[] = [
+const refHref = (doctype: string | undefined, name: string) =>
+  doctype === "CRM Deal" ? `/crm/deals/${encodeURIComponent(name)}` : `/crm/leads/${encodeURIComponent(name)}`;
+
+/** Lead / Deal the follow-up belongs to: its number (a link to the record) and its name, as two columns. */
+const referenceColumns = (referenceMap: Map<string, CrmReference>): ColumnDef<FollowUpRow>[] => [
+  {
+    key: "reference_docname",
+    label: "Lead No.",
+    render: (r) =>
+      r.reference_docname ? (
+        <Link to={refHref(r.reference_doctype || referenceMap.get(r.reference_docname)?.doctype, r.reference_docname)} onClick={(e) => e.stopPropagation()}
+          className="whitespace-nowrap text-sm font-medium text-primary hover:underline">
+          {r.reference_docname}
+        </Link>
+      ) : (
+        <span className="text-sm text-muted-foreground">—</span>
+      ),
+    getValue: (r) => r.reference_docname,
+  },
+  {
+    key: "lead_name",
+    label: "Lead Name",
+    render: (r) => <span className="text-sm">{(r.reference_docname && referenceMap.get(r.reference_docname)?.label) || "—"}</span>,
+    getValue: (r) => (r.reference_docname && referenceMap.get(r.reference_docname)?.label) || "",
+  },
+];
+
+const baseColumns: ColumnDef<FollowUpRow>[] = [
   {
     key: "due_date",
     label: "Due",
@@ -34,6 +66,8 @@ const columns: ColumnDef<FollowUpRow>[] = [
 
 export default function FollowUpsPage() {
   const { currentUser } = useAuth();
+  const { referenceMap } = useCrmReferenceLabels();
+  const columns = useMemo(() => [...referenceColumns(referenceMap), ...baseColumns], [referenceMap]);
 
   const config: CrmManagementConfig<FollowUpRow> = {
     title: "Follow-ups",
@@ -46,7 +80,7 @@ export default function FollowUpsPage() {
     // A blank/legacy task_category still passes this filter, so no
     // pre-existing follow-up disappears.
     filters: [["task_category", "!=", "Task"]],
-    fields: ["name", "title", "task_category", "priority", "status", "start_date", "due_date", "description", "assigned_to", "modified"],
+    fields: ["name", "title", "task_category", "priority", "status", "start_date", "due_date", "description", "assigned_to", "reference_doctype", "reference_docname", "modified"],
     formFields: [
       { fieldname: "title", label: "Subject", fieldtype: "Data", reqd: true },
       { fieldname: "status", label: "Status", fieldtype: "Select", options: STATUSES.join("\n"), default: "Todo" },

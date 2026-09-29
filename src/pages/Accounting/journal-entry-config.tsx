@@ -1,4 +1,4 @@
-import { BookOpen, FileText, ListOrdered, NotebookPen, SlidersHorizontal } from "lucide-react";
+import { BookOpen, FileText, NotebookPen, SlidersHorizontal } from "lucide-react";
 import type { ChildTableSpec, DocConfig, DocValues } from "@/components/doc/doc-config";
 import {
   sec, colBreak, tab, data, date, float, currency, check, text, link, select, ro, req, when,
@@ -14,7 +14,7 @@ const VOUCHER_TYPES = ["Journal Entry", "Bank Entry", "Cash Entry", "Credit Card
   "Opening Entry", "Depreciation Entry", "Exchange Rate Revaluation", "Exchange Gain Or Loss", "Deferred Revenue", "Deferred Expense", "Inter Company Journal Entry"];
 
 const ACCOUNTS: ChildTableSpec = {
-  tab: "Accounts",
+  tab: "Entry",
   key: "accounts",
   label: "Accounting Entries",
   description: "Debits must equal credits. Party and reference link a line to a customer / supplier and the invoice it settles.",
@@ -89,12 +89,6 @@ export const JOURNAL_ENTRY_CONFIG: DocConfig = {
     link("from_template", "From Template", "Journal Entry Template"),
     link("cost_center", "Default Cost Center", "Cost Center"),
     link("mode_of_payment", "Mode of Payment", "Mode of Payment"),
-    sec("Totals"),
-    ro(currency("total_debit", "Total Debit")),
-    colBreak(),
-    ro(currency("total_credit", "Total Credit")),
-    ro(currency("difference", "Difference (Dr − Cr)")),
-    tab("Accounts"),
     tab("Reference"),
     sec("Cheque / reference"),
     data("cheque_no", "Reference Number"),
@@ -144,7 +138,7 @@ export const JOURNAL_ENTRY_CONFIG: DocConfig = {
     return { rows: { accounts }, values: { total_debit: dr, total_credit: cr, difference: Math.round((dr - cr) * 100) / 100 } };
   },
   validate: (v): Record<string, string> => (Math.abs(asNumber(v.difference)) > 0.005 ? { difference: `Debits and credits differ by ${fmtMoney(v.difference)}` } : {}),
-  tabIcons: { Entry: NotebookPen, Accounts: ListOrdered, Reference: FileText, Ledger: BookOpen, More: SlidersHorizontal },
+  tabIcons: { Entry: NotebookPen, Reference: FileText, Ledger: BookOpen, More: SlidersHorizontal },
   tabPanels: {
     Entry: { before: (c) => <InsightsPanel method="micromax.accounting_insights.get_je_insights" args={{ name: c.name }} cacheKey={!c.isNew && c.name ? `je-insights:${c.name}:${c.values.modified ?? ""}` : null} /> },
     Ledger: { before: (c) => <LedgerPanel doctype="Journal Entry" name={c.name} docstatus={c.docstatus} /> },

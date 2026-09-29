@@ -26,7 +26,8 @@ const money = (v: unknown, cur = "PKR") => formatMoney(asNumber(v), cur, { decim
 interface PeInsights {
   bank_account: string | null; bank_balance: number | null; party_balance: number | null;
   allocated: number; unallocated: number; paid: number;
-  references: { doctype: string; name: string; bill_no?: string; total: number; allocated: number; outstanding_then: number; outstanding_now: number | null; status: string | null }[];
+  references: { doctype: string; name: string; bill_no?: string; due_date?: string; total: number; allocated: number; this_pct: number;
+    others: number; others_pct: number; others_detail: string | null; due_now: number | null; due_pct: number; status: string | null }[];
   gl: { account: string; party?: string; debit: number; credit: number; against_voucher_type?: string; against_voucher?: string; cost_center?: string }[];
   gl_debit: number; gl_credit: number;
 }
@@ -124,29 +125,67 @@ function ReferencesPanel(c: ExtraContext) {
       )}
       {data && data.references.length > 0 && (
         <Card className="overflow-hidden p-0">
-          <div className="border-b border-border px-5 py-3"><p className="text-sm font-semibold">Settlement status</p><p className="text-xs text-muted-foreground">What each document owed at payment and what it owes now</p></div>
+          <div className="flex flex-wrap items-end justify-between gap-2 border-b border-border px-5 py-3">
+            <div>
+              <p className="text-sm font-semibold">Settlement status</p>
+              <p className="text-xs text-muted-foreground">How each document was settled — by this payment, by other payments / entries, and what is still due today</p>
+            </div>
+            <div className="flex gap-3 text-[11px] text-muted-foreground">
+              <span className="flex items-center gap-1"><i className="h-2 w-3 rounded-sm bg-emerald-500" /> This payment</span>
+              <span className="flex items-center gap-1"><i className="h-2 w-3 rounded-sm bg-sky-400" /> Other settlements</span>
+              <span className="flex items-center gap-1"><i className="h-2 w-3 rounded-sm bg-amber-500" /> Still due</span>
+            </div>
+          </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-sm">
+            <table className="w-full min-w-[900px] text-sm">
               <thead className="bg-muted/50 text-[11px] uppercase tracking-wider text-muted-foreground">
-                <tr><th className="px-4 py-2 text-left">Document</th><th className="px-3 py-2 text-right">Total</th><th className="px-3 py-2 text-right">Allocated</th><th className="px-3 py-2 text-left">Settled</th><th className="px-3 py-2 text-right">Due now</th><th className="px-4 py-2 text-left">Status</th></tr>
+                <tr>
+                  <th className="px-4 py-2 text-left">Document</th>
+                  <th className="px-3 py-2 text-right">Total</th>
+                  <th className="px-3 py-2 text-right">This payment</th>
+                  <th className="px-3 py-2 text-right">Other settlements</th>
+                  <th className="w-44 px-3 py-2 text-left">Settlement</th>
+                  <th className="px-3 py-2 text-right">Due now</th>
+                  <th className="px-4 py-2 text-left">Status</th>
+                </tr>
               </thead>
               <tbody>
                 {data.references.map((r) => {
                   const u = docUrl(r.doctype, r.name);
-                  const settled = r.total ? Math.min(100, ((r.total - (r.outstanding_now ?? r.outstanding_then)) / r.total) * 100) : 0;
                   return (
                     <tr key={`${r.doctype}-${r.name}`} className="border-t border-border/60 hover:bg-muted/30">
                       <td className="px-4 py-2">{u.external ? <a className="font-medium text-primary hover:underline" href={u.href} target="_blank" rel="noreferrer">{r.name}</a> : <Link className="font-medium text-primary hover:underline" to={u.href}>{r.name}</Link>}
-                        <p className="text-[11px] text-muted-foreground">{r.doctype}{r.bill_no ? ` · bill ${r.bill_no}` : ""}</p></td>
+                        <p className="text-[11px] text-muted-foreground">{r.doctype}{r.bill_no ? ` · bill ${r.bill_no}` : ""}{r.due_date ? ` · due ${r.due_date}` : ""}</p></td>
                       <td className="px-3 py-2 text-right tabular-nums">{money(r.total)}</td>
-                      <td className="px-3 py-2 text-right font-semibold tabular-nums">{money(r.allocated)}</td>
-                      <td className="w-40 px-3 py-2"><div className="h-2 rounded-full bg-muted"><div className="h-2 rounded-full bg-emerald-500" style={{ width: `${settled}%` }} /></div><p className="mt-0.5 text-[10px] text-muted-foreground">{settled.toFixed(0)}% settled</p></td>
-                      <td className={cn("px-3 py-2 text-right tabular-nums", (r.outstanding_now ?? 0) > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400")}>{r.outstanding_now == null ? "—" : money(r.outstanding_now)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums"><span className="font-semibold text-emerald-700 dark:text-emerald-400">{money(r.allocated)}</span>
+                        <p className="text-[10px] text-muted-foreground">{r.this_pct}% of the document</p></td>
+                      <td className="px-3 py-2 text-right tabular-nums">{r.others ? money(r.others) : "—"}
+                        {r.others_detail && <p className="text-[10px] text-muted-foreground">{r.others_detail}</p>}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex h-2.5 overflow-hidden rounded-full bg-muted" title={`This payment ${r.this_pct}% · others ${r.others_pct}% · due ${r.due_pct}%`}>
+                          <div className="bg-emerald-500" style={{ width: `${r.this_pct}%` }} />
+                          <div className="bg-sky-400" style={{ width: `${r.others_pct}%` }} />
+                          <div className="bg-amber-500" style={{ width: `${r.due_pct}%` }} />
+                        </div>
+                        <p className="mt-0.5 text-[10px] text-muted-foreground">{r.due_pct > 0 ? `${r.due_pct}% still due` : "fully settled"}</p>
+                      </td>
+                      <td className={cn("px-3 py-2 text-right tabular-nums", (r.due_now ?? 0) > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400")}>{r.due_now == null ? "—" : money(r.due_now)}</td>
                       <td className="px-4 py-2"><span className="rounded-full bg-muted px-2 py-0.5 text-xs">{r.status ?? "—"}</span></td>
                     </tr>
                   );
                 })}
               </tbody>
+              <tfoot className="border-t-2 border-border font-semibold">
+                <tr>
+                  <td className="px-4 py-2">Total ({data.references.length})</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{money(data.references.reduce((x, r) => x + r.total, 0))}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-emerald-700 dark:text-emerald-400">{money(data.references.reduce((x, r) => x + r.allocated, 0))}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{money(data.references.reduce((x, r) => x + r.others, 0))}</td>
+                  <td />
+                  <td className="px-3 py-2 text-right tabular-nums">{money(data.references.reduce((x, r) => x + (r.due_now ?? 0), 0))}</td>
+                  <td />
+                </tr>
+              </tfoot>
             </table>
           </div>
         </Card>

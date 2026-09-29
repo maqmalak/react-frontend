@@ -1459,6 +1459,11 @@ export interface CrmLead {
   proposed_ask?: string;
   first_contact_date?: string;
   remarks?: string;
+  second_contact_name?: string;
+  second_contact_gender?: string;
+  second_contact_designation?: string;
+  second_contact_email?: string;
+  second_contact_mobile?: string;
 }
 
 export interface CrmDeal {

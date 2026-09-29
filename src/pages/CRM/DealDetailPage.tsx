@@ -1,14 +1,14 @@
+import { CrmContactCard } from "@/components/crm/contact-card";
+import { CrmCommentItem } from "@/components/crm/comment-item";
 import { DocActionsMenu } from "@/components/doc/doc-actions-menu";
 import { DocPageTabs } from "@/components/doc/doc-page-tabs";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Handshake, Pencil, Phone, Mail, CheckSquare, MessageSquare, Plus } from "lucide-react";
+import { Handshake, Pencil, CheckSquare, MessageSquare, Plus } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { SectionCard } from "@/components/common/section-card";
-import { StatusBadge } from "@/components/common/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog } from "@/components/ui/dialog";
@@ -22,8 +22,6 @@ import { useFrappeGetDocList } from "frappe-react-sdk";
 import { humanizeError } from "@/services/frappe";
 import { formatDateTime } from "@/utils/dates";
 import { formatMoney } from "@/utils/currency";
-import { whatsappUrl } from "@/utils/whatsapp";
-import { WhatsAppIcon } from "@/components/common/whatsapp-icon";
 import { useWhatsAppCall } from "@/hooks/useWhatsAppCall";
 import { notifyDataChanged } from "@/hooks/useRealtime";
 import { useAuth } from "@/hooks/useAuth";
@@ -34,7 +32,7 @@ export function DealDetailPage() {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { data: deal, error, isLoading, mutate } = useCrmDeal(name);
-  const { activities, isLoading: activitiesLoading, addComment } = useCrmActivities(name);
+  const { activities, isLoading: activitiesLoading, addComment, mutate: mutateActivities } = useCrmActivities(name);
   const { data: notes } = useCrmNotes("CRM Deal", name);
   const { data: tasks, mutate: mutateTasks } = useCrmTasks({ referenceDoctype: "CRM Deal", referenceDocname: name, category: "Follow-up" });
   const { createDoc: createTask, setStatus, loading: taskSaving } = useCrmTaskMutations();
@@ -151,37 +149,14 @@ export function DealDetailPage() {
       />
       <DocPageTabs doctype="CRM Deal" name={deal?.name ?? name} />
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Status</p>
-          <StatusBadge status={deal.status} />
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Value</p>
-          <p className="font-bold">{formatMoney(deal.deal_value ?? deal.expected_deal_value, deal.currency)}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Email</p>
-          <p className="flex items-center gap-1.5 truncate font-medium"><Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />{deal.email || "—"}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Phone</p>
-          <p className="flex items-center gap-1.5 font-medium">
-            <Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            <span className="truncate">{deal.mobile_no || deal.phone || "—"}</span>
-            {whatsappUrl(deal.mobile_no || deal.phone) && (
-              <button
-                type="button"
-                title="Call on WhatsApp"
-                onClick={() => void call(deal.mobile_no || deal.phone, "CRM Deal", name)}
-                className="ml-auto shrink-0 text-emerald-600 hover:text-emerald-500 dark:text-emerald-400"
-              >
-                <WhatsAppIcon className="h-4 w-4" />
-              </button>
-            )}
-          </p>
-        </Card>
-      </div>
+      <CrmContactCard
+        name={deal.lead_name || [deal.first_name, deal.last_name].filter(Boolean).join(' ') || deal.organization || deal.name}
+        status={deal.status}
+        email={deal.email}
+        phone={deal.mobile_no || deal.phone}
+        onWhatsApp={() => void call(deal.mobile_no || deal.phone, "CRM Deal", name)}
+        extra={<span className="font-bold tabular-nums">{formatMoney(deal.deal_value ?? deal.expected_deal_value, deal.currency)}</span>}
+      />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
@@ -207,10 +182,7 @@ export function DealDetailPage() {
                   {activities.map((a, i) => (
                     <li key={a.name ?? `${a.activity_type}-${i}`} className="text-sm">
                       {a.activity_type === "comment" ? (
-                        <p className="text-muted-foreground">
-                          <span className="font-medium text-foreground">{a.owner}</span>{" "}
-                          <span dangerouslySetInnerHTML={{ __html: a.content ?? "" }} />
-                        </p>
+                        <CrmCommentItem name={a.name} owner={a.owner} content={a.content} currentUser={currentUser} onSaved={() => void mutateActivities()} />
                       ) : (
                         <p className="text-muted-foreground">
                           <span className="font-medium text-foreground">{a.owner}</span> {describeCrmActivity(a)}

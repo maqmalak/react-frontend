@@ -920,6 +920,15 @@ export const CRM_LEAD_FIELDS: FormFieldMeta[] = [
   { fieldname: "phone", label: "Phone", fieldtype: "Data" },
   { fieldname: "gender", label: "Gender", fieldtype: "Link", options: "Gender" },
 
+  // micromax custom fields — a second person at the same organization (install.py).
+  { fieldname: "second_contact_section", label: "Second Contact Person", fieldtype: "Section Break" },
+  { fieldname: "second_contact_name", label: "Person Name", fieldtype: "Data" },
+  { fieldname: "second_contact_gender", label: "Gender", fieldtype: "Link", options: "Gender" },
+  { fieldname: "second_contact_designation", label: "Designation", fieldtype: "Data" },
+  { fieldname: "second_contact_column_break", fieldtype: "Column Break" },
+  { fieldname: "second_contact_email", label: "Email", fieldtype: "Data" },
+  { fieldname: "second_contact_mobile", label: "Cell No", fieldtype: "Data" },
+
   { fieldname: "section_break_org", label: "Organization", fieldtype: "Section Break" },
   { fieldname: "organization", label: "Organization", fieldtype: "Link", options: "CRM Organization" },
   { fieldname: "job_title", label: "Job Title", fieldtype: "Data" },

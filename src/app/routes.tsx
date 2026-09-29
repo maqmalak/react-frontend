@@ -139,7 +139,6 @@ const RoleDetailPage = lazy(() => import("@/pages/Admin/RoleDetailPage").then((m
 const AccountProfilePage = lazy(() => import("@/pages/Account/AccountProfilePage").then((m) => ({ default: m.AccountProfilePage })));
 
 // Accounting
-const AccountingDashboardPage = lazy(() => import("@/pages/Accounting/AccountingDashboardPage").then((m) => ({ default: m.AccountingDashboardPage })));
 const ExportDashboardPage = lazy(() => import("@/pages/Dashboard/ExportDashboardPage").then((m) => ({ default: m.ExportDashboardPage })));
 const AnalyticsSuitePage = lazy(() => import("@/pages/Analytics/AnalyticsSuitePage").then((m) => ({ default: m.AnalyticsSuitePage })));
 const AnalyticsDashboardPage = lazy(() => import("@/pages/Analytics/AnalyticsDashboardPage").then((m) => ({ default: m.AnalyticsDashboardPage })));
@@ -297,7 +296,8 @@ export function AppRoutes() {
         <Route path="analytics/jc_analysis" element={<Navigate to="/production#jc_analysis--top" replace />} />
         <Route path="analytics/suite/:suite" element={<Suspense fallback={<FullPageLoader />}><AnalyticsSuitePage /></Suspense>} />
         <Route path="analytics/:module" element={<Suspense fallback={<FullPageLoader />}><AnalyticsDashboardPage /></Suspense>} />
-        <Route path="accounting" element={<Suspense fallback={<FullPageLoader />}><AccountingDashboardPage /></Suspense>} />
+        {/* The old GL Overview page is retired — the Accounting app opens on the accounts dashboard, inside its own sidebar. */}
+        <Route path="accounting" element={<Suspense fallback={<FullPageLoader />}><AnalyticsDashboardPage module="accounts" /></Suspense>} />
         <Route path="accounting/getting-started" element={<Suspense fallback={<FullPageLoader />}><GettingStartedPage /></Suspense>} />
         <Route path="accounting/chart-of-accounts" element={<Suspense fallback={<FullPageLoader />}><ChartOfAccountsPage /></Suspense>} />
         <Route path="accounting/cost-centers" element={<Suspense fallback={<FullPageLoader />}><CostCentersPage /></Suspense>} />

@@ -1,7 +1,8 @@
+import { LedgerSummary } from "./ledger-summary";
 import { ReportInsights } from "@/components/doc/report-insights";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { SlidersHorizontal, ChevronUp, ChevronDown, Play, Wallet, ArrowDownRight, ArrowUpRight, Landmark } from "lucide-react";
+import { SlidersHorizontal, ChevronUp, ChevronDown, Play } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,6 @@ import { Select } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/common/empty-state";
 import { LoadingOverlay } from "@/components/common/loading-overlay";
-import { KpiCard } from "@/pages/Dashboard/KpiCard";
 import { FrappeDataTable, type ColumnDef } from "@/components/tables/data-table";
 import { FrappeLinkField } from "@/components/forms/field-primitives";
 import { useQueryReport } from "@/hooks/useAccounting";
@@ -273,6 +273,18 @@ export function ReportGeneralLedgerPage() {
 
   const generateLedger = () => setGeneratedFiltersKey(filtersKey);
 
+  // Clicking an account in "Summary by account" re-opens this same page with new URL filters — apply them
+  // (the component stays mounted, so its initial state alone would miss the change) and run again.
+  useEffect(() => {
+    if (!accountParam) return;
+    setAccount(accountParam);
+    if (fromParam) setFromDate(fromParam);
+    if (toParam) setToDate(toParam);
+    autoRan.current = false;
+    setFiltersOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountParam, fromParam, toParam]);
+
   // Deep-linked with a voucher_no (e.g. "View Ledger" from a Journal Entry) —
   // run automatically once we have everything the report needs, and collapse
   // the filters panel since the user came here to see results, not tweak inputs.
@@ -448,13 +460,16 @@ export function ReportGeneralLedgerPage() {
             />
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <KpiCard label="Opening Balance" value={balanceWithDrCr(openingBalance)} icon={Wallet} loading={isLoading} />
-                <KpiCard label="Total Debit" value={formatNumber(totalDebit, 2)} icon={ArrowDownRight} tone="success" loading={isLoading} />
-                <KpiCard label="Total Credit" value={formatNumber(totalCredit, 2)} icon={ArrowUpRight} tone="warning" loading={isLoading} />
-                <KpiCard label="Closing Balance" value={balanceWithDrCr(closingBalance)} icon={Landmark} tone="info" loading={isLoading} />
-              </div>
-              <ReportInsights report="gl" company={company} fromDate={fromDate} toDate={toDate} omitTiles hideBars extra={{ account: account || undefined, party_type: partyType || undefined, party: party || undefined, voucher_no: voucherNo || undefined }} />
+              <LedgerSummary
+                opening={openingBalance}
+                debit={totalDebit}
+                credit={totalCredit}
+                closing={closingBalance}
+                entries={filteredRows.length}
+                loading={isLoading}
+                scope={account || (party ? `${partyType}: ${party}` : voucherNo || "all accounts")}
+              />
+              <ReportInsights report="gl" company={company} fromDate={fromDate} toDate={toDate} omitTiles hideBars collapsible title="Ledger insights" extra={{ account: account || undefined, party_type: partyType || undefined, party: party || undefined, voucher_no: voucherNo || undefined }} />
 
               <FrappeDataTable
                 columns={tableColumns}

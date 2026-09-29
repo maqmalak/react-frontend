@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { History, LayoutList, Link2 } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { ConnectionsPanel } from "./connections-panel";
 import { ActivityPanel } from "./activity-panel";
 
-type TabId = "details" | "connections" | "activity";
+type TabId = string;
+/** A page-specific tab shown between Details and Connections (e.g. a lead's second contact). */
+export interface ExtraPageTab { id: string; label: string; icon: typeof LayoutList; content: ReactNode; badge?: ReactNode }
 const TABS: { id: TabId; label: string; icon: typeof LayoutList }[] = [
   { id: "details", label: "Details", icon: LayoutList },
   { id: "connections", label: "Connections", icon: Link2 },
@@ -16,14 +18,16 @@ const TABS: { id: TabId; label: string; icon: typeof LayoutList }[] = [
  * following sibling) is the "Details" tab and is hidden while Connections or Activity is shown
  * (see `.doc-page-tabs[data-active]` in globals.css).
  */
-export function DocPageTabs({ doctype, name }: { doctype: string; name?: string }) {
+export function DocPageTabs({ doctype, name, extraTabs = [] }: { doctype: string; name?: string; extraTabs?: ExtraPageTab[] }) {
   const [active, setActive] = useState<TabId>("details");
   if (!name) return null;
+  const tabs: (typeof TABS[number] & { badge?: ReactNode })[] = [TABS[0], ...extraTabs, ...TABS.slice(1)];
+  const extra = extraTabs.find((t) => t.id === active);
   return (
     <div className="doc-page-tabs space-y-6" data-active={active}>
       <div className="sticky top-14 z-20 -mx-1 overflow-x-auto rounded-xl border border-border bg-card/90 p-1 shadow-sm backdrop-blur scrollbar-thin">
         <div role="tablist" className="flex min-w-max gap-1">
-          {TABS.map((t) => (
+          {tabs.map((t) => (
             <button
               key={t.id}
               type="button"
@@ -35,11 +39,12 @@ export function DocPageTabs({ doctype, name }: { doctype: string; name?: string 
                 active === t.id ? "bg-primary text-primary-foreground shadow-md shadow-primary/25" : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
             >
-              <t.icon className="h-4 w-4" /> {t.label}
+              <t.icon className="h-4 w-4" /> {t.label}{t.badge}
             </button>
           ))}
         </div>
       </div>
+      {extra?.content}
       {active === "connections" && <ConnectionsPanel doctype={doctype} name={name} />}
       {active === "activity" && <ActivityPanel doctype={doctype} name={name} />}
     </div>

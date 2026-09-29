@@ -1,14 +1,15 @@
+import { CrmContactCard } from "@/components/crm/contact-card";
+import { CrmCommentItem } from "@/components/crm/comment-item";
+import { SecondContactCard } from "@/components/crm/second-contact-card";
 import { DocActionsMenu } from "@/components/doc/doc-actions-menu";
 import { DocPageTabs } from "@/components/doc/doc-page-tabs";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { UserPlus, Pencil, Phone, Mail, Building2, CheckSquare, MessageSquare, Plus, Handshake } from "lucide-react";
+import { UserPlus, Pencil, Building2, CheckSquare, MessageSquare, Plus, Handshake, Users } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { SectionCard } from "@/components/common/section-card";
-import { StatusBadge } from "@/components/common/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog } from "@/components/ui/dialog";
@@ -22,8 +23,6 @@ import { ConnectionsPanel, EmailPanel, WhatsAppPanel, AttachmentsPanel, useLinke
 import { useFrappeGetDocList } from "frappe-react-sdk";
 import { convertCrmLeadToDeal } from "@/services/api";
 import { humanizeError } from "@/services/frappe";
-import { whatsappUrl } from "@/utils/whatsapp";
-import { WhatsAppIcon } from "@/components/common/whatsapp-icon";
 import { useWhatsAppCall } from "@/hooks/useWhatsAppCall";
 import { formatDateTime } from "@/utils/dates";
 import { notifyDataChanged } from "@/hooks/useRealtime";
@@ -35,7 +34,7 @@ export function LeadDetailPage() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const { data: lead, error, isLoading, mutate } = useCrmLead(name);
-  const { activities, isLoading: activitiesLoading, addComment } = useCrmActivities(name);
+  const { activities, isLoading: activitiesLoading, addComment, mutate: mutateActivities } = useCrmActivities(name);
   const { data: notes, isLoading: notesLoading, mutate: mutateNotes } = useCrmNotes("CRM Lead", name);
   const { data: callLogs, isLoading: callLogsLoading } = useCrmCallLogs("CRM Lead", name);
   // Task and Follow-up both live on CRM Task, distinguished by task_category
@@ -231,39 +230,39 @@ export function LeadDetailPage() {
           </>
         }
       />
-      <DocPageTabs doctype="CRM Lead" name={lead?.name ?? name} />
+      <DocPageTabs
+        doctype="CRM Lead"
+        name={lead?.name ?? name}
+        extraTabs={[{
+          id: "second_contact",
+          label: "Second Contact",
+          icon: Users,
+          badge: lead.second_contact_name ? <span className="ml-1 h-1.5 w-1.5 rounded-full bg-emerald-500" /> : undefined,
+          content: (
+            <SecondContactCard
+              organization={lead.organization}
+              editUrl={`/crm/leads/${encodeURIComponent(name!)}/edit`}
+              onWhatsApp={(phone) => void call(phone, "CRM Lead", name)}
+              contact={{
+                name: lead.second_contact_name,
+                gender: lead.second_contact_gender,
+                designation: lead.second_contact_designation,
+                email: lead.second_contact_email,
+                mobile: lead.second_contact_mobile,
+              }}
+            />
+          ),
+        }]}
+      />
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Status</p>
-          <StatusBadge status={lead.status} />
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Email</p>
-          <p className="flex items-center gap-1.5 truncate font-medium"><Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />{lead.email || "—"}</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Phone</p>
-          <p className="flex items-center gap-1.5 font-medium">
-            <Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            <span className="truncate">{lead.mobile_no || lead.phone || "—"}</span>
-            {whatsappUrl(lead.mobile_no || lead.phone) && (
-              <button
-                type="button"
-                title="Call on WhatsApp"
-                onClick={() => void call(lead.mobile_no || lead.phone, "CRM Lead", name)}
-                className="ml-auto shrink-0 text-emerald-600 hover:text-emerald-500 dark:text-emerald-400"
-              >
-                <WhatsAppIcon className="h-4 w-4" />
-              </button>
-            )}
-          </p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Organization</p>
-          <p className="flex items-center gap-1.5 truncate font-medium"><Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />{lead.organization || "—"}</p>
-        </Card>
-      </div>
+      <CrmContactCard
+        name={fullName}
+        status={lead.status}
+        email={lead.email}
+        phone={lead.mobile_no || lead.phone}
+        onWhatsApp={() => void call(lead.mobile_no || lead.phone, "CRM Lead", name)}
+        extra={lead.organization ? <span className="flex items-center gap-1.5 text-muted-foreground"><Building2 className="h-3.5 w-3.5" />{lead.organization}</span> : undefined}
+      />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
@@ -291,10 +290,7 @@ export function LeadDetailPage() {
                   {activities.map((a, i) => (
                     <li key={a.name ?? `${a.activity_type}-${i}`} className="text-sm">
                       {a.activity_type === "comment" ? (
-                        <p className="text-muted-foreground">
-                          <span className="font-medium text-foreground">{a.owner}</span>{" "}
-                          <span dangerouslySetInnerHTML={{ __html: a.content ?? "" }} />
-                        </p>
+                        <CrmCommentItem name={a.name} owner={a.owner} content={a.content} currentUser={currentUser} onSaved={() => void mutateActivities()} />
                       ) : (
                         <p className="text-muted-foreground">
                           <span className="font-medium text-foreground">{a.owner}</span> {describeCrmActivity(a)}

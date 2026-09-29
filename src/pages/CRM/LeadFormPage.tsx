@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { UserPlus, Save, Trash2, User, Building2, ListChecks, CircleOff, HeartHandshake } from "lucide-react";
+import { UserPlus, Save, Trash2, User, Building2, ListChecks, CircleOff, HeartHandshake, Users } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -27,6 +27,12 @@ const LEAD_FORM_TABS = [
     label: "Person",
     icon: User,
     fields: ["salutation", "first_name", "last_name", "email", "mobile_no", "phone", "gender"],
+  },
+  {
+    id: "second_contact",
+    label: "Second Contact",
+    icon: Users,
+    fields: ["second_contact_name", "second_contact_gender", "second_contact_designation", "second_contact_email", "second_contact_mobile"],
   },
   {
     id: "organization",

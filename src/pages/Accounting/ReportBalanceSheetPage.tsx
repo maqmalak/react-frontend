@@ -15,6 +15,9 @@ import {
   PieChart,
   TrendingUp,
   TrendingDown,
+  HandCoins,
+  Landmark,
+  ReceiptText,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { Card } from "@/components/ui/card";
@@ -30,7 +33,7 @@ import { KpiCard } from "@/pages/Dashboard/KpiCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChartCard } from "@/components/charts/chart-card";
 import { BarChart, LineChart } from "@/components/charts/charts";
-import { useQueryReport, useFiscalYears } from "@/hooks/useAccounting";
+import { useChartOfAccounts, useQueryReport, useFiscalYears } from "@/hooks/useAccounting";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { formatNumber } from "@/utils/currency";
 import { asNumber, cn } from "@/utils/cn";
@@ -209,6 +212,13 @@ export function ReportBalanceSheetPage() {
   const navigate = useNavigate();
   const [drill, setDrill] = useState<DrillSpec | null>(null);
   const drillAccounts = useMemo(() => bodyRows.filter((r) => !r.is_group).map((r) => ({ account: r.account, name: r.acc_name, amount: Number(r.total) || 0 })), [bodyRows]);
+  // Working-capital cards: leaf accounts by account type (report rows are already in each head's natural direction).
+  const { data: coa } = useChartOfAccounts(company ?? undefined);
+  const accountTypeOf = useMemo(() => new Map((coa ?? []).map((a) => [a.name, String(a.account_type ?? "")])), [coa]);
+  const byType = (types: string[]) => drillAccounts.reduce((s, r) => s + (types.includes(accountTypeOf.get(r.account) ?? "") ? r.amount : 0), 0);
+  const totalPayable = byType(["Payable"]);
+  const totalReceivable = byType(["Receivable"]);
+  const totalCash = byType(["Bank", "Cash"]);
   const shown = visibleRows(bodyRows, collapsed);
   const provisionalPLRow = allRows.find((r) => r.account.startsWith("'Provisional Profit"));
 
@@ -472,9 +482,33 @@ export function ReportBalanceSheetPage() {
                   sparkline={monthlyData.map((m) => m.provisionalPL)}
                   onClick={() => navigate("/accounting/reports/profit-and-loss")}
                 />
+                <KpiCard
+                  label="Payables"
+                  value={withDrCr("liability", totalPayable)}
+                  icon={HandCoins}
+                  tone="destructive"
+                  colorValue
+                  onClick={() => setDrill({ title: "Payables — supplier and other payable accounts", rootTypes: ["Liability"], accountTypes: ["Payable"] })}
+                />
+                <KpiCard
+                  label="Receivables"
+                  value={withDrCr("asset", totalReceivable)}
+                  icon={ReceiptText}
+                  tone="info"
+                  colorValue
+                  onClick={() => setDrill({ title: "Receivables — customer and other receivable accounts", rootTypes: ["Asset"], accountTypes: ["Receivable"] })}
+                />
+                <KpiCard
+                  label="Cash & Bank"
+                  value={withDrCr("asset", totalCash)}
+                  icon={Landmark}
+                  tone="success"
+                  colorValue
+                  onClick={() => setDrill({ title: "Cash & Bank — balances by account", rootTypes: ["Asset"], accountTypes: ["Bank", "Cash"] })}
+                />
               </div>
               <AccountDrillDialog spec={drill} onClose={() => setDrill(null)} accounts={drillAccounts} company={company} fromDate={fromDate} toDate={toDate} currency={companyCurrency ?? undefined} />
-              <ReportInsights report="balance_sheet" company={company} fromDate={fromDate} toDate={toDate} currency={companyCurrency ?? undefined} omitTiles={["Total assets", "Liabilities", "Equity (incl. current profit)"]} hideBars hideChart />
+              <ReportInsights report="balance_sheet" company={company} fromDate={fromDate} toDate={toDate} currency={companyCurrency ?? undefined} omitTiles={["Total assets", "Liabilities", "Equity (incl. current profit)", "Cash & bank", "Receivables"]} hideBars hideChart />
 
               <Card className="p-5">
                 <div className="flex items-baseline justify-between gap-4">

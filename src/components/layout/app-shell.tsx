@@ -23,7 +23,9 @@ export function AppShell() {
   const showSidebar = Boolean(groups && groups.length > 0);
 
   return (
-    <div className="flex h-full min-h-screen bg-background dark:bg-transparent">
+    // No fixed height here: the box must grow with the page, or the sticky sidebar (sticky within this box)
+    // scrolls away once the content passes one screen.
+    <div className="flex min-h-screen bg-background dark:bg-transparent">
       {showSidebar && (
         <Sidebar
           groups={groups!}

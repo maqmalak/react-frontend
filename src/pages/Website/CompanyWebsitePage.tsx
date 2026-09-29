@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
+  ArrowUpRight,
   ArrowRight,
   Bell,
   Building2,
@@ -491,11 +492,19 @@ function DashboardsSection() {
           <SectionHeading
             eyebrow="Dashboard snapshots"
             title="The screens your team runs the business from"
-            description="Each dashboard ships ready to use on your own data — the same figures drive the on-screen view, the Power BI model and the Grafana panels."
+            description="Eleven live dashboards, from the executive overview down to each department — every card drills into the documents behind it, and the same figures feed the Power BI model and the Grafana panels."
           />
-          <Badge variant="outline" className="w-fit px-3 py-1">
-            {DASHBOARDS.length} dashboards
-          </Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="w-fit px-3 py-1">
+              {DASHBOARDS.length} dashboards
+            </Badge>
+            <Link
+              to="/dashboard"
+              className="inline-flex h-8 items-center gap-1.5 rounded-full bg-primary px-3.5 text-xs font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+            >
+              Open the Executive dashboard <ArrowUpRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
         </div>
 
         {/* Dashboard switcher — wraps on desktop, scrolls on narrow screens. */}
@@ -539,9 +548,20 @@ function DashboardsSection() {
                 <p className="text-xs text-muted-foreground">{dashboard.subtitle}</p>
               </div>
             </div>
-            <Badge variant="info" dot>
-              Illustrative snapshot
-            </Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="info" dot>
+                Illustrative snapshot
+              </Badge>
+              {dashboard.href && (
+                <Link
+                  to={dashboard.href}
+                  className="inline-flex h-7 items-center gap-1.5 rounded-full border border-primary/40 px-3 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+                  title="Opens the live dashboard in the app (sign-in required)"
+                >
+                  Open live dashboard <ArrowUpRight className="h-3.5 w-3.5" />
+                </Link>
+              )}
+            </div>
           </div>
 
           <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted-foreground">

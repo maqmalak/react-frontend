@@ -5,6 +5,9 @@ import type { NavGroup } from "@/app/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { Logo } from "@/components/common/logo";
 
+/** "/", "/accounting", "/production"… — an app's home link; highlight it only on that exact page, not on every page below it. */
+const isAppRoot = (to: string) => to.split("#")[0].split("/").filter(Boolean).length <= 1;
+
 function navLinkClass({ isActive }: { isActive: boolean }) {
   return cn(
     "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
@@ -67,7 +70,7 @@ function NavLinks({
           {group.items.map((item) => {
             const Icon = item.icon;
             return (
-              <NavLink key={item.to} to={item.to} end={item.to === "/"} onClick={onNavigate} className={linkClass(item.to)}>
+              <NavLink key={item.to} to={item.to} end={isAppRoot(item.to)} onClick={onNavigate} className={linkClass(item.to)}>
                 {Icon && <Icon className="h-4 w-4 shrink-0" />}
                 <span className="truncate">{item.label}</span>
               </NavLink>
@@ -108,7 +111,7 @@ export function Sidebar({
     <>
       {/* Desktop */}
       {/* Pinned to the viewport: the page scrolls, the sidebar stays; its own nav scrolls inside it when long. */}
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col bg-sidebar lg:flex">
+      <aside className="sticky top-0 hidden h-screen max-h-screen w-60 shrink-0 flex-col self-start overflow-hidden bg-sidebar lg:flex">
         <Brand />
         <BackToDesktop />
         <NavLinks groups={groups} appLabel={appLabel} />

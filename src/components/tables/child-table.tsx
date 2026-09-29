@@ -33,6 +33,8 @@ export interface EditableChildTableProps {
   extraDialogColumns?: FormFieldMeta[];
   /** Adds a "Columns" button to show/hide inline grid columns (desktop only). Hidden columns still appear in the row-edit dialog. */
   columnPicker?: boolean;
+  /** Rendered at the left of the toolbar row (e.g. the section title), so title, Columns and Add Row share one line. */
+  toolbarStart?: React.ReactNode;
   /** Share the available width between the columns (inputs shrink to fit) instead of sizing every column to its widest input; the grid only scrolls sideways once columns would drop below ~150px. */
   fitColumns?: boolean;
 }
@@ -60,6 +62,7 @@ export function EditableChildTable({
   editableInDialog,
   extraDialogColumns,
   columnPicker,
+  toolbarStart,
   fitColumns,
 }: EditableChildTableProps) {
   const linkFieldnames = React.useMemo(
@@ -69,6 +72,22 @@ export function EditableChildTable({
   const [selectedRows, setSelectedRows] = React.useState<Set<number>>(new Set());
   const [editingIndex, setEditingIndex] = React.useState<number | null>(null);
   const [hiddenFields, setHiddenFields] = React.useState<Set<string>>(new Set());
+
+  // Large tables (e.g. a payroll journal with thousands of lines) render a page at a time — thousands of live
+  // inputs would freeze the browser. Rows keep their real index so edits, the dialog and totals are unaffected.
+  const PAGE = 50;
+  const paginate = rows.length > 100;
+  const pageCount = paginate ? Math.ceil(rows.length / PAGE) : 1;
+  const [page, setPage] = React.useState(0);
+  const prevLen = React.useRef(rows.length);
+  React.useEffect(() => {
+    if (rows.length > prevLen.current && paginate) setPage(Math.ceil(rows.length / PAGE) - 1); // a new row → show it
+    else if (page > pageCount - 1) setPage(Math.max(0, pageCount - 1));
+    prevLen.current = rows.length;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows.length]);
+  const start = paginate ? page * PAGE : 0;
+  const pageRows = (paginate ? rows.slice(start, start + PAGE) : rows).map((row, k) => ({ row, i: start + k }));
 
   const visibleColumns = React.useMemo(
     () => columns.filter((c) => !hiddenFields.has(c.fieldname)),
@@ -105,8 +124,9 @@ export function EditableChildTable({
 
   return (
     <div className={cn("space-y-3", className)}>
-      {(onAddRow || columnPicker || (!readOnly && selectable && selectedRows.size > 0)) && (
-        <div className="flex items-center justify-end gap-2">
+      {(toolbarStart || onAddRow || columnPicker || (!readOnly && selectable && selectedRows.size > 0)) && (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {toolbarStart && <div className="mr-auto min-w-0">{toolbarStart}</div>}
           {!readOnly && selectable && selectedRows.size > 0 && onRemoveRow && (
             <Button variant="outline" size="sm" onClick={deleteSelected}>
               <Trash2 className="h-4 w-4" /> Delete Selected ({selectedRows.size})
@@ -184,7 +204,7 @@ export function EditableChildTable({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row, i) => (
+                {pageRows.map(({ row, i }) => (
                   <tr key={row.__uuid ?? i} className="border-b border-border last:border-0 hover:bg-muted/30">
                     <td className="sticky left-0 z-10 bg-card px-2 py-1.5">
                       <div className="flex items-center gap-1">
@@ -251,7 +271,7 @@ export function EditableChildTable({
 
           {/* Mobile card layout */}
           <div className="space-y-3 md:hidden">
-            {rows.map((row, i) => (
+            {pageRows.map(({ row, i }) => (
               <div key={row.__uuid ?? i} className="rounded-md border border-border p-3 shadow-sm">
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-xs font-semibold text-muted-foreground">Row {i + 1}</span>
@@ -308,6 +328,21 @@ export function EditableChildTable({
             ))}
           </div>
         </>
+      )}
+
+      {paginate && (
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span className="tabular-nums">
+            Rows {(start + 1).toLocaleString()}–{Math.min(start + PAGE, rows.length).toLocaleString()} of {rows.length.toLocaleString()}
+          </span>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" className="h-7 px-2" disabled={page === 0} onClick={() => setPage(0)}>First</Button>
+            <Button variant="outline" size="sm" className="h-7 px-2" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>Previous</Button>
+            <span className="px-2 tabular-nums">Page {page + 1} / {pageCount}</span>
+            <Button variant="outline" size="sm" className="h-7 px-2" disabled={page >= pageCount - 1} onClick={() => setPage((p) => p + 1)}>Next</Button>
+            <Button variant="outline" size="sm" className="h-7 px-2" disabled={page >= pageCount - 1} onClick={() => setPage(pageCount - 1)}>Last</Button>
+          </div>
+        </div>
       )}
 
       {totals && totals.length > 0 && rows.length > 0 && (

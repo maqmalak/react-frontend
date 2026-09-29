@@ -442,8 +442,7 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
     {
       title: "Overview",
       items: [
-        { label: "Dashboard", to: "/analytics/accounts", icon: LayoutDashboard },
-        { label: "GL Overview", to: "/accounting", icon: BarChart3 },
+        { label: "Dashboard", to: "/accounting", icon: LayoutDashboard },
         { label: "Getting Started", to: "/accounting/getting-started", icon: Rocket },
       ],
     },

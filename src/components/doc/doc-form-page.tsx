@@ -12,7 +12,6 @@ import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/common/status-badge";
 import { StatCard } from "@/components/common/stat-card";
-import { SectionCard } from "@/components/common/section-card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Card } from "@/components/ui/card";
 import { FrappeForm } from "@/components/forms/frappe-form";
@@ -415,20 +414,20 @@ export function DocFormPage({ config }: { config: DocConfig }) {
     const list = rows[spec.key] ?? [];
     const ro = readOnly || spec.readOnly;
     return (
-      <SectionCard
-        key={spec.key}
-        title={spec.label}
-        description={spec.description}
-        actions={
-          !ro ? (
-            <Button size="sm" variant="outline" onClick={() => addRow(spec)}>
-              + Add Row
-            </Button>
-          ) : undefined
-        }
-      >
+      <Card key={spec.key} className="p-5">
         {errors[spec.key] && <p className="mb-2 text-sm text-destructive">{errors[spec.key]}</p>}
         <EditableChildTable
+          toolbarStart={
+            <div className="min-w-0">
+              <h3 className="flex items-center gap-2 text-sm font-semibold">
+                <span className="h-4 w-1 rounded-full bg-primary" />
+                {spec.label}
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">{list.length}</span>
+              </h3>
+              {spec.description && <p className="mt-0.5 text-xs text-muted-foreground">{spec.description}</p>}
+            </div>
+          }
+          onAddRow={ro ? undefined : () => addRow(spec)}
           columns={spec.columns}
           rows={spec.derive ? list.map(spec.derive) : list}
           onChange={onRowChange(spec)}
@@ -443,7 +442,7 @@ export function DocFormPage({ config }: { config: DocConfig }) {
           fitColumns
           emptyMessage={ro ? "Nothing here." : "No rows yet. Click Add Row to begin."}
         />
-      </SectionCard>
+      </Card>
     );
   };
 
