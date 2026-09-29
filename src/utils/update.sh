@@ -87,7 +87,6 @@ MICROMAX_BRANCH="${MICROMAX_BRANCH:-main}"
 
 # The app being replaced. Override if it's actually named differently on
 # your site (`bench --site <site> list-apps` will show the exact name).
-APPAREL_APP="${APPAREL_APP:-apparel}"
 MICROMAX_APP="${MICROMAX_APP:-micromax}"
 
 # Section A (see header comment): pull + migrate the already-installed
@@ -162,11 +161,25 @@ log "Resolving the frappe user's nvm-installed node ${NODE_MAJOR} (needed to run
 # happens to be first on the login shell's plain PATH (e.g. an apt-installed
 # system node), which is exactly how a stray v22 got picked up instead of
 # the v24 install.sh set up — the frappe/yarn build then fails engine checks.
-NODE_BIN_DIR="$(as_frappe bash -c "export NVM_DIR=\"\$HOME/.nvm\"; . \"\$NVM_DIR/nvm.sh\"; nvm use ${NODE_MAJOR} >/dev/null 2>&1; dirname \"\$(command -v node)\"")"
-[[ -n "$NODE_BIN_DIR" ]] || die "Could not resolve node via nvm for ${FRAPPE_USER} — is nvm installed, and is node ${NODE_MAJOR} installed (nvm install ${NODE_MAJOR})?"
-RESOLVED_NODE_VERSION="$(as_frappe_sh "'${NODE_BIN_DIR}/node' --version")"
+# Primary: take the newest installed v${NODE_MAJOR}.x straight from nvm's
+# versions dir — no nvm.sh sourcing, so it can't hit the empty-$HOME-under-
+# sudo problem install.sh documents (that failure used to fall through to the
+# system /usr/bin/node v22, and posawesome's `bench build` then died on
+# frappe's "engine node >=24" check).
+NODE_BIN_DIR="$(ls -d "${FRAPPE_HOME}/.nvm/versions/node/v${NODE_MAJOR}."*/bin 2>/dev/null | sort -V | tail -1 || true)"
+if [[ -z "$NODE_BIN_DIR" || ! -x "${NODE_BIN_DIR}/node" ]]; then
+  # Fallback: ask nvm, with the absolute nvm.sh path baked in (same as install.sh).
+  NODE_BIN_DIR="$(as_frappe bash -c "NVM_DIR='${FRAPPE_HOME}/.nvm'; . '${FRAPPE_HOME}/.nvm/nvm.sh'; nvm use ${NODE_MAJOR} >/dev/null 2>&1 && dirname \"\$(command -v node)\"" 2>/dev/null || true)"
+fi
+[[ -n "$NODE_BIN_DIR" && -x "${NODE_BIN_DIR}/node" ]] || die "Node ${NODE_MAJOR} not found under ${FRAPPE_HOME}/.nvm/versions/node — install it as ${FRAPPE_USER}: nvm install ${NODE_MAJOR} && nvm alias default ${NODE_MAJOR}"
+RESOLVED_NODE_VERSION="$(as_frappe_sh "node --version")"
 log "Using node ${RESOLVED_NODE_VERSION} from ${NODE_BIN_DIR}"
-[[ "$RESOLVED_NODE_VERSION" == v${NODE_MAJOR}.* ]] || warn "Resolved node ${RESOLVED_NODE_VERSION}, expected v${NODE_MAJOR}.x — double check 'nvm alias default' for ${FRAPPE_USER} (sudo -iu ${FRAPPE_USER} nvm alias default ${NODE_MAJOR})."
+# Hard stop (not a warning): every build below (frappe/posawesome assets via
+# yarn, the React frontend via npm) requires node >= ${NODE_MAJOR}.
+[[ "$RESOLVED_NODE_VERSION" == v${NODE_MAJOR}.* ]] || die "PATH still resolves node ${RESOLVED_NODE_VERSION} (expected v${NODE_MAJOR}.x from ${NODE_BIN_DIR})."
+for tool in yarn npm; do
+  as_frappe_sh "command -v ${tool} >/dev/null" || as_frappe_sh "npm install -g ${tool} --silent" || true
+done
 
 # ================================================== A0. New bench apps
 EXTRA_APPS_DONE=()
@@ -195,8 +208,12 @@ else
         || die "Could not fetch ${EXTRA_APP_BRANCH[$app]} of ${EXTRA_APP_REPO[$app]}."
       as_frappe git -C "$APP_DIR" checkout -f -B "${EXTRA_APP_BRANCH[$app]}" "${REMOTE}/${EXTRA_APP_BRANCH[$app]}"
       APP_AFTER="$(as_frappe git -C "$APP_DIR" rev-parse HEAD)"
-      if [[ "$APP_BEFORE" != "$APP_AFTER" ]]; then
-        log "'${app}' updated ${APP_BEFORE:0:8} -> ${APP_AFTER:0:8} — reinstalling python deps and rebuilding assets"
+      if [[ "$APP_BEFORE" != "$APP_AFTER" ]] || ! grep -qx "$app" <<<"$A0_INSTALLED_APPS"; then
+        # Also on a first install: a previous run's get-app may have cloned the
+        # app and then died in its asset build (e.g. wrong node), leaving code
+        # that is already "latest" but never built / pip-installed.
+        log "'${app}' at ${APP_AFTER:0:8} (was ${APP_BEFORE:0:8}), not yet built/installed or changed — installing python deps and building assets"
+        grep -qx "$app" "${BENCH_DIR}/sites/apps.txt" || echo "$app" | as_frappe tee -a "${BENCH_DIR}/sites/apps.txt" >/dev/null
         as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' setup requirements --python '${app}'" || warn "bench setup requirements for '${app}' failed — check its pyproject dependencies."
         as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' build --app '${app}'"
       else
