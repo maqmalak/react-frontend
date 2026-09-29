@@ -181,6 +181,39 @@ for tool in yarn npm; do
   as_frappe_sh "command -v ${tool} >/dev/null" || as_frappe_sh "npm install -g ${tool} --silent" || true
 done
 
+# ================================= A-pre. Repair duplicate custom fields
+# ERPNext v16 ships fields micromax used to add itself (Sales Order.incoterm,
+# Item.country_of_origin, ...). A site that got micromax's Custom Field before
+# the upgrade keeps BOTH, and Frappe then refuses any later Custom Field save on
+# that doctype — e.g. posawesome's install-app fixtures fail with
+# "Sales Order: Fieldname incoterm appears multiple times". Removes only the
+# stray Custom Field record (NOT the DB column — the native field uses the same
+# column, so existing values stay). Idempotent: no duplicates -> no-op.
+if [[ "$UPDATE_BACKEND" == "1" ]]; then
+  log "A-pre. Removing Custom Fields that duplicate a native field (e.g. Sales Order.incoterm)"
+  FIX_PY="$(mktemp "${TMPDIR:-/tmp}/micromax_dupfix.XXXXXX.py")"
+  cat > "$FIX_PY" <<'FIXEOF'
+import frappe
+dups = frappe.db.sql("""
+    select cf.name, cf.dt, cf.fieldname from `tabCustom Field` cf
+    where exists (select 1 from `tabDocField` df
+                  where df.parent = cf.dt and df.fieldname = cf.fieldname and df.parenttype = 'DocType')
+""", as_dict=True)
+for d in dups:
+    # frappe.db.delete, not delete_doc: CustomField.on_trash would drop the shared column.
+    frappe.db.delete("Custom Field", {"name": d.name})
+    print("removed duplicate Custom Field:", d.name)
+frappe.db.commit()
+for dt in {d.dt for d in dups}:
+    frappe.clear_cache(doctype=dt)
+print("duplicate custom fields removed:", len(dups))
+FIXEOF
+  chmod 644 "$FIX_PY"; chown "${FRAPPE_USER}:${FRAPPE_USER}" "$FIX_PY"
+  as_frappe_sh "cd '$BENCH_DIR' && echo \"exec(open('${FIX_PY}').read(), {})\" | '$BENCH_BIN' --site '$SITE_NAME' console" \
+    || warn "Duplicate-field repair failed — if install-app/migrate then fails with 'appears multiple times', delete that Custom Field by hand."
+  rm -f "$FIX_PY"
+fi
+
 # ================================================== A0. New bench apps
 EXTRA_APPS_DONE=()
 if [[ "$UPDATE_BACKEND" != "1" || "$UPDATE_EXTRA_APPS" != "1" ]]; then
