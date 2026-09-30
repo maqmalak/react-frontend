@@ -33,6 +33,24 @@ import {
   ShoppingCart,
   TrendingUp,
   Users2,
+  Users,
+  UserPlus,
+  UserMinus,
+  UserCheck,
+  UserRound,
+  CalendarCheck,
+  CalendarX,
+  Plane,
+  Wallet,
+  CircleMinus,
+  Receipt,
+  Percent,
+  Hash,
+  Clock,
+  ShieldCheck,
+  Globe,
+  Coins,
+  Boxes,
   type LucideIcon,
 } from "lucide-react";
 import { AreaChart, BarChart, BarGauge, ComboChart, DonutChart, LineChart, PieChart } from "@/components/charts/charts";
@@ -65,13 +83,14 @@ export interface Widget {
   subtitle: string | null;
   type: "combo" | "bar" | "line" | "area" | "donut" | "pie" | "barlist" | "gauge" | "table";
   data: Record<string, any>[];
-  series: { key: string; label: string; color?: string; type?: "bar" | "line"; axis?: "left" | "right" }[];
+  series: { key: string; label: string; color?: string; type?: "bar" | "line"; axis?: "left" | "right"; format?: "money" | "number" | "percent"; dashed?: boolean }[];
   xKey: string;
   money: boolean;
   span: 1 | 2 | 3;
   percent?: boolean;
   stacked?: boolean;
   dualAxis?: boolean;
+  zoom?: boolean;
   /** Bar charts: a field on each row holding that bar's own colour. */
   colorKey?: string;
   /** Bar charts: tilt the category labels so long names fit. */
@@ -323,11 +342,54 @@ export function DeltaPill({ delta, invert, className }: { delta: number | null; 
   );
 }
 
+function KpiIcon({ kpi, accent }: { kpi: Kpi; accent: string }) {
+  const Icon = kpiIcon(kpi);
+  return (
+    <span
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+      style={{ background: `color-mix(in srgb, ${accent} 14%, transparent)`, color: accent }}
+    >
+      <Icon className="h-4 w-4" />
+    </span>
+  );
+}
+
+/** An icon for a KPI tile, picked from what the tile measures (label keywords first, then its format). */
+const KPI_ICONS: [RegExp, LucideIcon][] = [
+  [/joiner|hired|new employee/i, UserPlus],
+  [/leaver|attrition|left/i, UserMinus],
+  [/female|male|gender/i, UserRound],
+  [/present|attendance/i, CalendarCheck],
+  [/absen/i, CalendarX],
+  [/leave/i, Plane],
+  [/employee|staff|headcount|active|operator|strength/i, Users],
+  [/paid|slip/i, Receipt],
+  [/deduction|tax/i, CircleMinus],
+  [/gross|net pay|payroll|salary|wage|pay\b/i, Wallet],
+  [/reject|non-conform|open|overdue|late|expir|delay|rework/i, AlertTriangle],
+  [/accept|pass|conform|quality|inspection/i, ShieldCheck],
+  [/on time|otif|approved|completed|shipped|delivered/i, UserCheck],
+  [/day|hour|transit|wait|lead|cycle|dwell|age/i, Clock],
+  [/countr|export|destination/i, Globe],
+  [/ship|vessel|sea/i, Ship],
+  [/stock|quantity|qty|kg|units|produced|output/i, Boxes],
+  [/work order|production|plan/i, Factory],
+  [/cash|bank/i, Landmark],
+];
+
+function kpiIcon(kpi: Kpi): LucideIcon {
+  for (const [re, icon] of KPI_ICONS) if (re.test(kpi.label)) return icon;
+  return kpi.format === "money" ? Coins : kpi.format === "percent" ? Percent : Hash;
+}
+
 export function KpiTile({ kpi, currency, accent, to, onClick }: { kpi: Kpi; currency: string; accent: string; to?: string; onClick?: () => void }) {
   const body = (
     <Card className={cn("group relative flex h-full min-w-0 flex-col gap-2 overflow-hidden p-4", (to || onClick) && "hover-lift")}>
       <div className="flex items-start justify-between gap-2">
-        <span className="min-w-0 truncate text-xs font-medium text-muted-foreground">{kpi.label}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          <KpiIcon kpi={kpi} accent={accent} />
+          <span className="min-w-0 truncate text-xs font-medium text-muted-foreground">{kpi.label}</span>
+        </span>
         <DeltaPill delta={kpi.delta} invert={kpi.invert} />
       </div>
       <p className="truncate text-2xl font-bold leading-tight tabular-nums" title={formatKpi(kpi.value, kpi.format, currency, false)}>
@@ -607,7 +669,7 @@ export function WidgetChart({ w, currency, height = 280 }: { w: Widget; currency
     case "bar":
       return <BarChart {...common} series={w.series} legend={w.series.length > 1} stacked={w.stacked} percent={w.percent} colorKey={w.colorKey} angledLabels={w.angledLabels} />;
     case "line":
-      return <LineChart {...common} series={w.series} legend={w.series.length > 1} percent={w.percent} />;
+      return <LineChart {...common} series={w.series} legend={w.series.length > 1} percent={w.percent} zoom={w.zoom} />;
     case "area":
       return <AreaChart {...common} series={w.series} legend={w.series.length > 1} percent={w.percent} />;
     case "donut":

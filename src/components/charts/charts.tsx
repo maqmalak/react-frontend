@@ -40,7 +40,7 @@ function ChartTooltip({ active, payload, label, formatter }: any) {
           <span className="h-2 w-2 rounded-full" style={{ background: entry.color || entry.payload?.color }} />
           <span>{entry.name}:</span>
           <span className="font-medium text-foreground tabular-nums">
-            {formatter ? formatter(entry.value) : formatNumber(entry.value)}
+            {formatter ? formatter(entry.value, entry.name) : formatNumber(entry.value)}
           </span>
         </p>
       ))}
@@ -71,6 +71,8 @@ export interface ChartProps<T = Record<string, any>> {
   percent?: boolean;
   /** BarChart only: tilt the category labels so long names all fit (every label is shown). */
   angledLabels?: boolean;
+  /** LineChart only: fit the Y axis to the data instead of starting at 0, so close lines (target vs actual) separate. */
+  zoom?: boolean;
 }
 
 function axisFormatter(money: boolean, currency: string, v: number, percent?: boolean) {
@@ -126,13 +128,19 @@ export function BarChart({ data, series, xKey, height = 260, money, currency = "
   );
 }
 
-export function LineChart({ data, series, xKey, height = 260, money, currency = "USD", legend, percent }: ChartProps) {
+export function LineChart({ data, series, xKey, height = 260, money, currency = "USD", legend, percent, zoom }: ChartProps) {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <RCLine data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" />
         <XAxis dataKey={xKey} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
-        <YAxis tickFormatter={(v: number) => axisFormatter(!!money, currency, v, percent)} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+        <YAxis
+          tickFormatter={(v: number) => axisFormatter(!!money, currency, v, percent)}
+          tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
+          tickLine={false}
+          axisLine={false}
+          domain={zoom ? [(min: number) => Math.floor(min - 1), (max: number) => Math.ceil(max + 1)] : undefined}
+        />
         <Tooltip content={<ChartTooltip formatter={valueFormatter(money, currency, percent)} />} />
         {legend && <Legend wrapperStyle={{ fontSize: 12 }} />}
         {series.map((s, i) => (
@@ -143,7 +151,8 @@ export function LineChart({ data, series, xKey, height = 260, money, currency = 
             name={s.label}
             stroke={s.color ?? CHART_COLORS[i % CHART_COLORS.length]}
             strokeWidth={2}
-            dot={{ r: 3 }}
+            strokeDasharray={(s as { dashed?: boolean }).dashed ? "6 4" : undefined}
+            dot={(s as { dashed?: boolean }).dashed ? false : { r: 3 }}
           />
         ))}
       </RCLine>
@@ -164,6 +173,8 @@ export interface ComboSeries {
   type?: "bar" | "line";
   /** Which Y axis to measure against. Defaults to "left". */
   axis?: "left" | "right";
+  /** How this series' values read. Defaults to percent when the label ends in "%", else the chart's money/number. */
+  format?: "money" | "number" | "percent";
 }
 
 export interface ComboChartProps<T = Record<string, any>> {
@@ -181,17 +192,31 @@ export interface ComboChartProps<T = Record<string, any>> {
 
 /** Bars and lines in a single panel (recharts ComposedChart). */
 export function ComboChart({ data, series, xKey, height = 260, money, currency = "USD", legend, dualAxis }: ComboChartProps) {
-  const tickFormatter = (v: number) => axisFormatter(!!money, currency, v);
+  // A money chart can carry a % or count line (export share, OTIF, transit days): format each series on its own.
+  const fmtOf = (s: ComboSeries) => s.format ?? (/%\s*$/.test(s.label) ? "percent" : money ? "money" : "number");
+  const axisFmt = (side: "left" | "right") => {
+    const own = series.filter((s) => (dualAxis && s.axis === "right" ? "right" : "left") === side);
+    return own.length ? fmtOf(own[0]) : money ? "money" : "number";
+  };
+  const tickFor = (side: "left" | "right") => {
+    const f = axisFmt(side);
+    return (v: number) => axisFormatter(f === "money", currency, v, f === "percent");
+  };
+  const byName = new Map(series.map((s) => [s.label, fmtOf(s)]));
+  const tooltipValue = (v: number, name?: string) => {
+    const f = (name && byName.get(name)) || (money ? "money" : "number");
+    return f === "money" ? formatMoney(v, currency) : f === "percent" ? `${formatNumber(v, 1)}%` : formatNumber(v, Math.abs(v) < 100 && v % 1 !== 0 ? 1 : 0);
+  };
   const tick = { fontSize: 12, fill: "hsl(var(--muted-foreground))" };
   return (
     <ResponsiveContainer width="100%" height={height}>
       <RCComposed data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" />
         <XAxis dataKey={xKey} tick={tick} tickLine={false} axisLine={false} />
-        <YAxis yAxisId="left" tickFormatter={tickFormatter} tick={tick} tickLine={false} axisLine={false} />
-        {dualAxis && <YAxis yAxisId="right" orientation="right" tickFormatter={tickFormatter} tick={tick} tickLine={false} axisLine={false} />}
+        <YAxis yAxisId="left" tickFormatter={tickFor("left")} tick={tick} tickLine={false} axisLine={false} />
+        {dualAxis && <YAxis yAxisId="right" orientation="right" tickFormatter={tickFor("right")} tick={tick} tickLine={false} axisLine={false} />}
         <Tooltip
-          content={<ChartTooltip formatter={money ? (v: number) => formatMoney(v, currency) : undefined} />}
+          content={<ChartTooltip formatter={tooltipValue} />}
           cursor={{ fill: "hsl(var(--muted) / 0.4)" }}
         />
         {legend && <Legend wrapperStyle={{ fontSize: 12 }} />}

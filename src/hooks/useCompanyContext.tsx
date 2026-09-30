@@ -68,6 +68,11 @@ export function useCompanyContext(): CompanyContextValue {
   return ctx;
 }
 
+/** The selected company, or "" outside a <CompanyProvider> (for shared widgets that also render elsewhere). */
+export function useSelectedCompany(): string {
+  return React.useContext(CompanyContext)?.company ?? "";
+}
+
 /** Build a company filter for list queries; empty when no company is selected. */
 export function companyFilter(company?: string, fieldname = "company"): unknown[][] {
   return company ? [[fieldname, "=", company]] : [];

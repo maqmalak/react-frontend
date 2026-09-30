@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/common/empty-state";
 import { LoadingOverlay } from "@/components/common/loading-overlay";
 import { FrappeDataTable, type ColumnDef } from "@/components/tables/data-table";
 import { FrappeLinkField } from "@/components/forms/field-primitives";
+import { useFrappeGetCall } from "frappe-react-sdk";
 import { useQueryReport } from "@/hooks/useAccounting";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { formatNumber } from "@/utils/currency";
@@ -103,6 +104,38 @@ export function ReportGeneralLedgerPage() {
   const [opts, setOpts] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(GL_OPTIONS.map((o) => [o.key, o.def])),
   );
+
+  // Filter choices come from the selected company's own ledger: its parties and its voucher numbers.
+  const [voucherQuery, setVoucherQuery] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setVoucherQuery(voucherNo.trim()), 250);
+    return () => clearTimeout(t);
+  }, [voucherNo]);
+  const { data: partyOpts } = useFrappeGetCall<{ message: { parties: string[] } }>(
+    "micromax.api.gl_filter_options",
+    { company, party_type: partyType },
+    company && partyType ? `gl-parties-${company}-${partyType}` : null,
+  );
+  const { data: voucherOpts } = useFrappeGetCall<{ message: { vouchers: { voucher_no: string; voucher_type: string }[] } }>(
+    "micromax.api.gl_filter_options",
+    { company, txt: voucherQuery },
+    company && voucherQuery.length >= 2 ? `gl-vouchers-${company}-${voucherQuery}` : null,
+  );
+  const partyChoices = partyOpts?.message?.parties ?? [];
+  const voucherChoices = voucherOpts?.message?.vouchers ?? [];
+
+  // A different company invalidates company-specific picks.
+  const firstCompany = useRef(company);
+  useEffect(() => {
+    if (firstCompany.current === company) return;
+    firstCompany.current = company;
+    setAccount("");
+    setCostCenter("");
+    setParty("");
+    setVoucherNo("");
+    setVoucherType("");
+    setProject("");
+  }, [company]);
 
   // Default to the current month, not the full fiscal year — General Ledger
   // has no account/voucher scoping by default, and a whole fiscal year of
@@ -357,7 +390,7 @@ export function ReportGeneralLedgerPage() {
                   <div>
                     <Label>Account</Label>
                     <FrappeLinkField
-                      meta={{ fieldname: "account", label: "Account", fieldtype: "Link", options: "Account", placeholder: "All accounts" }}
+                      meta={{ fieldname: "account", label: "Account", fieldtype: "Link", options: "Account", placeholder: "All accounts", filters: company ? [["company", "=", company]] : [] }}
                       value={account}
                       onChange={setAccount}
                     />
@@ -367,9 +400,18 @@ export function ReportGeneralLedgerPage() {
                     <Input
                       id="gl-voucher-no"
                       value={voucherNo}
-                      placeholder="e.g. ACC-JV-2026-00001"
+                      list="gl-voucher-options"
+                      autoComplete="off"
+                      placeholder="Type 2+ characters to search this company's vouchers"
                       onChange={(e) => setVoucherNo(e.target.value)}
                     />
+                    <datalist id="gl-voucher-options">
+                      {voucherChoices.map((v) => (
+                        <option key={v.voucher_no} value={v.voucher_no}>
+                          {v.voucher_type}
+                        </option>
+                      ))}
+                    </datalist>
                   </div>
                   <div>
                     <Label htmlFor="gl-voucher-type">Voucher Type</Label>
@@ -402,17 +444,19 @@ export function ReportGeneralLedgerPage() {
                   </div>
                   <div>
                     <Label>Party</Label>
-                    <FrappeLinkField
-                      meta={{ fieldname: "party", label: "Party", fieldtype: "Link", options: partyType || "Customer", placeholder: partyType ? `Search ${partyType}…` : "Choose a party type first" }}
-                      value={party}
-                      onChange={setParty}
-                      disabled={!partyType}
-                    />
+                    <Select value={party} onChange={(e) => setParty(e.target.value)} disabled={!partyType}>
+                      <option value="">{partyType ? `All ${partyType.toLowerCase()}s (${partyChoices.length} in this company)` : "Choose a party type first"}</option>
+                      {partyChoices.map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
+                    </Select>
                   </div>
                   <div>
                     <Label>Cost Center</Label>
                     <FrappeLinkField
-                      meta={{ fieldname: "cost_center", label: "Cost Center", fieldtype: "Link", options: "Cost Center", placeholder: "All cost centers" }}
+                      meta={{ fieldname: "cost_center", label: "Cost Center", fieldtype: "Link", options: "Cost Center", placeholder: "All cost centers", filters: company ? [["company", "=", company]] : [] }}
                       value={costCenter}
                       onChange={setCostCenter}
                     />

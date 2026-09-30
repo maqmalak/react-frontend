@@ -191,7 +191,7 @@ export function DashboardPage() {
   const busy = Object.values(all).some((m) => m.isValidating);
   const loaded = Object.values(all).filter((m) => m.dash).length;
 
-  const A = accounts.dash, S = sales.dash, P = production.dash, PY = payroll.dash, ST = stock.dash;
+  const A = accounts.dash, S = sales.dash, P = production.dash, ST = stock.dash;
 
   const insights: Insight[] = useMemo(() => {
     const rank = { critical: 0, warning: 1, positive: 2, info: 3 } as const;
@@ -208,11 +208,11 @@ export function DashboardPage() {
   // Cross-module series
   const pnl = useMemo(
     () =>
-      mergeMonths(
-        { rows: widgetOf(A, "pl")?.data, pick: { income: "income", expense: "expense" } },
-        { rows: widgetOf(PY, "trend")?.data, pick: { gross: "payroll" } },
-      ),
-    [A, PY],
+      mergeMonths({ rows: widgetOf(A, "pl")?.data, pick: { income: "income", expense: "expense" } }).map((r: any) => ({
+        ...r,
+        margin: r.income ? Math.round(((r.income - (r.expense ?? 0)) / r.income) * 1000) / 10 : null,
+      })),
+    [A],
   );
   const soldVsMade = useMemo(
     () =>
@@ -242,7 +242,8 @@ export function DashboardPage() {
     ];
     return rows.every((r) => r.v == null) ? undefined : rows.map((r) => ({ item: r.item, v: r.v ?? 0, color: r.c }));
   }, [A, ST]);
-  const payrollShare = kpiOf(PY, "gross") && kpiOf(A, "income")?.value ? (kpiOf(PY, "gross")!.value / kpiOf(A, "income")!.value) * 100 : null;
+  const totals = pnl.reduce((t: { i: number; e: number }, r: any) => ({ i: t.i + (r.income ?? 0), e: t.e + (r.expense ?? 0) }), { i: 0, e: 0 });
+  const periodMargin = totals.i ? ((totals.i - totals.e) / totals.i) * 100 : null;
 
   const chartSkeleton = <Skeleton className="h-[280px] rounded-md" />;
 
@@ -359,8 +360,8 @@ export function DashboardPage() {
 
         <ChartCard
           className="xl:col-span-2"
-          title="Revenue, expenses & payroll"
-          subtitle={payrollShare != null ? `Payroll is ${payrollShare.toFixed(1)}% of revenue` : "Monthly"}
+          title="Revenue, expenses & profit margin"
+          subtitle={periodMargin != null ? `Profit margin ${periodMargin.toFixed(1)}% for the period` : "Monthly"}
         >
           {pnl.length ? (
             <ComboChart
@@ -369,10 +370,11 @@ export function DashboardPage() {
               money
               currency={currency}
               legend
+              dualAxis
               series={[
                 { key: "income", label: "Revenue" },
                 { key: "expense", label: "Expenses", color: "hsl(351 95% 59%)" },
-                { key: "payroll", label: "Payroll", type: "line", color: "hsl(35 92% 50%)" },
+                { key: "margin", label: "Profit margin %", type: "line", axis: "right", color: "hsl(160 84% 39%)" },
               ]}
             />
           ) : (

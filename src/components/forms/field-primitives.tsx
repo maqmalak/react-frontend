@@ -3,6 +3,22 @@ import { createPortal } from "react-dom";
 import { useFrappeGetDocList } from "frappe-react-sdk";
 import { Link as LinkIcon, Plus, Search, X } from "lucide-react";
 import { LinkQuickCreateDialog, canQuickCreate, quickCreateLabel } from "./link-quick-create";
+import { useSelectedCompany } from "@/hooks/useCompanyContext";
+
+/** Masters that belong to one company: link pickers list only the selected company's records. */
+const COMPANY_SCOPED: Record<string, string> = {
+  Account: "company",
+  "Cost Center": "company",
+  Warehouse: "company",
+  "Bank Account": "company",
+  Department: "company",
+  Employee: "company",
+  Project: "company",
+  "Asset": "company",
+  "Sales Taxes and Charges Template": "company",
+  "Purchase Taxes and Charges Template": "company",
+  "Item Tax Template": "company",
+};
 
 /**
  * ERPNext-style form field metadata.
@@ -184,7 +200,12 @@ export function FrappeLinkField({
     };
   }, [open, updateMenuPos]);
 
+  const selectedCompany = useSelectedCompany();
   const filters: unknown[][] = Array.isArray(meta.filters) ? [...(meta.filters as unknown[][])] : [];
+  const companyField = COMPANY_SCOPED[doctype];
+  if (companyField && selectedCompany && !filters.some((f) => Array.isArray(f) && f[0] === companyField)) {
+    filters.push([companyField, "=", selectedCompany]);
+  }
   if (doctype === "Customer" || doctype === "Supplier" || doctype === "Item") {
     filters.push(["disabled", "=", 0]);
   }
