@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useFrappeGetCall } from "frappe-react-sdk";
 import {
   ArrowDownRight, ArrowUpRight, Check, ChevronDown, Layers, LayoutGrid, Minus, PiggyBank, Plus, Receipt, RotateCcw, Search,
-  SlidersHorizontal, TrendingUp, ZoomIn, ZoomOut, type LucideIcon,
+  SlidersHorizontal, TrendingUp, ZoomIn, ZoomOut, ChevronsDownUp, ChevronsUpDown, type LucideIcon,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -123,6 +123,31 @@ const amt = (v: number, cur: string) => {
 };
 const signedAmt = (v: number, cur: string) => `${v < 0 ? "−" : "+"}${amt(Math.abs(v), cur)}`;
 
+/** Which side a balance sits on. `good` = 1 for income-side lines (natural credit, incl. profit), -1 for expenses
+ * (natural debit); a value below zero is on the other side — a contra balance (e.g. an income account in debit). */
+function side(v: number, good: 1 | -1): { label: "Dr" | "Cr"; contra: boolean } {
+  const natural = good === 1 ? "Cr" : "Dr";
+  if (v >= 0) return { label: natural, contra: false };
+  return { label: natural === "Cr" ? "Dr" : "Cr", contra: true };
+}
+const SIDE_TEXT = { Cr: "text-teal-600 dark:text-teal-400", Dr: "text-orange-600 dark:text-orange-400" } as const;
+const SIDE_BADGE = { Cr: "bg-teal-500/10 text-teal-700 dark:text-teal-300", Dr: "bg-orange-500/10 text-orange-700 dark:text-orange-300" } as const;
+
+function DrCr({ v, good, small }: { v: number; good: 1 | -1; small?: boolean }) {
+  const s = side(v, good);
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className={cn("rounded font-bold", small ? "px-1 py-px text-[9px]" : "px-1.5 py-0.5 text-[10px]", SIDE_BADGE[s.label])}>{s.label}</span>
+      {s.contra && (
+        <span className={cn("rounded bg-amber-500/15 font-semibold text-amber-700 dark:text-amber-300", small ? "px-1 py-px text-[9px]" : "px-1.5 py-0.5 text-[10px]")}
+          title={good === 1 ? "Income-side line with a debit balance (reduces revenue / a loss)" : "Expense-side line with a credit balance (reduces cost)"}>
+          contra
+        </span>
+      )}
+    </span>
+  );
+}
+
 // ------------------------------------------------------------------ layout
 const CW = 244;
 const GAP = 66;
@@ -206,8 +231,9 @@ function Simulator({ d, company }: { d: PnlTree; company: string }) {
   const cur = d.currency || "PKR";
   const months = d.months.length;
   const leaves = useMemo(() => leavesOf(d), [d]);
+  const fresh = (): SimState => ({ c: {}, open: { np: true, gm: true }, month: "all", zoom: typeof window !== "undefined" && window.innerWidth < 700 ? 0.7 : 1, cards: null });
   const [st, setSt] = useState<SimState>(() => {
-    const base: SimState = { c: {}, open: { np: true, gm: true }, month: "all", zoom: typeof window !== "undefined" && window.innerWidth < 700 ? 0.7 : 1, cards: null };
+    const base = fresh();
     try {
       const s = JSON.parse(localStorage.getItem(stateKey(company)) || "null");
       if (s && s.c && s.open) return { ...base, ...s, month: s.month === "all" || (s.month >= 0 && s.month < months) ? s.month : "all" };
@@ -235,6 +261,14 @@ function Simulator({ d, company }: { d: PnlTree; company: string }) {
   const toggle = (id: string) => setSt((s) => ({ ...s, open: { ...s.open, [id]: !s.open[id] } }));
   const zoom = (dz: number) => setSt((s) => ({ ...s, zoom: Math.min(1.3, Math.max(0.4, Math.round((s.zoom + dz) * 10) / 10)) }));
   const anySim = Object.values(st.c).some((v) => v);
+  // every card that has children, for Expand all / Collapse all
+  const groupIds = useMemo(() => {
+    const ids: string[] = [];
+    walk(root, (n) => n.kids?.length && ids.push(n.id));
+    return ids;
+  }, [root]);
+  const allOpen = groupIds.every((id) => st.open[id]);
+  const noneOpen = groupIds.every((id) => id === "np" || !st.open[id]);
 
   const revA = per(act.rev), revS = per(sim.rev);
   const summary: Metric[] = [
@@ -275,10 +309,33 @@ function Simulator({ d, company }: { d: PnlTree; company: string }) {
           selected={cards}
           onChange={(sel) => setSt((s) => ({ ...s, cards: sel, open: sel ? { ...s.open, rev: true, dir: true, ind: true } : s.open }))}
         />
-        <button type="button" disabled={!anySim} onClick={() => setSt((s) => ({ ...s, c: {} }))}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-sm font-medium disabled:opacity-40">
+        <button type="button" onClick={() => {
+            // back to actual: every slider at 0%, whole period, all accounts as cards, default tree and zoom
+            try {
+              localStorage.removeItem(stateKey(company));
+            } catch {
+              /* nothing saved */
+            }
+            setSt(fresh());
+          }}
+          title="Back to actual: sliders 0%, whole period, all account cards, default view"
+          className={cn("inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition",
+            anySim ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/15" : "border-border bg-background hover:bg-muted")}>
           <RotateCcw className="h-3.5 w-3.5" /> Reset simulation
+          {anySim && <span className="rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">{Object.values(st.c).filter(Boolean).length}</span>}
         </button>
+        <span className="inline-flex rounded-lg border border-border bg-background p-1">
+          <button type="button" onClick={() => setSt((s) => ({ ...s, open: Object.fromEntries(groupIds.map((id) => [id, true])) }))}
+            className={cn("inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition",
+              allOpen ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
+            <ChevronsUpDown className="h-3.5 w-3.5" /> Expand all
+          </button>
+          <button type="button" onClick={() => setSt((s) => ({ ...s, open: { np: true } }))}
+            className={cn("inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition",
+              noneOpen ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
+            <ChevronsDownUp className="h-3.5 w-3.5" /> Collapse all
+          </button>
+        </span>
         <span className="ml-auto inline-flex items-center gap-1 rounded-lg border border-border bg-background p-1">
           <button type="button" aria-label="Zoom out" onClick={() => zoom(-0.1)} className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted">
             <ZoomOut className="h-4 w-4" />
@@ -348,11 +405,13 @@ function NodeCard({ p, a, s, per, month, cur, revS, revA, c, setC, open, toggle 
           {n.name}
         </p>
         <div className="mt-0.5 flex items-center justify-between gap-2">
-          <p className="whitespace-nowrap text-[22px] font-bold leading-tight tabular-nums">
-            {val < 0 ? "−" : ""}
-            {num}
-            {unit && <span className="ml-1 text-xs font-semibold text-muted-foreground">{unit}</span>}
-          </p>
+          <div className="min-w-0">
+            <p className={cn("whitespace-nowrap text-[22px] font-bold leading-tight tabular-nums", SIDE_TEXT[side(val, n.good).label])}>
+              {num}
+              {unit && <span className="ml-1 text-xs font-semibold opacity-70">{unit}</span>}
+            </p>
+            <DrCr v={val} good={n.good} small />
+          </div>
           <Spark act={a} sim={s} month={month} tone={tone} />
         </div>
         {n.calc && (
@@ -444,12 +503,14 @@ function SummaryCard({ metric, act, sim, actRev, simRev, per, month, cur }: {
       </div>
 
       <div className="mt-3 flex items-end gap-1.5">
-        <span className="text-[32px] font-bold leading-none tracking-tight tabular-nums">
-          {v < 0 ? "−" : ""}
+        <span className={cn("text-[32px] font-bold leading-none tracking-tight tabular-nums", SIDE_TEXT[side(v, metric.id === "ind" ? -1 : 1).label])}>
           {num}
         </span>
         {unit && <span className="mb-1 text-sm font-semibold text-muted-foreground">{unit}</span>}
-        <span className="mb-1 ml-auto text-[11px] font-medium text-muted-foreground">{cur}</span>
+        <span className="mb-1 ml-auto flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+          <DrCr v={v} good={metric.id === "ind" ? -1 : 1} />
+          {cur}
+        </span>
       </div>
       <p className="mt-1.5 text-xs tabular-nums text-muted-foreground">
         Actual <span className="font-semibold text-foreground">{amt(a, cur)}</span>
