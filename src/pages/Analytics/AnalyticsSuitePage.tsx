@@ -257,7 +257,7 @@ export function AnalyticsSuitePage({ suite: fixedSuite }: { suite?: string } = {
       <div className="-mt-2">
         <AnalyticsTabs />
       </div>
-      <PeriodBar period={period} company={company} />
+      <PeriodBar period={period} company={company} page={`suite:${suite}`} />
       {period.invalid && <p className="text-sm text-rose-600">The start date must be before the end date.</p>}
 
       {/* compact module jump bar for small screens */}

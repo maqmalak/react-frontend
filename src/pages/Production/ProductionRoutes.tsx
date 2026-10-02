@@ -3,6 +3,7 @@ import { DocListPage } from "@/components/doc/doc-list-page";
 import { DocFormPage } from "@/components/doc/doc-form-page";
 import { AnalyticsSuitePage } from "@/pages/Analytics/AnalyticsSuitePage";
 import { ProductionGanttPage } from "./ProductionGanttPage";
+import { CostSimulatorPage } from "./CostSimulatorPage";
 import {
   BOM_CONFIG,
   DOWNTIME_CONFIG,
@@ -23,6 +24,7 @@ export function ProductionRoutes() {
     <Routes>
       <Route index element={<AnalyticsSuitePage suite="production" />} />
       <Route path="schedule" element={<ProductionGanttPage />} />
+      <Route path="cost-simulator" element={<CostSimulatorPage />} />
       <Route path="status" element={<Navigate to="/production" replace />} />
       <Route path="production-plans" element={<DocListPage config={PRODUCTION_PLAN_CONFIG} />} />
       <Route path="production-plans/:name" element={<DocFormPage config={PRODUCTION_PLAN_CONFIG} />} />

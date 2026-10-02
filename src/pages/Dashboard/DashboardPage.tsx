@@ -272,7 +272,7 @@ export function DashboardPage() {
         <AnalyticsTabs />
       </div>
 
-      <PeriodBar period={period} company={company} />
+      <PeriodBar period={period} company={company} page="executive" />
 
       {/* Hero */}
       <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-900 to-teal-800 p-5 text-white shadow-lg sm:p-6">

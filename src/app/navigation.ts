@@ -319,6 +319,7 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
       items: [
         { label: "Production Plans", to: "/production/production-plans", icon: CalendarRange },
         { label: "Schedule (Gantt)", to: "/production/schedule", icon: GanttChartSquare },
+        { label: "Cost Simulator", to: "/production/cost-simulator", icon: Calculator },
         { label: "Bills of Materials", to: "/production/boms", icon: Layers },
       ],
     },

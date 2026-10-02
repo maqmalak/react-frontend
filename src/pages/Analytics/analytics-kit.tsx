@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { useFrappeGetCall } from "frappe-react-sdk";
 import { Area, AreaChart as RCArea, ResponsiveContainer } from "recharts";
@@ -59,6 +59,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { FrappeLinkField } from "@/components/forms/field-primitives";
 import { cn } from "@/utils/cn";
 import { compactNumber, formatMoney, formatNumber } from "@/utils/currency";
 import { todayISO } from "@/utils/dates";
@@ -155,12 +156,13 @@ export function AnalyticsTabs() {
   // The Export & Import dashboard (LCs, shipments, landed cost) sits right after Sales Analysis.
   const at = base.findIndex((t) => t.to === "/analytics/suite/sales") + 1;
   const tabs = [...base.slice(0, at), { to: "/analytics/suite/trade", label: "Import & Export", icon: Ship }, ...base.slice(at)];
+  const query = usePeriodQuery(); // keep the period and filters when switching dashboards
   return (
     <nav className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-card p-1 scrollbar-thin">
       {tabs.map((t) => (
         <NavLink
           key={t.to}
-          to={t.to}
+          to={{ pathname: t.to, search: t.to.startsWith("/analytics") ? query : "" }}
           end
           className={({ isActive }) =>
             cn(
@@ -188,10 +190,11 @@ export function useModuleDashboard(
   /** Buying Cycle only: ± % band for the rate-abnormality check. */
   tolerance?: number,
 ) {
+  const filters = useDashFilters(module);
   const { data, ...rest } = useFrappeGetCall<{ message: DashboardData }>(
     "micromax.dashboards.get_dashboard",
-    { module, from_date: range.from, to_date: range.to, company: company ?? "", refresh: refreshToken ? 1 : 0, ...(tolerance != null ? { tolerance } : {}) },
-    enabled ? `micromax.analytics.${module}.${range.from}.${range.to}.${company ?? ""}.${refreshToken}.${tolerance ?? ""}` : null,
+    { module, from_date: range.from, to_date: range.to, company: company ?? "", refresh: refreshToken ? 1 : 0, ...(tolerance != null ? { tolerance } : {}), ...filters },
+    enabled ? `micromax.analytics.${module}.${range.from}.${range.to}.${company ?? ""}.${refreshToken}.${tolerance ?? ""}.${filtersKey(filters)}` : null,
     { keepPreviousData: true, revalidateOnFocus: false },
   );
   return { dash: data?.message, ...rest };
@@ -230,19 +233,203 @@ export function presetRange(fy: number, preset: Preset) {
 export const fyLabel = (fy: number) => `FY ${fy}-${String(fy + 1).slice(2)}`;
 
 /** Period state shared by the dashboards: defaults to the current fiscal year, Jul–Jun. */
-export function usePeriod() {
-  const [fy, setFy] = useState(() => fiscalYearOf(todayISO()));
-  const [preset, setPreset] = useState<Preset | "custom">("FY");
-  const [custom, setCustom] = useState(() => presetRange(fiscalYearOf(todayISO()), "FY"));
-  const range = preset === "custom" ? custom : presetRange(fy, preset);
-  const label = preset === "custom" ? "Custom period" : `${fyLabel(fy)} ${preset === "FY" ? "(Jul–Jun)" : preset}`;
-  return { fy, setFy, preset, setPreset, custom, setCustom, range, label, invalid: range.from > range.to };
+// ------------------------------------------------------------------ shared period + filters
+/** Dashboard filters (sent as get_dashboard arguments; each module honours only its own — see MODULE_FILTERS). */
+export type FilterKey =
+  | "cost_center" | "account" | "account_group" | "account_type" | "customer" | "supplier" | "item_group" | "item"
+  | "department" | "asset_category" | "stream" | "wo_status";
+export type DashFilters = Partial<Record<FilterKey, string>>;
+export interface FilterDef {
+  key: FilterKey;
+  label: string;
+  /** Link picker target; select filters have `options` instead. */
+  doctype?: string;
+  linkFilters?: unknown[][];
+  options?: string[];
+}
+export const FILTER_DEFS: FilterDef[] = [
+  { key: "cost_center", label: "Cost center", doctype: "Cost Center" },
+  { key: "account", label: "Account", doctype: "Account" },
+  { key: "account_group", label: "Account group", doctype: "Account", linkFilters: [["is_group", "=", 1]] },
+  {
+    key: "account_type", label: "Account type",
+    options: ["Bank", "Cash", "Receivable", "Payable", "Stock", "Tax", "Income Account", "Expense Account", "Cost of Goods Sold",
+      "Stock Received But Not Billed", "Fixed Asset", "Accumulated Depreciation", "Depreciation", "Equity", "Round Off", "Temporary"],
+  },
+  { key: "customer", label: "Customer", doctype: "Customer" },
+  { key: "supplier", label: "Supplier", doctype: "Supplier" },
+  { key: "item_group", label: "Item group", doctype: "Item Group" },
+  { key: "item", label: "Item", doctype: "Item" },
+  { key: "department", label: "Department", doctype: "Department" },
+  { key: "asset_category", label: "Asset category", doctype: "Asset Category" },
+  { key: "stream", label: "Conversion / production", options: ["Conversion", "Own production"] },
+  { key: "wo_status", label: "Work order status", options: ["Not Started", "In Process", "Completed", "Stopped", "Closed"] },
+];
+/** Filters each analytics page shows (pages are the tabs; a suite page spans several modules). */
+export const PAGE_FILTERS: Record<string, FilterKey[]> = {
+  executive: ["cost_center", "account", "supplier", "customer"],
+  accounts: ["cost_center", "account", "supplier", "customer"],
+  financials: ["cost_center", "account", "account_group", "account_type", "supplier", "customer"],
+  "suite:sales": ["cost_center", "customer", "item_group", "item"],
+  "suite:purchase": ["cost_center", "supplier", "item_group", "item"],
+  "suite:production": ["stream", "wo_status"],
+  "suite:trade": ["customer", "supplier", "item_group", "item"],
+  hr: ["department"],
+  payroll: ["department"],
+  assets: ["asset_category"],
+};
+/** Mirrors micromax.dashboards.MODULE_FILTERS. */
+export const MODULE_FILTERS: Record<string, FilterKey[]> = {
+  accounts: ["cost_center", "account", "account_group", "account_type", "customer", "supplier"],
+  financials: ["cost_center", "account", "account_group", "account_type", "customer", "supplier"],
+  sales: ["cost_center", "customer", "item_group", "item"], so_analysis: ["cost_center", "customer", "item_group", "item"],
+  do_analysis: ["cost_center", "customer", "item_group", "item"], export_analysis: ["customer", "item_group", "item"],
+  purchase: ["cost_center", "supplier", "item_group", "item"], procurement: ["cost_center", "supplier", "item_group", "item"],
+  import_analysis: ["supplier", "item_group", "item"], stock: ["item_group", "item"],
+  production: ["stream", "wo_status"], wo_analysis: ["stream", "wo_status"], jc_analysis: ["stream", "wo_status"],
+  quality: ["item"], hr: ["department"], payroll: ["department"], assets: ["asset_category"],
+};
+
+interface PeriodState {
+  fy: number;
+  preset: Preset | "custom";
+  custom: { from: string; to: string };
+  filters: DashFilters;
+}
+const PERIOD_KEY = "micromax.analytics.period.v1";
+const PRESET_IDS = ["FY", "H1", "H2", "Q1", "Q2", "Q3", "Q4", "custom"];
+
+/** First load: a shared link's query string wins, then what this browser last used, then the current fiscal year. */
+function loadPeriod(): PeriodState {
+  const fy0 = fiscalYearOf(todayISO());
+  let st: PeriodState = { fy: fy0, preset: "FY", custom: presetRange(fy0, "FY"), filters: {} };
+  try {
+    const saved = JSON.parse(localStorage.getItem(PERIOD_KEY) || "null");
+    if (saved && typeof saved.fy === "number" && PRESET_IDS.includes(saved.preset)) st = { ...st, ...saved, filters: saved.filters || {} };
+  } catch {
+    /* storage unavailable: defaults */
+  }
+  try {
+    const q = new URLSearchParams(window.location.search);
+    const fy = Number(q.get("fy"));
+    if (fy) st = { ...st, fy };
+    const preset = q.get("period");
+    if (preset && PRESET_IDS.includes(preset)) st = { ...st, preset: preset as PeriodState["preset"] };
+    if (q.get("from") && q.get("to")) st = { ...st, preset: "custom", custom: { from: q.get("from")!, to: q.get("to")! } };
+    const f: DashFilters = { ...st.filters };
+    FILTER_DEFS.forEach(({ key }) => {
+      if (q.has(key)) f[key] = q.get(key) || undefined;
+    });
+    st = { ...st, filters: f };
+  } catch {
+    /* no window */
+  }
+  return st;
 }
 
-export function PeriodBar({ period, company }: { period: ReturnType<typeof usePeriod>; company?: string }) {
-  const { fy, setFy, preset, setPreset, custom, setCustom, range } = period;
+let periodState: PeriodState | null = null;
+const periodListeners = new Set<() => void>();
+function getPeriodState() {
+  if (!periodState) periodState = loadPeriod();
+  return periodState;
+}
+function setPeriodState(patch: Partial<PeriodState>) {
+  periodState = { ...getPeriodState(), ...patch };
+  try {
+    localStorage.setItem(PERIOD_KEY, JSON.stringify(periodState));
+  } catch {
+    /* private mode etc.: kept in memory for this tab */
+  }
+  periodListeners.forEach((l) => l());
+}
+function subscribePeriod(l: () => void) {
+  periodListeners.add(l);
+  return () => periodListeners.delete(l);
+}
+function usePeriodState() {
+  return useSyncExternalStore(subscribePeriod, getPeriodState, getPeriodState);
+}
+
+// The filters the current page shows (set by its PeriodBar). Filters kept from another page but not shown here
+// are not applied — what you see in the bar is what the figures use.
+let pageKeys: FilterKey[] | null = null;
+const pageKeyListeners = new Set<() => void>();
+function setPageKeys(keys: FilterKey[]) {
+  if (pageKeys && pageKeys.join() === keys.join()) return;
+  pageKeys = keys;
+  pageKeyListeners.forEach((l) => l());
+}
+function usePageKeys() {
+  return useSyncExternalStore(
+    (l) => {
+      pageKeyListeners.add(l);
+      return () => pageKeyListeners.delete(l);
+    },
+    () => pageKeys,
+    () => pageKeys,
+  );
+}
+
+/** The filters a module's dashboard should receive: shown on this page, honoured by the module, non-empty. */
+export function useDashFilters(module?: string): DashFilters {
+  const { filters } = usePeriodState();
+  const keys = usePageKeys();
+  return useMemo(() => {
+    const allowed = (module ? MODULE_FILTERS[module] ?? [] : FILTER_DEFS.map((d) => d.key)).filter((k) => !keys || keys.includes(k));
+    const out: DashFilters = {};
+    allowed.forEach((k) => {
+      if (filters[k]) out[k] = filters[k];
+    });
+    return out;
+  }, [filters, module, keys]);
+}
+
+export function filtersKey(f: DashFilters) {
+  return FILTER_DEFS.map(({ key }) => f[key] ?? "").join("|");
+}
+
+/** Query string carrying the current period and filters, for links that open another dashboard. */
+export function usePeriodQuery(): string {
+  const st = usePeriodState();
+  const q = new URLSearchParams();
+  q.set("fy", String(st.fy));
+  q.set("period", st.preset);
+  if (st.preset === "custom") {
+    q.set("from", st.custom.from);
+    q.set("to", st.custom.to);
+  }
+  FILTER_DEFS.forEach(({ key }) => st.filters[key] && q.set(key, st.filters[key]!));
+  return `?${q.toString()}`;
+}
+
+/** Fiscal year, preset / custom range and dashboard filters — one shared selection for every dashboard page,
+ * kept across tabs, module switches and reloads. */
+export function usePeriod() {
+  const st = usePeriodState();
+  const { fy, preset, custom, filters } = st;
+  const setFy = (v: number | ((y: number) => number)) => setPeriodState({ fy: typeof v === "function" ? v(getPeriodState().fy) : v });
+  const setPreset = (p: Preset | "custom") => setPeriodState({ preset: p });
+  const setCustom = (v: { from: string; to: string } | ((c: { from: string; to: string }) => { from: string; to: string })) =>
+    setPeriodState({ custom: typeof v === "function" ? v(getPeriodState().custom) : v });
+  const setFilter = (key: FilterKey, value: string) => setPeriodState({ filters: { ...getPeriodState().filters, [key]: value || undefined } });
+  const clearFilters = () => setPeriodState({ filters: {} });
+  const range = preset === "custom" ? custom : presetRange(fy, preset);
+  const label = preset === "custom" ? "Custom period" : `${fyLabel(fy)} ${preset === "FY" ? "(Jul–Jun)" : preset}`;
+  return { fy, setFy, preset, setPreset, custom, setCustom, filters, setFilter, clearFilters, range, label, invalid: range.from > range.to };
+}
+
+export function PeriodBar({ period, company, module, page }: { period: ReturnType<typeof usePeriod>; company?: string; module?: string; page?: string }) {
+  const { fy, setFy, preset, setPreset, custom, setCustom, range, filters, setFilter, clearFilters } = period;
+  // the page's own list (tabs), else the single module's, else none
+  const keys = (page && PAGE_FILTERS[page]) || (module && (PAGE_FILTERS[module] ?? MODULE_FILTERS[module])) || [];
+  const shown = keys.map((k) => FILTER_DEFS.find((d) => d.key === k)!).filter(Boolean);
+  const keySig = keys.join();
+  useEffect(() => setPageKeys(keySig ? (keySig.split(",") as FilterKey[]) : []), [keySig]);
+  const active = shown.filter((d) => filters[d.key]).length;
+  const hidden = FILTER_DEFS.filter((d) => filters[d.key] && !shown.includes(d));
   return (
-    <Card className="flex flex-wrap items-center gap-3 p-3">
+    <Card className="space-y-3 p-3">
+    <div className="flex flex-wrap items-center gap-3">
       <div className="flex items-center gap-1">
         <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Previous fiscal year" onClick={() => setFy((y) => y - 1)} disabled={preset === "custom"}>
           <ChevronLeft className="h-4 w-4" />
@@ -284,6 +471,48 @@ export function PeriodBar({ period, company }: { period: ReturnType<typeof usePe
         </span>
       )}
       <span className="ml-auto text-xs text-muted-foreground">{company ?? "All companies"}</span>
+    </div>
+    {shown.length > 0 && (
+      <div className="flex flex-wrap items-end gap-3 border-t border-border pt-3">
+        {shown.map((d) => (
+          <div key={d.key} className="w-full min-w-0 sm:w-[210px]">
+            <span className="mb-1 block text-[11px] font-medium text-muted-foreground">{d.label}</span>
+            {d.options ? (
+              <select
+                className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                value={filters[d.key] ?? ""}
+                onChange={(e) => setFilter(d.key, e.target.value)}
+              >
+                <option value="">All</option>
+                {d.options.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <FrappeLinkField
+                meta={{ fieldname: d.key, label: d.label, fieldtype: "Link", options: d.doctype, placeholder: `All ${d.label.toLowerCase()}s`,
+                  ...(d.linkFilters ? { filters: d.linkFilters } : {}) }}
+                value={filters[d.key] ?? ""}
+                onChange={(v) => setFilter(d.key, v)}
+                allowCreate={false}
+              />
+            )}
+          </div>
+        ))}
+        {(active > 0 || hidden.length > 0) && (
+          <Button variant="ghost" size="sm" className="h-9" onClick={clearFilters}>
+            Clear filters
+          </Button>
+        )}
+        {hidden.length > 0 && (
+          <span className="text-[11px] text-muted-foreground">
+            {hidden.map((d) => `${d.label}: ${filters[d.key]}`).join(" · ")} — kept, but not used by this dashboard
+          </span>
+        )}
+      </div>
+    )}
     </Card>
   );
 }
@@ -626,10 +855,11 @@ export function DrillDialog({
   tolerance?: number;
   onClose: () => void;
 }) {
+  const filters = useDashFilters(module);
   const { data, error, isLoading } = useFrappeGetCall<{ message: DrillData }>(
     "micromax.dashboards.get_drilldown",
-    { module, key: kpi?.key, from_date: range.from, to_date: range.to, company: company ?? "", ...(tolerance != null ? { tolerance } : {}) },
-    kpi ? `micromax.drill.${module}.${kpi.key}.${range.from}.${range.to}.${company ?? ""}.${tolerance ?? ""}` : null,
+    { module, key: kpi?.key, from_date: range.from, to_date: range.to, company: company ?? "", ...(tolerance != null ? { tolerance } : {}), ...filters },
+    kpi ? `micromax.drill.${module}.${kpi.key}.${range.from}.${range.to}.${company ?? ""}.${tolerance ?? ""}.${filtersKey(filters)}` : null,
     { revalidateOnFocus: false },
   );
   const d = data?.message;
@@ -710,6 +940,7 @@ export function InsightRow({ i, showModule }: { i: Insight; showModule?: boolean
   const st = INSIGHT_STYLE[i.level];
   const mod = moduleMeta(i.module);
   const Icon = st.icon;
+  const query = usePeriodQuery();
   return (
     <li className="flex gap-3 rounded-md p-2.5 transition-colors hover:bg-muted/50">
       <span className={cn("mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full", st.chip)}>
@@ -719,7 +950,7 @@ export function InsightRow({ i, showModule }: { i: Insight; showModule?: boolean
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
           <p className="text-sm font-semibold">{i.title}</p>
           {showModule && mod && (
-            <Link to={`/analytics/${mod.id}`} className="text-[11px] font-medium text-muted-foreground hover:text-primary">
+            <Link to={`/analytics/${mod.id}${query}`} className="text-[11px] font-medium text-muted-foreground hover:text-primary">
               {mod.label} <ArrowRight className="inline h-3 w-3" />
             </Link>
           )}

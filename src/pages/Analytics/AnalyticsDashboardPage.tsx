@@ -70,7 +70,7 @@ export function AnalyticsDashboardPage({ module: fixedModule }: { module?: strin
         <AnalyticsTabs />
       </div>
 
-      <PeriodBar period={period} company={company} />
+      <PeriodBar period={period} company={company} module={module} />
 
       {module === "procurement" && (
         <Card className="flex flex-wrap items-center gap-3 p-3 text-xs">
