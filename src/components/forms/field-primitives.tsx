@@ -238,7 +238,8 @@ export function FrappeLinkField({
       limit,
       orderBy: { field: titleField !== "name" ? titleField : "name", order: "asc" },
     },
-    doctype && open ? `micromax.link.${doctype}.${q || "__all__"}` : null,
+    // the key carries the filters: two pickers on one doctype with different filters must not share results
+    doctype && open ? `micromax.link.${doctype}.${q || "__all__"}.${JSON.stringify(filters)}` : null,
   );
 
   React.useEffect(() => {

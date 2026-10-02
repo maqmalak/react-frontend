@@ -155,7 +155,12 @@ export function AnalyticsTabs() {
   ];
   // The Export & Import dashboard (LCs, shipments, landed cost) sits right after Sales Analysis.
   const at = base.findIndex((t) => t.to === "/analytics/suite/sales") + 1;
-  const tabs = [...base.slice(0, at), { to: "/analytics/suite/trade", label: "Import & Export", icon: Ship }, ...base.slice(at)];
+  const tabs = [
+    ...base.slice(0, at),
+    { to: "/analytics/suite/trade", label: "Import & Export", icon: Ship },
+    ...base.slice(at),
+    { to: "/analytics/pnl-simulator", label: "P&L Simulator", icon: Scale },
+  ];
   const query = usePeriodQuery(); // keep the period and filters when switching dashboards
   return (
     <nav className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-card p-1 scrollbar-thin">

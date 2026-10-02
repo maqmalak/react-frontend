@@ -141,6 +141,7 @@ const AccountProfilePage = lazy(() => import("@/pages/Account/AccountProfilePage
 // Accounting
 const ExportDashboardPage = lazy(() => import("@/pages/Dashboard/ExportDashboardPage").then((m) => ({ default: m.ExportDashboardPage })));
 const AnalyticsSuitePage = lazy(() => import("@/pages/Analytics/AnalyticsSuitePage").then((m) => ({ default: m.AnalyticsSuitePage })));
+const PnlSimulatorPage = lazy(() => import("@/pages/Analytics/PnlSimulatorPage").then((m) => ({ default: m.PnlSimulatorPage })));
 const AnalyticsDashboardPage = lazy(() => import("@/pages/Analytics/AnalyticsDashboardPage").then((m) => ({ default: m.AnalyticsDashboardPage })));
 const GettingStartedPage = lazy(() => import("@/pages/Accounting/GettingStartedPage").then((m) => ({ default: m.GettingStartedPage })));
 const NotificationsPage = lazy(() => import("@/pages/Settings/NotificationsPage").then((m) => ({ default: m.NotificationsPage })));
@@ -295,6 +296,7 @@ export function AppRoutes() {
         <Route path="analytics/wo_analysis" element={<Navigate to="/production#wo_analysis--top" replace />} />
         <Route path="analytics/jc_analysis" element={<Navigate to="/production#jc_analysis--top" replace />} />
         <Route path="analytics/suite/:suite" element={<Suspense fallback={<FullPageLoader />}><AnalyticsSuitePage /></Suspense>} />
+        <Route path="analytics/pnl-simulator" element={<Suspense fallback={<FullPageLoader />}><PnlSimulatorPage /></Suspense>} />
         <Route path="analytics/:module" element={<Suspense fallback={<FullPageLoader />}><AnalyticsDashboardPage /></Suspense>} />
         {/* The old GL Overview page is retired — the Accounting app opens on the accounts dashboard, inside its own sidebar. */}
         <Route path="accounting" element={<Suspense fallback={<FullPageLoader />}><AnalyticsDashboardPage module="accounts" /></Suspense>} />
