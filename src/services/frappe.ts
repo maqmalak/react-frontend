@@ -157,12 +157,16 @@ export interface FrappeFile {
 /** Upload a file and attach it to a document via Frappe's standard `/api/method/upload_file` endpoint. */
 export function uploadFile(
   file: File,
-  opts: { doctype: string; docname: string; isPrivate?: boolean },
+  opts: { doctype?: string; docname?: string; isPrivate?: boolean; fieldname?: string },
 ): Promise<FrappeFile> {
   const form = new FormData();
   form.append("file", file);
-  form.append("doctype", opts.doctype);
-  form.append("docname", opts.docname);
+  // Without doctype/docname the file is uploaded unattached (e.g. a photo picked before the record exists).
+  if (opts.doctype && opts.docname) {
+    form.append("doctype", opts.doctype);
+    form.append("docname", opts.docname);
+    if (opts.fieldname) form.append("fieldname", opts.fieldname);
+  }
   form.append("is_private", opts.isPrivate === false ? "0" : "1");
   // Override the instance's default JSON content-type so the browser sets
   // the correct `multipart/form-data; boundary=...` header for FormData.

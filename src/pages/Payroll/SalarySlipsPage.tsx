@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Banknote, CheckCircle2, FileEdit } from "lucide-react";
 import { CrmManagementPage, type CrmManagementConfig } from "@/components/crm/CrmManagementPage";
 import type { ColumnDef } from "@/components/tables/data-table";
@@ -38,18 +38,23 @@ export default function SalarySlipsPage() {
   const { company } = useCompanyContext();
   const { employee, filter: employeeFilter } = useEmployeeQueryFilter();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const payrollEntry = params.get("payroll_entry");
 
   const config: CrmManagementConfig<SalarySlipRow> = useMemo(
     () => ({
       title: "Salary Slips",
-      subtitle: "Per-employee, per-period pay slips",
+      subtitle: payrollEntry ? `Salary slips of payroll run ${payrollEntry}` : "Per-employee, per-period pay slips",
       icon: <Banknote className="h-5 w-5" />,
       doctype: "Salary Slip",
       fields: [
         "name", "employee", "employee_name", "company", "department", "posting_date", "start_date", "end_date",
         "salary_structure", "currency", "gross_pay", "net_pay", "status",
       ],
-      filters: [...companyFilter(company), ...employeeFilter],
+      filters: [...companyFilter(company), ...employeeFilter, ...(payrollEntry ? [["payroll_entry", "=", payrollEntry]] : [])],
+      dateField: "start_date",
+      dateLabel: "Period start",
+      exportFilename: "salary-slips",
       formFields: [
         { fieldname: "employee", label: "Employee", fieldtype: "Link", options: "Employee", reqd: true },
         { fieldname: "salary_structure", label: "Salary Structure", fieldtype: "Link", options: "Salary Structure", reqd: true },
@@ -84,7 +89,7 @@ export default function SalarySlipsPage() {
       emptyDescription: "Salary slips will appear here",
       newLabel: "New Salary Slip",
     }),
-    [company, employee, navigate],
+    [company, employee, navigate, payrollEntry],
   );
 
   return <CrmManagementPage config={config} />;

@@ -61,7 +61,9 @@ export function useAggregate<T extends Doc = Doc>(
   const apiFields = fields.map(toApiField);
   return useFrappeGetDocList<T>(
     doctype,
-    { fields: apiFields as any, filters: filters as any, groupBy: groupBy as any, orderBy, limit },
+    // The SDK drops a falsy `limit`, and Frappe then returns only its default 20 rows — so "no limit" (0)
+    // must be sent as an explicit large page, or a group-by with more than 20 groups is silently cut off.
+    { fields: apiFields as any, filters: filters as any, groupBy: groupBy as any, orderBy, limit: limit || 100000 },
     enabled ? `micromax.agg.${doctype}.${JSON.stringify({ apiFields, filters, groupBy, orderBy, limit })}` : null,
     { keepPreviousData: true },
   );

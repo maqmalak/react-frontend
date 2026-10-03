@@ -36,6 +36,16 @@
 #        BOM list's Production / Conversion filter doesn't come up empty.
 #      - Production Plan raw materials (mr_items) for plans that have none
 #        (micromax.production_plan.backfill; only touches empty plans).
+#      - HR: Employee Checkin `time` indexes (the Shifts / Attendance pages count a
+#        day's check-ins — ~20 s per query on a million rows without them; the
+#        migrate hook adds them too, this just confirms), Branch location fields.
+#      - HR: a ONE-TIME default grace period on every Shift Type (late check-in +
+#        early check-out marking, SHIFT_GRACE_MINUTES, default 30). A marker on the
+#        site records that it ran, so later deploys never overwrite grace periods
+#        changed afterwards; SHIFT_GRACE_FORCE=1 re-applies, SHIFT_GRACE_MINUTES=0
+#        skips it.
+#      - Smoke test of the HR insight endpoints (micromax.hr_insights) the new
+#        Attendance / Leave / Shifts / Setup pages call.
 #      Skip with RUN_BACKFILLS=0.
 #
 #   B. Redeploy the React frontend  — git pull, npm ci, npm run build.
@@ -59,6 +69,8 @@
 #   sudo bash update.sh                        # backend update + frontend
 #   sudo UPDATE_BACKEND=0 bash update.sh       # frontend only
 #   sudo RUN_BACKFILLS=0 bash update.sh        # skip A2's indexes/backfills
+#   sudo SHIFT_GRACE_MINUTES=15 SHIFT_GRACE_FORCE=1 bash update.sh
+#                                              # (re)set every shift's grace to 15 min
 #   sudo POSAWESOME_REPO=https://github.com/<you>/posawesome.git bash update.sh
 #                                              # deploy your own POS Awesome fork
 #   sudo REMOVE_APPAREL=1 bash update.sh       # frontend + one-time app swap
@@ -110,10 +122,19 @@ EXTRA_APPS=(posawesome)
 
 # Section A2 (indexes + data backfills) — on by default, RUN_BACKFILLS=0 skips.
 RUN_BACKFILLS="${RUN_BACKFILLS:-1}"
+# Section A2, HR: grace period (minutes) for late check-in / early check-out on
+# every Shift Type — applied once per site (see header); 0 = don't touch shifts.
+SHIFT_GRACE_MINUTES="${SHIFT_GRACE_MINUTES:-30}"
+SHIFT_GRACE_FORCE="${SHIFT_GRACE_FORCE:-0}"
+[[ "$SHIFT_GRACE_MINUTES" =~ ^[0-9]+$ && "$SHIFT_GRACE_MINUTES" -le 240 ]] || { echo "SHIFT_GRACE_MINUTES must be 0-240 (got '${SHIFT_GRACE_MINUTES}')" >&2; exit 1; }
+[[ "$SHIFT_GRACE_FORCE" =~ ^[01]$ ]] || { echo "SHIFT_GRACE_FORCE must be 0 or 1 (got '${SHIFT_GRACE_FORCE}')" >&2; exit 1; }
 
 # Opt-in switch for section C (see header comment) — deliberately off by
 # default because uninstall-app is destructive (drops that app's data).
 REMOVE_APPAREL="${REMOVE_APPAREL:-0}"
+# The old app section C removes. Referenced in A's and C's messages, so it must be
+# defined even when C doesn't run (set -u would otherwise abort on it).
+APPAREL_APP="${APPAREL_APP:-apparel}"
 # uninstall-app takes a full site backup before deleting apparel's data by
 # default — set to 1 to skip it (faster, but no rollback if this goes wrong).
 SKIP_APPAREL_BACKUP="${SKIP_APPAREL_BACKUP:-0}"
@@ -340,9 +361,11 @@ if [[ "$UPDATE_BACKEND" != "1" || "$RUN_BACKFILLS" != "1" ]]; then
 elif ! grep -qx "$MICROMAX_APP" <<<"$(as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' list-apps" 2>/dev/null | awk '{print $1}' || true)"; then
   warn "A2. '${MICROMAX_APP}' isn't installed on '${SITE_NAME}' — skipping indexes/backfills."
 else
-  log "A2. GL Entry report indexes + BOM category / Production Plan raw-material backfills"
+  log "A2. GL Entry report indexes, BOM category / Production Plan backfills, HR indexes + shift grace + smoke test"
   A2_PY="$(mktemp "${TMPDIR:-/tmp}/micromax_update.XXXXXX.py")"
-  cat > "$A2_PY" <<'A2EOF'
+  # Settings for the python below (the heredoc is quoted, so nothing in it expands).
+  printf 'SITE_NAME = %s\nSHIFT_GRACE_MINUTES = %d\nSHIFT_GRACE_FORCE = %d\n' "'${SITE_NAME}'" "$SHIFT_GRACE_MINUTES" "$SHIFT_GRACE_FORCE" > "$A2_PY"
+  cat >> "$A2_PY" <<'A2EOF'
 import frappe
 
 # GL Entry covering indexes for the React financial reports / accounts
@@ -375,6 +398,45 @@ if frappe.db.has_column("BOM", "bom_category"):
 from micromax.production_plan import backfill
 print("Production Plan raw materials:", backfill())
 frappe.db.commit()
+
+# ---- HR -----------------------------------------------------------------
+frappe.set_user("Administrator")
+from micromax.install import add_hr_indexes
+add_hr_indexes()  # idempotent; migrate's before_migrate hook normally did it already
+frappe.db.commit()
+print("Employee Checkin time indexes:", sorted({i[2] for i in frappe.db.sql("show index from `tabEmployee Checkin`") if i[2] in ("time_index", "employee_time_index")}))
+print("Branch location fields:", [f for f in ("branch_address", "city", "latitude", "longitude") if frappe.get_meta("Branch").has_field(f)])
+
+# One-time grace period for late check-in / early check-out on every shift.
+MARKER = "micromax_shift_grace_minutes"
+done_before = frappe.db.get_default(MARKER)
+if not SHIFT_GRACE_MINUTES:
+    print("Shift grace: skipped (SHIFT_GRACE_MINUTES=0)")
+elif done_before and not SHIFT_GRACE_FORCE:
+    print(f"Shift grace: already applied once ({done_before} min) — leaving shifts as they are (SHIFT_GRACE_FORCE=1 to re-apply)")
+else:
+    from micromax.hr_insights import set_shift_grace
+    r = set_shift_grace(SHIFT_GRACE_MINUTES)
+    frappe.db.set_default(MARKER, str(SHIFT_GRACE_MINUTES))
+    frappe.db.commit()
+    print(f"Shift grace: {SHIFT_GRACE_MINUTES} min late check-in / early check-out set on {len(r['updated'])} shift types")
+
+# Smoke test — the endpoints behind the Attendance / Leave / Shifts / Setup pages.
+from frappe.utils import add_days, getdate
+from micromax import hr_insights as h
+company = frappe.defaults.get_global_default("company")
+today = getdate()
+start = today.replace(day=1)
+for label, fn in (
+    ("setup_status", lambda: f"{len(h.setup_status(company)['steps'])} checks"),
+    ("shift_overview", lambda: f"{len(h.shift_overview(str(today), company)['shifts'])} shift types"),
+    ("attendance_overview", lambda: f"{h.attendance_overview(str(start), str(today), company)['records']} records this month"),
+    ("leave_overview", lambda: f"{len(h.leave_overview(str(start), str(add_days(today, 30)), company)['daily'])} days"),
+):
+    try:
+        print(f"HR endpoint {label}: OK ({fn()})")
+    except Exception as e:
+        print(f"HR endpoint {label}: FAILED — {e!r}")
 print("A2 DONE")
 A2EOF
   chmod 644 "$A2_PY"; chown "${FRAPPE_USER}:${FRAPPE_USER}" "$A2_PY"
@@ -574,6 +636,7 @@ cat <<EOF
   Backend:   $([[ "$REMOVE_APPAREL" == "1" ]] && echo "handled by the app swap (C)" || { [[ "$UPDATE_BACKEND" == "1" ]] && echo "'${MICROMAX_APP}' updated + migrated (A) — see any WARN above if it was skipped" || echo "not updated this run (UPDATE_BACKEND=0)"; })
   New apps:  ${EXTRA_APPS_DONE[*]:-none this run} (A0 — fetched/updated + installed on the site)
   Backfills: $([[ "$UPDATE_BACKEND" == "1" && "$RUN_BACKFILLS" == "1" ]] && echo "GL indexes, BOM categories, Production Plan raw materials (A2)" || echo "skipped")
+  HR:        $([[ "$UPDATE_BACKEND" == "1" && "$RUN_BACKFILLS" == "1" ]] && echo "check-in indexes, shift grace ${SHIFT_GRACE_MINUTES} min (once per site unless SHIFT_GRACE_FORCE=1), endpoint smoke test — see A2 output" || echo "skipped")
   Frontend:  ${FRONTEND_DIR} (rebuilt, served by nginx from dist/)
   Site:      ${SITE_NAME}
   Bench:     ${BENCH_DIR}

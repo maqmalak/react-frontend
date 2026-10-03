@@ -158,11 +158,24 @@ export function FieldRenderer({
         />
       );
       break;
+    case "Time":
+      // Frappe stores "HH:mm:ss" (sometimes "H:mm:ss"); the time box wants zero-padded "HH:mm".
+      input = (
+        <Input
+          type="time"
+          value={value ? String(value).padStart(8, "0").slice(0, 5) : ""}
+          disabled={disabled}
+          onChange={(e) => onChange(fieldname, e.target.value ? `${e.target.value}:00` : "")}
+          error={error}
+        />
+      );
+      break;
     case "Int":
     case "Float":
+    case "Percent":
     case "Currency":
       input = (
-        <NumericInput fieldtype={fieldtype} value={value} disabled={disabled} onValue={(v) => onChange(fieldname, v)} error={error} placeholder={meta.placeholder} />
+        <NumericInput fieldtype={fieldtype === "Percent" ? "Float" : fieldtype} value={value} disabled={disabled} onValue={(v) => onChange(fieldname, v)} error={error} placeholder={meta.placeholder} />
       );
       break;
     case "Select": {

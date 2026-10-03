@@ -110,6 +110,8 @@ export interface CrmManagementConfig<T extends Record<string, any>> {
   /** Adds a per-row Print action (formatted single-document print preview → browser "Save as PDF"), distinct from the list-level table export/print. */
   onPrintRow?: (r: T) => void;
   renderCard?: (r: T) => ReactNode;
+  /** Charts / insight cards shown between the KPI strip and the filter bar. */
+  insights?: ReactNode;
   emptyTitle: string;
   emptyDescription: string;
   newLabel: string;
@@ -437,6 +439,8 @@ export function CrmManagementPage<T extends Record<string, any>>({ config }: { c
           );
         })}
       </div>
+
+      {config.insights}
 
       <FilterBar
         activeFilters={activeFilters}

@@ -133,3 +133,6 @@ export const percentCol = <T extends Record<string, any>>(key: string, label: st
 export const fmt = (v: unknown, digits = 2) => asNumber(v).toLocaleString(undefined, { maximumFractionDigits: digits });
 /** Money amounts: always exactly 2 decimals (e.g. 1,923.40, 0.35). */
 export const fmtMoney = (v: unknown) => asNumber(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+export const time = make("Time");
+export const percent = make("Percent");

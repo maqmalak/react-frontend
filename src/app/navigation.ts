@@ -1,4 +1,13 @@
 import {
+  Briefcase,
+  ArrowRightLeft,
+  CalendarClock,
+  FileCheck2,
+  CalendarHeart,
+  Hourglass,
+  BadgeCheck,
+  XCircle,
+  PlusCircle,
   LayoutDashboard,
   AlertOctagon,
   Target,
@@ -594,7 +603,13 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
     },
   ],
   hr: [
-    { items: [{ label: "Dashboard", to: "/analytics/hr", icon: LayoutDashboard }] },
+    {
+      items: [
+        { label: "Overview", to: "/hr", icon: LayoutDashboard },
+        { label: "Analytics", to: "/analytics/hr", icon: BarChart3 },
+        { label: "Setup", to: "/hr/setup", icon: ListChecks },
+      ],
+    },
     {
       title: "Employees",
       items: [
@@ -602,47 +617,110 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
         { label: "Departments", to: "/hr/departments", icon: Building2 },
         { label: "Designations", to: "/hr/designations", icon: IdCard },
         { label: "Branches", to: "/hr/branches", icon: GitBranch },
+        { label: "Employment Types", to: "/hr/employment-types", icon: Briefcase },
+        { label: "Employee Grades", to: "/hr/employee-grades", icon: Layers },
       ],
     },
     {
-      title: "Attendance & Leave",
+      title: "Lifecycle",
       items: [
+        { label: "Promotions", to: "/hr/promotions", icon: TrendingUp },
+        { label: "Transfers", to: "/hr/transfers", icon: ArrowRightLeft },
+        { label: "Separations", to: "/hr/separations", icon: DoorOpen },
+      ],
+    },
+    {
+      title: "Shifts & Attendance",
+      items: [
+        { label: "Shifts", to: "/hr/shifts", icon: Clock3 },
+        { label: "Shift Types", to: "/hr/shift-types", icon: Timer },
+        { label: "Shift Assignments", to: "/hr/shift-assignments", icon: CalendarClock },
+        { label: "Shift Requests", to: "/hr/shift-requests", icon: Repeat },
         { label: "Attendance", to: "/hr/attendance", icon: CalendarCheck },
+        { label: "Attendance Requests", to: "/hr/attendance-requests", icon: FileCheck2 },
         { label: "Checkins", to: "/hr/checkins", icon: LogIn },
+      ],
+    },
+    {
+      title: "Leave",
+      items: [
         { label: "Leave Applications", to: "/hr/leave-applications", icon: CalendarOff },
         { label: "Leave Allocations", to: "/hr/leave-allocations", icon: CalendarPlus2 },
+        { label: "Leave Policies", to: "/hr/leave-policies", icon: ShieldCheck },
+        { label: "Policy Assignments", to: "/hr/leave-policy-assignments", icon: ListChecks },
+        { label: "Leave Types", to: "/hr/leave-types", icon: Tags },
+        { label: "Leave Periods", to: "/hr/leave-periods", icon: CalendarRange },
+        { label: "Compensatory Leave", to: "/hr/compensatory-leave", icon: CalendarHeart },
+        { label: "Leave Encashment", to: "/hr/leave-encashment", icon: Coins },
         { label: "Holiday Lists", to: "/hr/holiday-lists", icon: CalendarDays },
+        { label: "Holiday Assignments", to: "/hr/holiday-list-assignments", icon: CalendarRange },
       ],
     },
     {
       title: "Claims & Extras",
       items: [
         { label: "Expense Claims", to: "/hr/expense-claims", icon: Receipt },
+        { label: "Expense Claim Types", to: "/hr/expense-claim-types", icon: Tags },
         { label: "Employee Advances", to: "/hr/advances", icon: Wallet },
         { label: "Gratuity", to: "/hr/gratuity", icon: Award },
-        { label: "Shift Assignments", to: "/hr/shift-assignments", icon: Clock3 },
       ],
     },
     {
       title: "Setup",
-      items: [{ label: "HR Settings", to: "/hr/settings", icon: Sliders }],
+      items: [
+        { label: "HR Setup", to: "/hr/setup", icon: ListChecks },
+        { label: "HR Settings", to: "/hr/settings", icon: Sliders },
+      ],
     },
   ],
   payroll: [
-    { items: [{ label: "Dashboard", to: "/analytics/payroll", icon: LayoutDashboard }] },
     {
-      title: "Payroll",
+      items: [
+        { label: "Overview", to: "/payroll", icon: LayoutDashboard },
+        { label: "Analytics", to: "/analytics/payroll", icon: BarChart3 },
+      ],
+    },
+    {
+      title: "Run payroll",
+      items: [
+        { label: "Payroll Entries", to: "/payroll/entries", icon: PlayCircle },
+        { label: "Salary Slips", to: "/payroll/salary-slips", icon: Banknote },
+        { label: "Additional Salary", to: "/payroll/additional-salary", icon: PlusCircle },
+        { label: "Incentives", to: "/payroll/incentives", icon: BadgeCheck },
+        { label: "Retention Bonus", to: "/payroll/retention-bonus", icon: Award },
+        { label: "Salary Withholding", to: "/payroll/salary-withholding", icon: XCircle },
+      ],
+    },
+    {
+      title: "Overtime",
+      items: [
+        { label: "Overtime Types", to: "/payroll/overtime-types", icon: Hourglass },
+        { label: "Overtime Slips", to: "/payroll/overtime-slips", icon: Timer },
+      ],
+    },
+    {
+      title: "Structures",
       items: [
         { label: "Salary Components", to: "/payroll/salary-components", icon: Coins },
         { label: "Salary Structures", to: "/payroll/salary-structures", icon: FileSpreadsheet },
         { label: "Structure Assignments", to: "/payroll/salary-structure-assignments", icon: FileSignature },
-        { label: "Salary Slips", to: "/payroll/salary-slips", icon: Banknote },
-        { label: "Payroll Entries", to: "/payroll/entries", icon: PlayCircle },
+        { label: "Gratuity Rules", to: "/payroll/gratuity-rules", icon: Award },
+      ],
+    },
+    {
+      title: "Tax",
+      items: [
+        { label: "Payroll Periods", to: "/payroll/periods", icon: CalendarRange },
+        { label: "Income Tax Slabs", to: "/payroll/income-tax-slabs", icon: Percent },
+        { label: "Tax Declarations", to: "/payroll/tax-declarations", icon: ShieldCheck },
       ],
     },
     {
       title: "Setup",
-      items: [{ label: "Payroll Settings", to: "/payroll/settings", icon: Sliders }],
+      items: [
+        { label: "HR & Payroll Setup", to: "/hr/setup", icon: ListChecks },
+        { label: "Payroll Settings", to: "/payroll/settings", icon: Sliders },
+      ],
     },
   ],
   settings: [

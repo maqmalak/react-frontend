@@ -35,6 +35,8 @@ export interface FormFieldMeta {
     | "Dynamic Link"
     | "Date"
     | "Datetime"
+    | "Time"
+    | "Percent"
     | "Currency"
     | "Float"
     | "Int"

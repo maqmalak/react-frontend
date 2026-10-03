@@ -48,6 +48,13 @@ const STATUS_TONE: Record<string, string> = {
   cancelled: "rose",
   open: "sky",
   pending: "amber",
+  // Attendance & leave
+  present: "emerald",
+  absent: "rose",
+  "on leave": "amber",
+  "half day": "teal",
+  "work from home": "indigo",
+  approved: "emerald",
   "in progress": "teal",
 };
 

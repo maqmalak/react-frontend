@@ -4,18 +4,17 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useFrappeGetDocCount } from "frappe-react-sdk";
 import toast from "react-hot-toast";
-import { ArrowLeft, Trash2, Plus } from "lucide-react";
+import { ArrowLeft, Trash2, Plus, UserRound } from "lucide-react";
+import { EmployeeProfileHero } from "@/components/hr/employee-profile-hero";
 import { PageHeader } from "@/components/common/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Avatar } from "@/components/ui/avatar";
 import { StatusBadge } from "@/components/common/status-badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FrappeForm } from "@/components/forms/frappe-form";
 import { type FormFieldMeta } from "@/components/forms/field-primitives";
 import { useEmployee, useEmployeeMutations } from "@/hooks/useEmployee";
-import { avatarTone } from "@/components/common/avatar-tone";
 import { notifyDataChanged } from "@/hooks/useRealtime";
 import { humanizeError } from "@/services/frappe";
 
@@ -335,13 +334,7 @@ export default function EmployeeDetailPage() {
       <PageHeader
         title={displayName}
         subtitle="Employee"
-        icon={
-          <Avatar
-            name={displayName}
-            src={doc.image}
-            className={`h-8 w-8 shrink-0 text-xs font-semibold ${avatarTone(displayName)}`}
-          />
-        }
+        icon={<UserRound className="h-5 w-5" />}
         breadcrumbs={
           <Link to="/hr/employees" className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-3.5 w-3.5" /> Employees
@@ -360,6 +353,21 @@ export default function EmployeeDetailPage() {
           </>
         }
       />
+      <EmployeeProfileHero
+        doc={doc}
+        displayName={displayName}
+        onPhotoChange={async (url) => {
+          try {
+            await updateDoc(doc.name, { image: url });
+            toast.success(url ? "Photo updated" : "Photo removed");
+            await mutate();
+            notifyDataChanged();
+          } catch (err) {
+            toast.error(humanizeError(err));
+          }
+        }}
+      />
+
       <DocPageTabs doctype="Employee" name={doc?.name ?? name} />
 
       <Card className="overflow-x-auto p-1">
