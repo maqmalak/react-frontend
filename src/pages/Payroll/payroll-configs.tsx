@@ -11,9 +11,25 @@ import { endOfMonthISO, formatDate, startOfMonthISO, todayISO } from "@/utils/da
 import { formatMoney } from "@/utils/currency";
 import { asNumber } from "@/utils/cn";
 import { PayrollEntryDefaults, PayrollRunPanel } from "./PayrollPanels";
+import { PayrollRunInsights } from "./PayrollRunInsights";
 
 /** Older entries never got a `status` — derive it from docstatus. */
 export const entryStatus = (r: { status?: string; docstatus?: number }) => r.status || ["Draft", "Submitted", "Cancelled"][r.docstatus ?? 0];
+
+/** Compact period for a summary card (the page title already carries the full dates): "Jun 2027" for a whole
+ *  calendar month, otherwise "1–15 Jun 27" / "28 Jun – 4 Jul 27". */
+function shortPeriod(start?: string, end?: string) {
+  if (!start) return "—";
+  const s = new Date(`${start}T00:00:00`);
+  const e = end ? new Date(`${end}T00:00:00`) : s;
+  const lastOfMonth = new Date(e.getFullYear(), e.getMonth() + 1, 0).getDate();
+  if (s.getDate() === 1 && e.getDate() === lastOfMonth && s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear()) {
+    return s.toLocaleString("en-US", { month: "short", year: "numeric" });
+  }
+  const mon = (d: Date) => d.toLocaleString("en-US", { month: "short" });
+  const yy = `${String(e.getFullYear()).slice(2)}`;
+  return s.getMonth() === e.getMonth() ? `${s.getDate()}–${e.getDate()} ${mon(e)} ${yy}` : `${s.getDate()} ${mon(s)} – ${e.getDate()} ${mon(e)} ${yy}`;
+}
 
 const FREQUENCIES = ["", "Monthly", "Fortnightly", "Bimonthly", "Weekly", "Daily"];
 
@@ -113,13 +129,25 @@ export const PAYROLL_ENTRY_CONFIG: DocConfig = {
     },
   },
   summary: (v, rows) => [
-    { label: "Period", value: v.start_date ? `${formatDate(v.start_date)} – ${formatDate(v.end_date)}` : "—", tone: "sky" },
+    { label: "Period", value: shortPeriod(v.start_date, v.end_date), tone: "sky" },
     { label: "Employees", value: (rows.employees ?? []).length || asNumber(v.number_of_employees), tone: "indigo" },
     { label: "Frequency", value: v.payroll_frequency || "—", tone: "teal" },
   ],
   titleOf: (v) => (v.start_date ? `${v.payroll_frequency || "Payroll"} run · ${formatDate(v.start_date)} – ${formatDate(v.end_date)}` : "New payroll run"),
   // The run checklist sits above the form so it isn't buried under a long employee table.
-  tabPanels: { Details: { before: (ctx) => (ctx.isNew ? <PayrollEntryDefaults ctx={ctx} /> : <PayrollRunPanel ctx={ctx} />) } },
+  tabPanels: {
+    Details: {
+      before: (ctx) =>
+        ctx.isNew ? (
+          <PayrollEntryDefaults ctx={ctx} />
+        ) : (
+          <>
+            <PayrollRunPanel ctx={ctx} />
+            {ctx.docstatus === 1 && ctx.name && <PayrollRunInsights name={ctx.name} />}
+          </>
+        ),
+    },
+  },
   omitOnSave: ["number_of_employees", "status", "salary_slips_created", "salary_slips_submitted"],
 };
 

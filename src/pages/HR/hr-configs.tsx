@@ -561,7 +561,7 @@ export const EMPLOYEE_PROMOTION_CONFIG: DocConfig = {
     ro(link("salary_currency", "Salary Currency", "Currency")),
   ],
   children: [PROPERTY_HISTORY("promotion_details", "Promotion details")],
-  defaults: ({ company }) => ({ company, promotion_date: todayISO() }),
+  defaults: ({ company, params }) => ({ company, promotion_date: todayISO(), employee: params.get("employee") ?? undefined }),
   linkEffects: {
     employee: async (emp) => {
       const i = await employeeInfo(emp, ["ctc", "salary_currency"]);
@@ -608,7 +608,7 @@ export const EMPLOYEE_TRANSFER_CONFIG: DocConfig = {
     ro(link("new_employee_id", "New Employee ID", "Employee")),
   ],
   children: [{ ...PROPERTY_HISTORY("transfer_details", "Transfer details"), minRows: 1 }],
-  defaults: ({ company }) => ({ company, transfer_date: todayISO() }),
+  defaults: ({ company, params }) => ({ company, transfer_date: todayISO(), employee: params.get("employee") ?? undefined }),
   linkEffects: { employee: (emp) => employeeInfo(emp) },
   titleOf: (v) => v.employee_name || "New transfer",
 };
@@ -655,7 +655,7 @@ export const EMPLOYEE_SEPARATION_CONFIG: DocConfig = {
       wide: true,
     },
   ],
-  defaults: ({ company }) => ({ company, boarding_begins_on: todayISO() }),
+  defaults: ({ company, params }) => ({ company, boarding_begins_on: todayISO(), employee: params.get("employee") ?? undefined }),
   linkEffects: {
     employee: (emp) => employeeInfo(emp, ["designation", "resignation_letter_date"]),
     employee_separation_template: async (tpl) => {

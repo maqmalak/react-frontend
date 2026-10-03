@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useFrappeGetDocCount } from "frappe-react-sdk";
 import toast from "react-hot-toast";
-import { ArrowLeft, Trash2, Plus, UserRound } from "lucide-react";
+import { ArrowLeft, Trash2, Plus, UserRound, Sparkles } from "lucide-react";
+import { EmployeeInsights } from "@/components/hr/employee-insights";
 import { EmployeeProfileHero } from "@/components/hr/employee-profile-hero";
 import { PageHeader } from "@/components/common/page-header";
 import { Card } from "@/components/ui/card";
@@ -368,7 +369,12 @@ export default function EmployeeDetailPage() {
         }}
       />
 
-      <DocPageTabs doctype="Employee" name={doc?.name ?? name} />
+      <DocPageTabs
+        doctype="Employee"
+        name={doc?.name ?? name}
+        initial="insights"
+        extraTabs={[{ id: "insights", label: "Insights", icon: Sparkles, content: <EmployeeInsights employee={doc.name} /> }]}
+      />
 
       <Card className="overflow-x-auto p-1">
         <div className="flex min-w-max gap-1">

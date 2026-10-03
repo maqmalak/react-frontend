@@ -18,10 +18,13 @@ const TABS: { id: TabId; label: string; icon: typeof LayoutList }[] = [
  * following sibling) is the "Details" tab and is hidden while Connections or Activity is shown
  * (see `.doc-page-tabs[data-active]` in globals.css).
  */
-export function DocPageTabs({ doctype, name, extraTabs = [] }: { doctype: string; name?: string; extraTabs?: ExtraPageTab[] }) {
-  const [active, setActive] = useState<TabId>("details");
+export function DocPageTabs({ doctype, name, extraTabs = [], initial = "details" }: { doctype: string; name?: string; extraTabs?: ExtraPageTab[]; /** Tab shown first (default "details"). */ initial?: string }) {
+  const [active, setActive] = useState<TabId>(initial);
   if (!name) return null;
-  const tabs: (typeof TABS[number] & { badge?: ReactNode })[] = [TABS[0], ...extraTabs, ...TABS.slice(1)];
+  // An extra tab that opens first also comes first in the bar.
+  const lead = extraTabs.filter((t) => t.id === initial);
+  const rest = extraTabs.filter((t) => t.id !== initial);
+  const tabs: (typeof TABS[number] & { badge?: ReactNode })[] = [...lead, TABS[0], ...rest, ...TABS.slice(1)];
   const extra = extraTabs.find((t) => t.id === active);
   return (
     <div className="doc-page-tabs space-y-6" data-active={active}>

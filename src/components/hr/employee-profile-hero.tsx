@@ -1,9 +1,13 @@
 import { useMemo, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Briefcase, Building2, Cake, CalendarCheck, GitBranch, Mail, Phone, Trash2, UserRound, Wallet } from "lucide-react";
+import {
+  ArrowRightLeft, Briefcase, Building2, Cake, CalendarCheck, CalendarOff, Clock3, DoorOpen, GitBranch, Mail, MessageCircle, Phone, Trash2,
+  TrendingUp, UserRound, Wallet,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/common/status-badge";
 import { EmployeePhoto } from "@/components/hr/employee-photo";
+import { whatsappUrl } from "@/utils/whatsapp";
 import { useAggregate, useDocList, count, sum } from "@/hooks/useDoc";
 import { formatDate, startOfMonthISO, todayISO } from "@/utils/dates";
 import { formatMoney } from "@/utils/currency";
@@ -89,7 +93,11 @@ export function EmployeeProfileHero({
 
   return (
     <Card className="relative overflow-hidden">
-      <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-r from-primary/25 via-sky-500/15 to-violet-500/20" />
+      <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-primary/30 via-sky-500/20 to-violet-500/25" />
+      <div className="pointer-events-none absolute right-6 top-3 hidden text-right sm:block">
+        <p className="text-[11px] font-medium uppercase tracking-wider text-foreground/60">Service</p>
+        <p className="text-2xl font-bold tabular-nums text-foreground/80">{tenure(doc.date_of_joining)}</p>
+      </div>
       <div className="relative flex flex-col gap-5 p-5 pt-8 lg:flex-row lg:items-end">
         <div className="flex items-end gap-4">
           <div className="relative">
@@ -142,6 +150,35 @@ export function EmployeeProfileHero({
           )}
           {doc.employment_type && <Fact icon={<Briefcase className="h-3.5 w-3.5" />}>{doc.employment_type}</Fact>}
         </div>
+      </div>
+
+      <div className="relative flex flex-wrap items-center gap-1.5 border-t border-border/60 px-5 py-3">
+        {[
+          { label: "Apply leave", to: `/hr/leave-applications?employee=${encodeURIComponent(emp)}`, icon: CalendarOff },
+          { label: "Attendance", to: `/hr/attendance?employee=${encodeURIComponent(emp)}`, icon: CalendarCheck },
+          { label: "Assign shift", to: `/hr/shift-assignments/new?employee=${encodeURIComponent(emp)}`, icon: Clock3 },
+          { label: "Salary slips", to: `/payroll/salary-slips?employee=${encodeURIComponent(emp)}`, icon: Wallet },
+          { label: "Promote", to: `/hr/promotions/new?employee=${encodeURIComponent(emp)}`, icon: TrendingUp },
+          { label: "Transfer", to: `/hr/transfers/new?employee=${encodeURIComponent(emp)}`, icon: ArrowRightLeft },
+          { label: "Separation", to: `/hr/separations/new?employee=${encodeURIComponent(emp)}`, icon: DoorOpen },
+        ].map((a) => (
+          <Link key={a.label} to={a.to} className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-background px-3 text-xs font-medium transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary">
+            <a.icon className="h-3.5 w-3.5" /> {a.label}
+          </Link>
+        ))}
+        <span className="ml-auto flex gap-1.5">
+          {doc.cell_number && (
+            <>
+              <a href={`tel:${doc.cell_number}`} title="Call" className="flex h-8 w-8 items-center justify-center rounded-full border border-border hover:bg-accent"><Phone className="h-3.5 w-3.5" /></a>
+              {whatsappUrl(doc.cell_number) && (
+                <a href={whatsappUrl(doc.cell_number)!} target="_blank" rel="noreferrer" title="WhatsApp" className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-emerald-600 hover:bg-emerald-500/10"><MessageCircle className="h-3.5 w-3.5" /></a>
+              )}
+            </>
+          )}
+          {(doc.company_email || doc.personal_email) && (
+            <a href={`mailto:${doc.company_email || doc.personal_email}`} title="Email" className="flex h-8 w-8 items-center justify-center rounded-full border border-border hover:bg-accent"><Mail className="h-3.5 w-3.5" /></a>
+          )}
+        </span>
       </div>
 
       <div className="grid grid-cols-2 gap-3 border-t border-border/60 bg-muted/20 p-4 sm:grid-cols-3 lg:grid-cols-5">

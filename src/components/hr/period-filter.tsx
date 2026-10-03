@@ -110,7 +110,7 @@ export function PeriodControl({ period }: { period: Period }) {
             <ChevronRight className="h-4 w-4" />
           </button>
           {!period.includesToday && (
-            <button type="button" onClick={period.current} className="ml-1 h-9 rounded-md px-2.5 text-xs font-medium text-primary hover:bg-primary/10">
+            <button type="button" onClick={period.current} className="ml-1 h-9 whitespace-nowrap rounded-md px-2.5 text-xs font-medium text-primary hover:bg-primary/10">
               {period.mode === "day" ? "Today" : "This month"}
             </button>
           )}
