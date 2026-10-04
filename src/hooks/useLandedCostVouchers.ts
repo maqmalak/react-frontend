@@ -77,7 +77,7 @@ export function useLandedCostVoucherMutations(onSuccess?: (doc: LandedCostVouche
 export function useLandedCostVouchersFor(docType: LandedCostReceiptDocType, docName?: string) {
   const { data: parentNames, isLoading: namesLoading, error: namesError, mutate: refreshNames } =
     useFrappeGetCall<string[]>(
-      "micromax.hooks.get_linked_parent_docs",
+      "mm_core.api.get_linked_parent_docs",
       docName
         ? {
             doctype: "Landed Cost Purchase Receipt",

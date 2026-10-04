@@ -135,7 +135,7 @@ export interface DocConfig {
   extra?: (ctx: ExtraContext) => ReactNode;
   /** Panels inside a form tab (keyed by tab label): `before` the tab's fields, `after` its child tables. */
   tabPanels?: Record<string, { before?: (ctx: ExtraContext) => ReactNode; after?: (ctx: ExtraContext) => ReactNode }>;
-  /** "Connections" tab listing linked documents (server: micromax.connections.get_connections). On by default;
+  /** "Connections" tab listing linked documents (server: mm_core.connections.get_connections). On by default;
    *  `false` hides it. */
   connections?: boolean;
   /** Entries for the "Actions" menu (next documents to create, custom operations). */

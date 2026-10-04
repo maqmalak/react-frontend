@@ -393,7 +393,7 @@ export function DocFormPage({ config }: { config: DocConfig }) {
       icon: a.icon ? <a.icon className="h-4 w-4" /> : a.make ? <PlusCircle className="h-4 w-4" /> : undefined,
       onClick: () =>
         a.make
-          ? void runServer(a.label, () => postCall("micromax.form_actions.make_mapped", { method: a.make, source_name: routeName, args: a.makeArgs ? JSON.stringify(a.makeArgs(extraCtx)) : undefined }))
+          ? void runServer(a.label, () => postCall("mm_core.form_actions.make_mapped", { method: a.make, source_name: routeName, args: a.makeArgs ? JSON.stringify(a.makeArgs(extraCtx)) : undefined }))
           : void Promise.resolve(a.run?.(extraCtx)).catch((e) => toast.error(humanizeError(e))),
     });
     actionItems.push(...create.map(toItem));
@@ -403,7 +403,7 @@ export function DocFormPage({ config }: { config: DocConfig }) {
     actionItems.push(
       { label: "Refresh", icon: <RefreshCw className="h-4 w-4" />, onClick: () => { loadedFor.current = null; void mutate(); } },
       ...(!config.single && canWrite
-        ? [{ label: "Duplicate", icon: <Copy className="h-4 w-4" />, onClick: () => void runServer("Duplicate", () => postCall("micromax.form_actions.duplicate", { doctype: config.doctype, name: routeName })) }]
+        ? [{ label: "Duplicate", icon: <Copy className="h-4 w-4" />, onClick: () => void runServer("Duplicate", () => postCall("mm_core.form_actions.duplicate", { doctype: config.doctype, name: routeName })) }]
         : []),
       { label: "Print", icon: <Printer className="h-4 w-4" />, onClick: () => window.open(printUrl(config.doctype, routeName), "_blank") },
       { label: "Open in ERPNext desk", icon: <ExternalLink className="h-4 w-4" />, onClick: () => window.open(deskUrl(config.doctype, config.single ? undefined : routeName), "_blank") },

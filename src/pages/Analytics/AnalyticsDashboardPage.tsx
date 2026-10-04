@@ -33,7 +33,7 @@ export function AnalyticsDashboardPage({ module: fixedModule }: { module?: strin
   const [refreshToken, setRefreshToken] = useState(0);
   const [tolerance, setTolerance] = useState(5);
   const [drill, setDrill] = useState<Kpi | null>(null);
-  const { dash, error, isLoading, isValidating, mutate } = useModuleDashboard(
+  const { dash, error, isLoading, isValidating, mutate, notPermitted } = useModuleDashboard(
     module,
     period.range,
     company,
@@ -43,6 +43,12 @@ export function AnalyticsDashboardPage({ module: fixedModule }: { module?: strin
   );
 
   if (!meta) return <Navigate to="/analytics/accounts" replace />;
+  if (notPermitted)
+    return (
+      <Card className="p-6 text-sm text-muted-foreground">
+        You don't have access to the {meta.label} dashboard. Ask an administrator for read access to its records.
+      </Card>
+    );
   const Icon = meta.icon;
 
   return (

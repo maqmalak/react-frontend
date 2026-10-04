@@ -85,7 +85,7 @@ export function usePurchaseReceiptMutations(onSuccess?: (doc: PurchaseReceipt) =
 export function usePurchaseReceiptsForPO(poName?: string) {
   const { data: parentNames, isLoading: namesLoading, error: namesError, mutate: refreshNames } =
     useFrappeGetCall<string[]>(
-      "micromax.hooks.get_linked_parent_docs",
+      "mm_core.api.get_linked_parent_docs",
       poName
         ? {
             doctype: "Purchase Receipt Item",

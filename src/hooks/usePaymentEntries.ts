@@ -187,7 +187,7 @@ export async function getOutstandingReferenceDocuments(args: {
 export function usePaymentEntriesForPurchaseInvoice(piName?: string) {
   const { data: parentNames, isLoading: namesLoading, error: namesError, mutate: refreshNames } =
     useFrappeGetCall<string[]>(
-      "micromax.hooks.get_linked_parent_docs",
+      "mm_core.api.get_linked_parent_docs",
       piName
         ? {
             doctype: "Payment Entry Reference",
@@ -244,7 +244,7 @@ export function usePaymentEntriesForPurchaseInvoice(piName?: string) {
 export function usePaymentEntriesForSalesInvoice(siName?: string) {
   const { data: parentNames, isLoading: namesLoading, error: namesError, mutate: refreshNames } =
     useFrappeGetCall<string[]>(
-      "micromax.hooks.get_linked_parent_docs",
+      "mm_core.api.get_linked_parent_docs",
       siName
         ? {
             doctype: "Payment Entry Reference",

@@ -164,7 +164,7 @@ export function LeadDetailPage() {
 
   const submitTask = async () => {
     if (!taskValues.title || !taskValues.due_date) {
-      toast.error("Title and due date are required");
+      toast.error("Title and due date are required — pick both a date and a time");
       return;
     }
     try {

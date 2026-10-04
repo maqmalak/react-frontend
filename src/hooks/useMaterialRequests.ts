@@ -75,7 +75,7 @@ const PO_FIELDS_FOR_MR = [
 export function usePurchaseOrdersForMR(mrName?: string) {
   const { data: parentNames, isLoading: namesLoading, error: namesError, mutate: refreshNames } =
     useFrappeGetCall<string[]>(
-      "micromax.hooks.get_linked_parent_docs",
+      "mm_core.api.get_linked_parent_docs",
       mrName
         ? {
             doctype: "Purchase Order Item",
@@ -124,7 +124,7 @@ const SE_FIELDS_FOR_MR = ["name", "posting_date", "purpose", "docstatus", "total
 export function useStockEntriesForMR(mrName?: string) {
   const { data: parentNames, isLoading: namesLoading, error: namesError, mutate: refreshNames } =
     useFrappeGetCall<string[]>(
-      "micromax.hooks.get_linked_parent_docs",
+      "mm_core.api.get_linked_parent_docs",
       mrName
         ? {
             doctype: "Stock Entry Detail",
@@ -173,7 +173,7 @@ const RFQ_FIELDS_FOR_MR = ["name", "transaction_date", "status", "docstatus", "c
 export function useRFQsForMR(mrName?: string) {
   const { data: parentNames, isLoading: namesLoading, error: namesError, mutate: refreshNames } =
     useFrappeGetCall<string[]>(
-      "micromax.hooks.get_linked_parent_docs",
+      "mm_core.api.get_linked_parent_docs",
       mrName
         ? {
             doctype: "Request for Quotation Item",

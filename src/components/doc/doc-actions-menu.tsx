@@ -108,13 +108,13 @@ export function DocActionsMenu({ doctype, doc, onChanged, canDuplicate = true }:
     ...makes.map((m) => ({
       label: `Create ${m.label}`,
       icon: <FilePlus2 className="h-4 w-4" />,
-      onClick: () => void run(m.label, () => postCall("micromax.form_actions.make_mapped", {
+      onClick: () => void run(m.label, () => postCall("mm_core.form_actions.make_mapped", {
         method: m.method, source_name: doc.name, args: m.args ? JSON.stringify(m.args(doc, doctype)) : undefined,
       })),
     })),
     ...(makes.length ? [{ label: "", separator: true }] : []),
     ...(onChanged ? [{ label: "Refresh", icon: <RefreshCw className="h-4 w-4" />, onClick: onChanged }] : []),
-    ...(canDuplicate ? [{ label: "Duplicate", icon: <Copy className="h-4 w-4" />, onClick: () => void run("Duplicate", () => postCall("micromax.form_actions.duplicate", { doctype, name: doc.name })) }] : []),
+    ...(canDuplicate ? [{ label: "Duplicate", icon: <Copy className="h-4 w-4" />, onClick: () => void run("Duplicate", () => postCall("mm_core.form_actions.duplicate", { doctype, name: doc.name })) }] : []),
     { label: "Print", icon: <Printer className="h-4 w-4" />, onClick: () => window.open(printUrl(doctype, doc.name), "_blank") },
     { label: "Open in ERPNext desk", icon: <ExternalLink className="h-4 w-4" />, onClick: () => window.open(deskUrl(doctype, doc.name), "_blank") },
     { label: "Copy link", icon: <LinkIcon className="h-4 w-4" />, onClick: () => void navigator.clipboard?.writeText(window.location.href).then(() => toast.success("Link copied")) },

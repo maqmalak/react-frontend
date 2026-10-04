@@ -113,7 +113,7 @@ export function AssetDepreciationPanel({ asset }: { asset: string }) {
 /** Movements this asset has been through (Asset Movement Item → Asset Movement). */
 export function AssetMovementsPanel({ asset }: { asset: string }) {
   const { data: raw } = useFrappeGetCall<string[]>(
-    "micromax.hooks.get_linked_parent_docs",
+    "mm_core.api.get_linked_parent_docs",
     { doctype: "Asset Movement Item", parenttype: "Asset Movement", link_field: "asset", link_value: asset },
     `micromax.asset-movements.${asset}`,
   );

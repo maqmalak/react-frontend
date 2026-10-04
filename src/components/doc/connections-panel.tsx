@@ -18,7 +18,7 @@ const SHOW = 6;
 /** The desk's "Connections" dashboard: linked documents grouped by area, with counts and the latest rows. */
 export function ConnectionsPanel({ doctype, name }: { doctype: string; name: string }) {
   const { data, isLoading, error } = useFrappeGetCall<{ message: ConnGroup[] }>(
-    "micromax.connections.get_connections",
+    "mm_core.connections.get_connections",
     { doctype, name },
     `micromax.connections.${doctype}.${name}`,
     { revalidateOnFocus: false },

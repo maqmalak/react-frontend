@@ -26,6 +26,7 @@ import {
   type Insight,
   type Kpi,
   type ModuleId,
+  usePermittedDashboardModules,
 } from "@/pages/Analytics/analytics-kit";
 
 const kpiOf = (d: DashboardData | undefined, key: string): Kpi | undefined => d?.kpis.find((k) => k.key === key);
@@ -172,9 +173,11 @@ export function DashboardPage() {
   // Production / WO / Export / Import read MicroMax-only doctypes: not requested, and their cards not shown,
   // on a site without micromax (e.g. the school).
   const { isDashboardModuleAvailable, isLoading: appsLoading } = useInstalledApps();
+  // ...and dashboards this user can't read (e.g. GL-based accounts for a CRM-only user) are skipped too.
+  const { isPermitted, isLoading: permsLoading } = usePermittedDashboardModules();
   const modOn = (m: ModuleId) => on && !appsLoading && isDashboardModuleAvailable(m);
   const hasProduction = modOn("production");
-  const shownModules = MODULES.filter((m) => isDashboardModuleAvailable(m.id));
+  const shownModules = MODULES.filter((m) => isDashboardModuleAvailable(m.id) && (permsLoading || isPermitted(m.id)));
 
   // One call per module, in parallel; each section renders as soon as its module arrives.
   const accounts = useModuleDashboard("accounts", period.range, company, refreshToken, on);

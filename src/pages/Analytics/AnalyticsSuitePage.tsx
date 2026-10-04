@@ -86,8 +86,9 @@ function ModuleSection({
 }) {
   const meta = moduleMeta(module)!;
   const Icon = meta.icon;
-  const { dash, error, isLoading, isValidating } = useModuleDashboard(module, period.range, company, refreshToken, !period.invalid);
+  const { dash, error, isLoading, isValidating, notPermitted } = useModuleDashboard(module, period.range, company, refreshToken, !period.invalid);
   useEffect(() => onLoaded(module, dash), [module, dash, onLoaded]);
+  if (notPermitted) return null; // a dashboard this user can't open: left out of the overview
 
   return (
     <section id={secId(module, "top")} data-nav-id={secId(module, "top")} className="scroll-mt-20 space-y-4">

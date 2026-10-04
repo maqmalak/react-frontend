@@ -75,7 +75,7 @@ export function useDeliveryNoteMutations(onSuccess?: (doc: DeliveryNote) => void
 export function useDeliveryNotesForSO(soName?: string) {
   const { data: parentNames, isLoading: namesLoading, error: namesError, mutate: refreshNames } =
     useFrappeGetCall<string[]>(
-      "micromax.hooks.get_linked_parent_docs",
+      "mm_core.api.get_linked_parent_docs",
       soName
         ? {
             doctype: "Delivery Note Item",

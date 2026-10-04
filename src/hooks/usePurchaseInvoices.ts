@@ -86,7 +86,7 @@ export function usePurchaseInvoiceMutations(onSuccess?: (doc: PurchaseInvoice) =
 export function usePurchaseInvoicesForPO(poName?: string) {
   const { data: parentNames, isLoading: namesLoading, error: namesError, mutate: refreshNames } =
     useFrappeGetCall<string[]>(
-      "micromax.hooks.get_linked_parent_docs",
+      "mm_core.api.get_linked_parent_docs",
       poName
         ? {
             doctype: "Purchase Invoice Item",
@@ -139,7 +139,7 @@ export function usePurchaseInvoicesForPO(poName?: string) {
 export function usePurchaseInvoicesForPR(prName?: string) {
   const { data: parentNames, isLoading: namesLoading, error: namesError, mutate: refreshNames } =
     useFrappeGetCall<string[]>(
-      "micromax.hooks.get_linked_parent_docs",
+      "mm_core.api.get_linked_parent_docs",
       prName
         ? {
             doctype: "Purchase Invoice Item",

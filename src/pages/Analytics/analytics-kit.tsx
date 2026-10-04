@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { useFrappeGetCall } from "frappe-react-sdk";
 import { Area, AreaChart as RCArea, ResponsiveContainer } from "recharts";
@@ -165,9 +165,23 @@ export function AnalyticsTabs() {
   const query = usePeriodQuery(); // keep the period and filters when switching dashboards
   // Tabs for dashboards this site can't run (Production, Import & Export, P&L Simulator need micromax) are left out.
   const { isPathAvailable } = useInstalledApps();
+  const { isPermitted } = usePermittedDashboardModules();
+  // A tab shows when the user may open at least one of the dashboards it covers.
+  const TAB_MODULES: Record<string, string[]> = {
+    "/analytics/suite/sales": ["sales", "so_analysis", "do_analysis"],
+    "/analytics/suite/purchase": ["purchase", "procurement"],
+    "/analytics/suite/trade": ["export_analysis", "import_analysis"],
+    "/production": ["production", "wo_analysis", "jc_analysis"],
+    "/analytics/pnl-simulator": ["accounts"],
+  };
+  const tabAllowed = (to: string) => {
+    if (to === "/dashboard") return true;
+    const mods = TAB_MODULES[to] ?? (to.startsWith("/analytics/") ? [to.slice("/analytics/".length)] : []);
+    return mods.length === 0 || mods.some(isPermitted);
+  };
   return (
     <nav className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-card p-1 scrollbar-thin">
-      {tabs.filter((t) => isPathAvailable(t.to)).map((t) => (
+      {tabs.filter((t) => isPathAvailable(t.to) && tabAllowed(t.to)).map((t) => (
         <NavLink
           key={t.to}
           to={{ pathname: t.to, search: t.to.startsWith("/analytics") ? query : "" }}
@@ -189,6 +203,26 @@ export function AnalyticsTabs() {
 export const moduleMeta = (id: string) => MODULES.find((m) => m.id === id);
 
 /** One module's dashboard payload for a period. The server caches each result for 15 minutes. */
+/**
+ * Dashboards the current user may open on this site (mm_core.dashboards.get_permitted_modules: read access to
+ * the module's main doctype; MicroMax-only modules need micromax). Fetched once; until it arrives nothing is
+ * requested, and if it fails everything is (the server still enforces permissions).
+ */
+export function usePermittedDashboardModules() {
+  const { data, isLoading, error } = useFrappeGetCall<{ message: string[] }>(
+    "mm_core.dashboards.get_permitted_modules",
+    undefined,
+    "mm_core.dashboards.permitted",
+    { revalidateOnFocus: false, revalidateIfStale: false, dedupingInterval: 10 * 60 * 1000 },
+  );
+  const permitted = useMemo(() => {
+    const raw = (data as unknown as { message?: string[] })?.message ?? (Array.isArray(data) ? (data as string[]) : []);
+    return new Set(raw);
+  }, [data]);
+  const isPermitted = useCallback((module: string) => (error ? true : !isLoading && permitted.has(module)), [permitted, isLoading, error]);
+  return { isPermitted, isLoading: isLoading && !error };
+}
+
 export function useModuleDashboard(
   module: string,
   range: { from: string; to: string },
@@ -199,13 +233,17 @@ export function useModuleDashboard(
   tolerance?: number,
 ) {
   const filters = useDashFilters(module);
+  // Only request dashboards this user may open: otherwise each one the user can't read is a PermissionError.
+  const { isPermitted, isLoading: permsLoading } = usePermittedDashboardModules();
+  const notPermitted = !permsLoading && !isPermitted(module);
+  enabled = enabled && !permsLoading && !notPermitted;
   const { data, ...rest } = useFrappeGetCall<{ message: DashboardData }>(
     "mm_core.dashboards.get_dashboard",
     { module, from_date: range.from, to_date: range.to, company: company ?? "", refresh: refreshToken ? 1 : 0, ...(tolerance != null ? { tolerance } : {}), ...filters },
     enabled ? `micromax.analytics.${module}.${range.from}.${range.to}.${company ?? ""}.${refreshToken}.${tolerance ?? ""}.${filtersKey(filters)}` : null,
     { keepPreviousData: true, revalidateOnFocus: false },
   );
-  return { dash: data?.message, ...rest };
+  return { dash: data?.message, ...rest, notPermitted };
 }
 
 // ------------------------------------------------------------------ fiscal-year period (Jul–Jun)
