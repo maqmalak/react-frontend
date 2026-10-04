@@ -4,6 +4,7 @@ import { AppCard } from "@/components/common/app-card";
 import { Logo } from "@/components/common/logo";
 import { useAuth } from "@/hooks/useAuth";
 import { useVisibleModules, useModuleDocTypes } from "@/hooks/useWorkspaces";
+import { useInstalledApps } from "@/hooks/useInstalledApps";
 import { APP_TIME_ZONE } from "@/utils/dates";
 
 /** How many real doctypes to surface as "features" under each card's title. */
@@ -32,15 +33,18 @@ export function DesktopPage() {
   // half-populated grid); modules without a mapped `module` field (core app
   // pages, or ones spanning several ERPNext modules) are never gated.
   const { modules: visibleModules, isLoading: modulesLoading } = useVisibleModules();
+  // Tiles whose backend app isn't installed on this site (e.g. Production without micromax) are hidden too.
+  const { isAvailable } = useInstalledApps();
 
   const apps = useMemo(
     () =>
       APPS.filter((app) => {
         if (app.roles && app.roles.length > 0 && !hasRole(...app.roles)) return false;
+        if (!isAvailable(app)) return false;
         if (!app.module || modulesLoading) return true;
         return app.module.some((m) => visibleModules.has(m));
       }),
-    [hasRole, modulesLoading, visibleModules],
+    [hasRole, isAvailable, modulesLoading, visibleModules],
   );
 
   // One shared query for every card's "features" list — real doctype names

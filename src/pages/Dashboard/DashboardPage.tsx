@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
+import { useInstalledApps } from "@/hooks/useInstalledApps";
 import { cn } from "@/utils/cn";
 import {
   AnalyticsTabs,
@@ -168,6 +169,12 @@ export function DashboardPage() {
   const openDrill = (module: ModuleId, kpi?: Kpi) => kpi && setDrill({ module, kpi });
   const [refreshToken, setRefreshToken] = useState(0);
   const on = !period.invalid;
+  // Production / WO / Export / Import read MicroMax-only doctypes: not requested, and their cards not shown,
+  // on a site without micromax (e.g. the school).
+  const { isDashboardModuleAvailable, isLoading: appsLoading } = useInstalledApps();
+  const modOn = (m: ModuleId) => on && !appsLoading && isDashboardModuleAvailable(m);
+  const hasProduction = modOn("production");
+  const shownModules = MODULES.filter((m) => isDashboardModuleAvailable(m.id));
 
   // One call per module, in parallel; each section renders as soon as its module arrives.
   const accounts = useModuleDashboard("accounts", period.range, company, refreshToken, on);
@@ -176,16 +183,16 @@ export function DashboardPage() {
   const stock = useModuleDashboard("stock", period.range, company, refreshToken, on);
   const hr = useModuleDashboard("hr", period.range, company, refreshToken, on);
   const payroll = useModuleDashboard("payroll", period.range, company, refreshToken, on);
-  const production = useModuleDashboard("production", period.range, company, refreshToken, on);
+  const production = useModuleDashboard("production", period.range, company, refreshToken, modOn("production"));
   const assets = useModuleDashboard("assets", period.range, company, refreshToken, on);
   const financials = useModuleDashboard("financials", period.range, company, refreshToken, on);
   const procurement = useModuleDashboard("procurement", period.range, company, refreshToken, on);
   const so_analysis = useModuleDashboard("so_analysis", period.range, company, refreshToken, on);
   const do_analysis = useModuleDashboard("do_analysis", period.range, company, refreshToken, on);
-  const export_analysis = useModuleDashboard("export_analysis", period.range, company, refreshToken, on);
-  const import_analysis = useModuleDashboard("import_analysis", period.range, company, refreshToken, on);
+  const export_analysis = useModuleDashboard("export_analysis", period.range, company, refreshToken, modOn("export_analysis"));
+  const import_analysis = useModuleDashboard("import_analysis", period.range, company, refreshToken, modOn("import_analysis"));
   const quality = useModuleDashboard("quality", period.range, company, refreshToken, on);
-  const wo_analysis = useModuleDashboard("wo_analysis", period.range, company, refreshToken, on);
+  const wo_analysis = useModuleDashboard("wo_analysis", period.range, company, refreshToken, modOn("wo_analysis"));
   const jc_analysis = useModuleDashboard("jc_analysis", period.range, company, refreshToken, on);
   const all: Record<ModuleId, typeof accounts> = { accounts, purchase, procurement, production, wo_analysis, jc_analysis, stock, sales, so_analysis, do_analysis, export_analysis, import_analysis, quality, hr, payroll, assets, financials };
   const busy = Object.values(all).some((m) => m.isValidating);
@@ -300,7 +307,7 @@ export function DashboardPage() {
               );
             })}
             <span className="flex items-center rounded-full bg-white/10 px-3 py-1 text-white/70 ring-1 ring-white/15">
-              {loaded}/{MODULES.length} modules loaded
+              {loaded}/{shownModules.length} modules loaded
             </span>
           </div>
         </div>
@@ -314,13 +321,17 @@ export function DashboardPage() {
             sub={kpiOf(A, "margin") ? `Margin ${formatKpi(kpiOf(A, "margin")!.value, "percent", currency)}` : undefined}
           />
           <HeroMetric label="Cash & bank" kpi={kpiOf(A, "cash")} currency={currency} sub={kpiOf(A, "cash")?.hint ?? undefined} onClick={() => openDrill("accounts", kpiOf(A, "cash"))} />
-          <HeroMetric
-            label="Yarn produced"
-            kpi={kpiOf(P, "produced")}
-            currency={currency}
-            onClick={() => openDrill("production", kpiOf(P, "produced"))}
-            sub={kpiOf(P, "yield") ? `Yield ${formatKpi(kpiOf(P, "yield")!.value, "percent", currency)} · plan ${formatKpi(kpiOf(P, "achievement")?.value ?? 0, "percent", currency)}` : undefined}
-          />
+          {hasProduction ? (
+            <HeroMetric
+              label="Yarn produced"
+              kpi={kpiOf(P, "produced")}
+              currency={currency}
+              onClick={() => openDrill("production", kpiOf(P, "produced"))}
+              sub={kpiOf(P, "yield") ? `Yield ${formatKpi(kpiOf(P, "yield")!.value, "percent", currency)} · plan ${formatKpi(kpiOf(P, "achievement")?.value ?? 0, "percent", currency)}` : undefined}
+            />
+          ) : (
+            <HeroMetric label="Receivables" kpi={kpiOf(A, "receivable")} currency={currency} onClick={() => openDrill("accounts", kpiOf(A, "receivable"))} />
+          )}
         </div>
       </section>
 
@@ -382,14 +393,18 @@ export function DashboardPage() {
           )}
         </ChartCard>
 
-        <ChartCard className="xl:col-span-2" title="Sold vs produced" subtitle="Quantity invoiced to customers against quantity produced">
+        <ChartCard
+          className="xl:col-span-2"
+          title={hasProduction ? "Sold vs produced" : "Quantity sold"}
+          subtitle={hasProduction ? "Quantity invoiced to customers against quantity produced" : "Quantity invoiced to customers per month"}
+        >
           {soldVsMade.length ? (
             <LineChart
               data={soldVsMade}
               xKey="month"
               legend
               series={[
-                { key: "produced", label: "Produced", color: "hsl(173 80% 36%)" },
+                ...(hasProduction ? [{ key: "produced", label: "Produced", color: "hsl(173 80% 36%)" }] : []),
                 { key: "sold", label: "Sold", color: "hsl(221 83% 53%)" },
               ]}
             />
@@ -443,7 +458,7 @@ export function DashboardPage() {
           </Link>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {MODULES.map((m) => (
+          {shownModules.map((m) => (
             <ModuleCard key={m.id} id={m.id} dash={all[m.id].dash} currency={currency} />
           ))}
         </div>

@@ -1,10 +1,12 @@
-import { useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Sidebar } from "./sidebar";
 import { Header } from "./header";
 import { GlobalSearch, useGlobalSearchShortcut } from "./global-search";
 import { RealtimeWatcher } from "./realtime-watcher";
 import { APP_NAVIGATION, APP_LABELS, appSegmentForPath } from "@/app/navigation";
+import { useInstalledApps, tileForPath, appsForPath } from "@/hooks/useInstalledApps";
+import { EmptyState } from "@/components/common/empty-state";
 
 /**
  * Authenticated application shell: header + routed content, with a sidebar
@@ -18,9 +20,27 @@ export function AppShell() {
   const { open: searchOpen, setOpen: setSearchOpen } = useGlobalSearchShortcut();
   const location = useLocation();
 
+  const navigate = useNavigate();
+  const { hasApps, isPathAvailable, isLoading: appsLoading, error: appsError } = useInstalledApps();
+
   const segment = appSegmentForPath(location.pathname);
-  const groups = APP_NAVIGATION[segment];
+  // Drop sidebar links whose page needs a backend app this site doesn't have (e.g. Export Analysis without
+  // micromax) — in every app's sidebar, including the home one that lists the app tiles.
+  const groups = useMemo(() => {
+    const nav = APP_NAVIGATION[segment];
+    if (!nav) return nav;
+    return nav
+      .map((group) => ({ ...group, items: group.items.filter((item) => isPathAvailable(item.to)) }))
+      .filter((group) => group.items.length > 0);
+  }, [segment, isPathAvailable]);
   const showSidebar = Boolean(groups && groups.length > 0);
+
+  // A route that needs an app this site doesn't have (e.g. /production on the school site) shows a notice
+  // instead of pages that would only fail; while the app list loads, such a route renders nothing.
+  const tile = tileForPath(location.pathname);
+  const requiredApps = appsForPath(location.pathname);
+  const gated = requiredApps.length > 0 && !appsError;
+  const unavailable = gated && !appsLoading && !hasApps(requiredApps);
 
   return (
     // No fixed height here: the box must grow with the page, or the sticky sidebar (sticky within this box)
@@ -43,7 +63,17 @@ export function AppShell() {
         />
         <main className="flex-1 overflow-x-clip px-3 py-5 sm:px-5 lg:px-6">
           <div className="mx-auto w-full max-w-[1400px]">
-            <Outlet />
+            {unavailable ? (
+              <EmptyState
+                icon={tile?.icon}
+                title={`${tile && tile.apps?.join() === requiredApps.join() ? tile.label : "This page"} isn't available on this site`}
+                description={`It needs the ${requiredApps.join(", ")} app, which isn't installed here.`}
+                actionLabel="Back to apps"
+                onAction={() => navigate("/home")}
+              />
+            ) : gated && appsLoading ? null : (
+              <Outlet />
+            )}
           </div>
         </main>
       </div>

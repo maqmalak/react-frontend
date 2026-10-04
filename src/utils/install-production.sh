@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # install.sh — bare-metal (no Docker) production installer for this project's
-# ERPNext/Frappe stack: site "demo", Frappe v16 backend, the custom
+# ERPNext/Frappe stack: one site per tenant (default "demo"), Frappe v16 backend, the custom
 # `micromax` app, the `micromax-erp-frontend` React app served via nginx, and
 # every app this project actually runs (matching apps.txt / apps.json).
 #
@@ -17,6 +17,12 @@
 #
 # Run as root:
 #   sudo MARIADB_ROOT_PASSWORD='<the password you set in mysql_secure_installation>' bash install.sh
+#
+# Multi-tenant: one bench, one site per tenant. TENANT picks tenants/<name>.env
+# (site name, domains, apps, frontend); the default is micromax. Adding a
+# tenant to a box that already runs another skips the system/bench steps that
+# are already done and only creates the new site, its apps and its domains:
+#   sudo TENANT=wise MARIADB_ROOT_PASSWORD='...' bash install-production.sh
 #
 # Idempotency: safe to re-run — steps that already succeeded (user exists,
 # bench dir exists, app already fetched, site already exists) are skipped
@@ -36,16 +42,20 @@ set -euo pipefail
 FRAPPE_USER="${FRAPPE_USER:-maqmalak}"
 FRAPPE_HOME="/home/${FRAPPE_USER}"
 BENCH_DIR="${BENCH_DIR:-${FRAPPE_HOME}/frappe-bench}"
-SITE_NAME="${SITE_NAME:-demo}"
-APEX_DOMAIN="${APEX_DOMAIN:-micromaxonline.uk}"
-BACKEND_DOMAIN="${BACKEND_DOMAIN:-erpnext.${APEX_DOMAIN}}"
-FRONTEND_DOMAIN="${FRONTEND_DOMAIN:-demo.${APEX_DOMAIN}}"
+
+# Tenant: site name, domains, apps and frontend come from tenants/<TENANT>.env.
+TENANT="${TENANT:-micromax}"
+TENANT_FILE="$(dirname "$(readlink -f "$0")")/tenants/${TENANT}.env"
+[[ -f "$TENANT_FILE" ]] || { echo "ERROR: no tenant file ${TENANT_FILE} (TENANT=${TENANT})" >&2; exit 1; }
+# shellcheck source=/dev/null
+source "$TENANT_FILE"
+# shellcheck source=lib/react-nginx.sh
+source "$(dirname "$(readlink -f "$0")")/lib/react-nginx.sh"
+
 FRAPPE_BRANCH="${FRAPPE_BRANCH:-version-16}"
 PYTHON_VERSION="${PYTHON_VERSION:-3.14}"
 NODE_MAJOR="${NODE_MAJOR:-24}"
 
-FRONTEND_REPO="${FRONTEND_REPO:-https://github.com/maqmalak/react-frontend.git}"
-FRONTEND_DIR="${FRONTEND_DIR:-${FRAPPE_HOME}/react-frontend}"
 MICROMAX_REPO="${MICROMAX_REPO:-https://github.com/maqmalak/micromax.git}"
 
 # MariaDB was already secured by hand via `mysql_secure_installation` before
@@ -72,6 +82,11 @@ declare -A APP_REPO=(
   [insights]="https://github.com/frappe/insights.git"
   [crm]="https://github.com/frappe/crm.git"
   [whatsapp]="https://github.com/frappe/whatsapp.git"
+  # Shared Custom Fields for every site on the bench; micromax requires it.
+  [mm_core]="${MM_CORE_REPO:-https://github.com/maqmalak/mm_core.git}"
+  # School tenant (wise). The Junior-School repo installs as app `nl_school`.
+  [education]="https://github.com/frappe/education.git"
+  [nl_school]="https://github.com/navariltd/Junior-School.git"
 )
 declare -A APP_BRANCH=(
   [erpnext]="version-16"
@@ -84,9 +99,13 @@ declare -A APP_BRANCH=(
   [insights]="main"
   [crm]="main"
   [whatsapp]="main"
+  [mm_core]="${MM_CORE_BRANCH:-main}"
+  [education]="version-16"
+  [nl_school]="version-16"
 )
-# Installed in this exact order (see comment above on why micromax is last).
-APP_INSTALL_ORDER=(erpnext payments hrms lms wiki telephony helpdesk insights crm whatsapp micromax)
+# Installed in this exact order — the tenant file's SITE_APPS (see comment
+# above on why micromax is last). Only these apps are fetched into the bench.
+read -ra APP_INSTALL_ORDER <<<"$SITE_APPS"
 
 # Optional extras present in this project's build manifest (apps.json) but
 # not installed on the live site this was modeled on — self-hosting a full
@@ -259,7 +278,10 @@ fi
 cd "$BENCH_DIR"
 
 # ============================================================ 4. Fetch apps
-for app in "${!APP_REPO[@]}"; do
+# Only the apps this tenant installs; apps another tenant already fetched are reused.
+for app in "${APP_INSTALL_ORDER[@]}"; do
+  [[ "$app" == "micromax" ]] && continue   # fetched below from MICROMAX_REPO
+  [[ -n "${APP_REPO[$app]:-}" ]] || die "No repo known for app '${app}' (SITE_APPS in ${TENANT_FILE}) — add it to APP_REPO/APP_BRANCH."
   if [[ -d "apps/${app}" ]]; then
     log "app '${app}' already fetched — skipping get-app"
   else
@@ -268,7 +290,9 @@ for app in "${!APP_REPO[@]}"; do
   fi
 done
 
-if [[ ! -d "apps/micromax" ]]; then
+if [[ " ${APP_INSTALL_ORDER[*]} " != *" micromax "* ]]; then
+  log "Tenant '${TENANT}' doesn't use 'micromax' — not fetching it"
+elif [[ ! -d "apps/micromax" ]]; then
   log "Fetching custom app 'micromax'"
   as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' get-app '$MICROMAX_REPO'"
 else
@@ -288,7 +312,13 @@ else
   log "Site '${SITE_NAME}' already exists — skipping new-site"
 fi
 
-as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' use '$SITE_NAME'"
+# The first tenant on the bench becomes its default site; later tenants
+# don't take that over (they are reached by their own domains).
+if grep -q '"default_site"' "${BENCH_DIR}/sites/common_site_config.json" 2>/dev/null; then
+  log "Bench already has a default site — leaving it (this site is served by its domains)"
+else
+  as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' use '$SITE_NAME'"
+fi
 
 # ============================================================ 6. Install apps
 INSTALLED_APPS="$(as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' list-apps" 2>/dev/null | awk '{print $1}')"
@@ -314,9 +344,15 @@ as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' set-config mai
 # Sales User, set up by the vendored crm app) already exists — this just
 # makes sure a non-Administrator login exists for actual day-to-day CRM use,
 # since sharing the Administrator account around is bad practice.
-CRM_MANAGER_EMAIL="crm.manager@${APEX_DOMAIN}"
+if [[ " ${APP_INSTALL_ORDER[*]} " == *" micromax "* ]]; then
+  as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' execute micromax.install.create_roles" || true
+fi
+CRM_MANAGER_EMAIL="crm.manager.${SITE_NAME}@${APEX_DOMAIN}"
+[[ "$TENANT" == "micromax" ]] && CRM_MANAGER_EMAIL="crm.manager@${APEX_DOMAIN}"
+if [[ " ${APP_INSTALL_ORDER[*]} " != *" crm "* ]]; then
+  CRM_MANAGER_EMAIL=""
+else
 log "Creating a default Sales Manager login (${CRM_MANAGER_EMAIL})"
-as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' execute micromax.install.create_roles" || true
 as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' console" <<PYEOF || true
 import frappe
 email = "${CRM_MANAGER_EMAIL}"
@@ -335,6 +371,7 @@ if not frappe.db.exists("User", email):
     frappe.db.commit()
     print(f"Created {email} / ChangeMe123! — change this password on first login.")
 PYEOF
+fi
 
 # ======================================================= 8. Production setup
 log "Installing ansible (bench setup production needs it; apt instead of pip"
@@ -357,7 +394,13 @@ as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' config dns_multitenant on"
 
 log "Mapping ${BACKEND_DOMAIN} to site '${SITE_NAME}' (bench setup add-domain) — this is the ERPNext/Frappe desk UI"
 as_root_sh "cd '$BENCH_DIR' && '$BENCH_BIN' setup add-domain '$BACKEND_DOMAIN' --site '$SITE_NAME'"
+if [[ -z "$FRONTEND_REPO" ]]; then
+  # No React app for this tenant: its public domain is served by the Frappe site itself.
+  log "Tenant '${TENANT}' has no React frontend — mapping ${FRONTEND_DOMAIN} to site '${SITE_NAME}' too"
+  as_root_sh "cd '$BENCH_DIR' && '$BENCH_BIN' setup add-domain '$FRONTEND_DOMAIN' --site '$SITE_NAME'"
+fi
 as_root_sh "cd '$BENCH_DIR' && '$BENCH_BIN' setup nginx --yes"
+nginx -t && systemctl reload nginx
 
 log "Installing certbot (snap) so HTTPS can be added once DNS resolves"
 if ! command -v certbot >/dev/null; then
@@ -369,6 +412,9 @@ else
 fi
 
 # ============================================== 9. React frontend build
+if [[ -z "$FRONTEND_REPO" ]]; then
+  log "9-10. Tenant '${TENANT}' has no React frontend (FRONTEND_REPO empty) — skipping the build and its nginx block"
+else
 if [[ ! -d "$FRONTEND_DIR" ]]; then
   log "Cloning react_frontend (${FRONTEND_REPO})"
   as_frappe git clone "$FRONTEND_REPO" "$FRONTEND_DIR"
@@ -377,99 +423,56 @@ else
   as_frappe git -C "$FRONTEND_DIR" pull --ff-only || warn "Could not fast-forward react_frontend — resolve manually if needed."
 fi
 
-log "Writing react_frontend production .env (same-origin — served from this same domain/nginx)"
-as_frappe bash -c "cat > '${FRONTEND_DIR}/.env.production' <<'EOF'
+# The build is site-agnostic (nginx picks the site per domain), so tenants may share FRONTEND_DIR:
+# the .env is written once, and an unchanged checkout isn't rebuilt (dist/.built-sha).
+if [[ -f "${FRONTEND_DIR}/.env.production" ]]; then
+  log "react_frontend .env.production already present — keeping it (shared by every tenant on this build)"
+else
+  log "Writing react_frontend production .env (same-origin — served from this same domain/nginx)"
+  as_frappe bash -c "cat > '${FRONTEND_DIR}/.env.production' <<'EOF'
 VITE_FRAPPE_URL=
 VITE_ENABLE_SOCKET=true
-VITE_FRAPPE_SITE=${SITE_NAME}
 EOF"
+fi
 
-log "Building react_frontend (npm ci && npm run build)"
-as_frappe_sh "cd '${FRONTEND_DIR}' && npm ci --silent && npm run build"
+FRONTEND_SHA="$(as_frappe git -C "$FRONTEND_DIR" rev-parse HEAD)"
+if [[ "$(cat "${FRONTEND_DIR}/dist/.built-sha" 2>/dev/null)" == "$FRONTEND_SHA" ]]; then
+  log "react_frontend dist/ already built from ${FRONTEND_SHA:0:8} — not rebuilding"
+else
+  log "Building react_frontend (npm ci && npm run build)"
+  as_frappe_sh "cd '${FRONTEND_DIR}' && npm ci --silent && npm run build && echo '${FRONTEND_SHA}' > dist/.built-sha"
+fi
 
 # ============================================================ 10. nginx entry
 # `bench setup add-domain` + `bench setup nginx` (above) already wrote a
 # correct, complete server block for ${BACKEND_DOMAIN} — full Frappe/ERPNext
-# desk access, serving assets straight off disk. We only need to hand-write
-# one for ${FRONTEND_DOMAIN}: the React build at `/`, proxying just the API
-# surface back to the same backend.
-NGINX_CONF="/etc/nginx/conf.d/${SITE_NAME}-react.conf"
-BACKEND_UPSTREAM="127.0.0.1:8000"     # bench setup production's gunicorn/webserver port
-SOCKETIO_UPSTREAM="127.0.0.1:9000"    # bench's socketio.js port
-
-log "Writing nginx config for react_frontend at ${NGINX_CONF} (${FRONTEND_DOMAIN})"
-# `/assets` is served from the React build's own output first (Vite's JS/CSS
-# bundle lives there) and only falls through to the Frappe backend (which
-# also serves a `/assets/<app>/...` static tree for every installed app) if
-# the file isn't part of the frontend build — see the try_files fallback.
-cat > "$NGINX_CONF" <<EOF
-upstream ${SITE_NAME}_backend {
-    server ${BACKEND_UPSTREAM} fail_timeout=0;
-}
-upstream ${SITE_NAME}_socketio {
-    server ${SOCKETIO_UPSTREAM} fail_timeout=0;
-}
-
-server {
-    listen 80;
-    server_name ${FRONTEND_DOMAIN};
-
-    root ${FRONTEND_DIR}/dist;
-    index index.html;
-    client_max_body_size 50m;
-
-    location /assets/ {
-        try_files \$uri @backend;
-    }
-
-    location ~ ^/(api|files|private)/ {
-        proxy_pass http://${SITE_NAME}_backend;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Frappe-Site-Name ${SITE_NAME};
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_read_timeout 240;
-        proxy_set_header X-Use-X-Accel-Redirect True;
-    }
-
-    location /socket.io/ {
-        proxy_pass http://${SITE_NAME}_socketio;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host \$host;
-    }
-
-    location @backend {
-        proxy_pass http://${SITE_NAME}_backend;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Frappe-Site-Name ${SITE_NAME};
-    }
-
-    # React Router — anything not matched above falls back to the SPA shell.
-    location / {
-        try_files \$uri /index.html;
-    }
-}
-EOF
+# desk access. The React app at ${FRONTEND_DOMAIN} gets its own block (see
+# lib/react-nginx.sh): the build at `/`, the backend surface proxied for this
+# tenant's site. Tenants can share one build — the block picks the site.
+unmap_frontend_domain_from_site
+write_react_nginx_conf >/dev/null   # not in $(...): it sets REACT_HAD_SSL for restore_react_https
+log "Wrote nginx config for the React app at ${REACT_NGINX_CONF:-/etc/nginx/conf.d/${SITE_NAME}-react.conf} (${FRONTEND_DOMAIN} -> site ${SITE_NAME})"
 
 nginx -t
 systemctl reload nginx
+restore_react_https
+fi
 
 # ==================================================================== Summary
 log "Done."
 cat <<EOF
 
+  Tenant:              ${TENANT} (${TENANT_FILE})
   ERPNext/Frappe desk: http://${BACKEND_DOMAIN}/
-  React app:           http://${FRONTEND_DOMAIN}/
+  $([[ -n "$FRONTEND_REPO" ]] && echo "React app:           http://${FRONTEND_DOMAIN}/" || echo "Public site/portal:  http://${FRONTEND_DOMAIN}/ (Frappe site, no React app)")
   Site name:           ${SITE_NAME}
   Bench directory:     ${BENCH_DIR}
   Python (uv):         ${PYTHON_BIN}
   Node (nvm):          ${NODE_BIN_DIR}
-  React frontend:      ${FRONTEND_DIR} (built to dist/, served by nginx at /)
+  React frontend:      $([[ -n "$FRONTEND_REPO" ]] && echo "${FRONTEND_DIR} (built to dist/, served by nginx at /)" || echo "none")
   Apps installed:      ${APP_INSTALL_ORDER[*]}
   Administrator pass:  ${ADMIN_PASSWORD}
-  Extra login:         ${CRM_MANAGER_EMAIL} / ChangeMe123! (change on first login)
+  Extra login:         $([[ -n "$CRM_MANAGER_EMAIL" ]] && echo "${CRM_MANAGER_EMAIL} / ChangeMe123! (change on first login)" || echo "none (no crm app)")
 
   Manual steps still needed for full functionality:
     - DNS:       point A/AAAA records for both ${BACKEND_DOMAIN} and

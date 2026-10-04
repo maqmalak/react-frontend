@@ -9,6 +9,7 @@ import {
   useFrappeDeleteDoc,
 } from "frappe-react-sdk";
 import { postCall, getCall, http } from "@/services/frappe";
+import { useInstalledApps } from "@/hooks/useInstalledApps";
 import { asNumber } from "@/utils/cn";
 import { APP_TIME_ZONE } from "@/utils/dates";
 import type {
@@ -45,17 +46,28 @@ const ACCOUNT_FIELDS = [
   "lft",
 ] as const;
 
+/**
+ * Whether this site has MicroMax's cost-per-spindle tag on Account (`cps_applicable`, a micromax Custom Field).
+ * Other sites (e.g. the school) don't, and asking Frappe for that field fails the whole Account query.
+ */
+export function useHasCpsField() {
+  const { apps, isLoading } = useInstalledApps();
+  return { hasCps: apps.has("micromax"), isLoading };
+}
+
 /** Full flat Chart of Accounts for a company — build the tree client-side from `parent_account`. */
 export function useChartOfAccounts(company?: string, enabled = true) {
+  const { hasCps, isLoading: appsLoading } = useHasCpsField();
+  const fields = hasCps ? ACCOUNT_FIELDS : ACCOUNT_FIELDS.filter((f) => f !== "cps_applicable");
   return useFrappeGetDocList<Account>(
     "Account",
     {
-      fields: ACCOUNT_FIELDS as unknown as (keyof Account)[],
+      fields: fields as unknown as (keyof Account)[],
       filters: (company ? [["company", "=", company]] : []) as any,
       limit: 0,
       orderBy: { field: "lft", order: "asc" },
     },
-    enabled && company ? `micromax.coa.${company}` : null,
+    enabled && company && !appsLoading ? `micromax.coa.${company}.${hasCps ? "cps" : "plain"}` : null,
   );
 }
 
@@ -74,6 +86,7 @@ export function usePostableAccounts(company?: string) {
  * (and show a "nothing tagged yet" hint when there are none).
  */
 export function useCpsAccounts(company?: string, enabled = true) {
+  const { hasCps } = useHasCpsField();
   return useFrappeGetDocList<Account>(
     "Account",
     {
@@ -82,7 +95,7 @@ export function useCpsAccounts(company?: string, enabled = true) {
       limit: 0,
       orderBy: { field: "lft", order: "asc" },
     },
-    enabled && company ? `micromax.cps-accounts.${company}` : null,
+    enabled && company && hasCps ? `micromax.cps-accounts.${company}` : null,
   );
 }
 

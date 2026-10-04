@@ -63,9 +63,10 @@ import { FrappeLinkField } from "@/components/forms/field-primitives";
 import { cn } from "@/utils/cn";
 import { compactNumber, formatMoney, formatNumber } from "@/utils/currency";
 import { todayISO } from "@/utils/dates";
+import { useInstalledApps } from "@/hooks/useInstalledApps";
 
 // ------------------------------------------------------------------ API shape
-/** Shape returned by `micromax.dashboards.get_dashboard` (see apps/micromax/micromax/dashboards.py). */
+/** Shape returned by `mm_core.dashboards.get_dashboard` (see apps/mm_core/mm_core/dashboards.py). */
 export interface Kpi {
   key: string;
   label: string;
@@ -162,9 +163,11 @@ export function AnalyticsTabs() {
     { to: "/analytics/pnl-simulator", label: "P&L Simulator", icon: Scale },
   ];
   const query = usePeriodQuery(); // keep the period and filters when switching dashboards
+  // Tabs for dashboards this site can't run (Production, Import & Export, P&L Simulator need micromax) are left out.
+  const { isPathAvailable } = useInstalledApps();
   return (
     <nav className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-card p-1 scrollbar-thin">
-      {tabs.map((t) => (
+      {tabs.filter((t) => isPathAvailable(t.to)).map((t) => (
         <NavLink
           key={t.to}
           to={{ pathname: t.to, search: t.to.startsWith("/analytics") ? query : "" }}
@@ -197,7 +200,7 @@ export function useModuleDashboard(
 ) {
   const filters = useDashFilters(module);
   const { data, ...rest } = useFrappeGetCall<{ message: DashboardData }>(
-    "micromax.dashboards.get_dashboard",
+    "mm_core.dashboards.get_dashboard",
     { module, from_date: range.from, to_date: range.to, company: company ?? "", refresh: refreshToken ? 1 : 0, ...(tolerance != null ? { tolerance } : {}), ...filters },
     enabled ? `micromax.analytics.${module}.${range.from}.${range.to}.${company ?? ""}.${refreshToken}.${tolerance ?? ""}.${filtersKey(filters)}` : null,
     { keepPreviousData: true, revalidateOnFocus: false },
@@ -283,7 +286,7 @@ export const PAGE_FILTERS: Record<string, FilterKey[]> = {
   payroll: ["department"],
   assets: ["asset_category"],
 };
-/** Mirrors micromax.dashboards.MODULE_FILTERS. */
+/** Mirrors mm_core.dashboards.MODULE_FILTERS. */
 export const MODULE_FILTERS: Record<string, FilterKey[]> = {
   accounts: ["cost_center", "account", "account_group", "account_type", "customer", "supplier"],
   financials: ["cost_center", "account", "account_group", "account_type", "customer", "supplier"],
@@ -862,7 +865,7 @@ export function DrillDialog({
 }) {
   const filters = useDashFilters(module);
   const { data, error, isLoading } = useFrappeGetCall<{ message: DrillData }>(
-    "micromax.dashboards.get_drilldown",
+    "mm_core.dashboards.get_drilldown",
     { module, key: kpi?.key, from_date: range.from, to_date: range.to, company: company ?? "", ...(tolerance != null ? { tolerance } : {}), ...filters },
     kpi ? `micromax.drill.${module}.${kpi.key}.${range.from}.${range.to}.${company ?? ""}.${tolerance ?? ""}.${filtersKey(filters)}` : null,
     { revalidateOnFocus: false },

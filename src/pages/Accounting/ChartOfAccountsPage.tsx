@@ -16,7 +16,7 @@ import { type FormFieldMeta } from "@/components/forms/field-primitives";
 import { FrappeDataTable, type ColumnDef } from "@/components/tables/data-table";
 import { TreeExplorer, flattenWithDepth } from "@/components/common/tree-explorer";
 import { ImportDialog } from "@/components/common/import-dialog";
-import { useChartOfAccounts, useAccountMutations } from "@/hooks/useAccounting";
+import { useChartOfAccounts, useAccountMutations, useHasCpsField } from "@/hooks/useAccounting";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { notifyDataChanged } from "@/hooks/useRealtime";
 import { humanizeError } from "@/services/frappe";
@@ -73,7 +73,7 @@ const ACCOUNT_TYPE_OPTIONS = [
  * every account but lets a child inherit it) — and decides whether the
  * cost-per-spindle tag applies.
  */
-function accountFormFields(company?: string, rootType?: string): FormFieldMeta[] {
+function accountFormFields(company?: string, rootType?: string, hasCps = true): FormFieldMeta[] {
   return [
     { fieldname: "account_name", label: "Account Name", fieldtype: "Data", reqd: true },
     { fieldname: "account_number", label: "Account Number", fieldtype: "Data" },
@@ -96,7 +96,7 @@ function accountFormFields(company?: string, rootType?: string): FormFieldMeta[]
     { fieldname: "account_type", label: "Account Type", fieldtype: "Select", options: ["", ...ACCOUNT_TYPE_OPTIONS].join("\n") },
     { fieldname: "account_category", label: "Account Category", fieldtype: "Link", options: "Account Category" },
     // Cost-per-spindle tagging only makes sense on the expense side of the P&L.
-    ...(rootType === "Expense"
+    ...(rootType === "Expense" && hasCps
       ? [
           {
             fieldname: "cps_applicable",
@@ -136,6 +136,10 @@ const IMPORT_FIELDS = [
 export function ChartOfAccountsPage() {
   const { company, companies } = useCompanyContext();
   const { data, error, isLoading, mutate } = useChartOfAccounts(company);
+  // Cost-per-spindle tagging is MicroMax's; other sites have no such field on Account.
+  const { hasCps } = useHasCpsField();
+  const columns = useMemo(() => (hasCps ? COLUMNS : COLUMNS.filter((c) => c.key !== "cps_applicable")), [hasCps]);
+  const importFields = useMemo(() => (hasCps ? IMPORT_FIELDS : IMPORT_FIELDS.filter((f) => f.fieldname !== "cps_applicable")), [hasCps]);
   const { createDoc, updateDoc, deleteDoc, loading: saving } = useAccountMutations();
 
   const [view, setView] = useState<"tree" | "list">("tree");
@@ -235,7 +239,7 @@ export function ChartOfAccountsPage() {
     }
   };
 
-  const exportColumns = COLUMNS.map((c) => ({ key: c.key, label: c.label }));
+  const exportColumns = columns.map((c) => ({ key: c.key, label: c.label }));
   const exportRows = (data ?? []).map((r) => ({
     account_name: r.account_name,
     account_number: r.account_number ?? "",
@@ -248,7 +252,7 @@ export function ChartOfAccountsPage() {
   }));
 
   const listColumns: ColumnDef<Account>[] = [
-    ...COLUMNS,
+    ...columns,
     {
       key: "__actions",
       label: "",
@@ -360,7 +364,7 @@ export function ChartOfAccountsPage() {
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} size="lg" title={editing ? "Edit Account" : "New Account"}>
         <div className="space-y-5">
           <FrappeForm
-            fields={accountFormFields(company, effectiveRootType)}
+            fields={accountFormFields(company, effectiveRootType, hasCps)}
             values={formValues}
             onChange={(fieldname, value) => setFormValues((v) => ({ ...v, [fieldname]: value }))}
             errors={formErrors}
@@ -391,7 +395,7 @@ export function ChartOfAccountsPage() {
         open={importOpen}
         onClose={() => setImportOpen(false)}
         title="Import Accounts"
-        fields={IMPORT_FIELDS}
+        fields={importFields}
         sampleRow={{
           account_name: "Office Supplies",
           account_number: "",

@@ -71,6 +71,20 @@
 #        CRM_USER_PASSWORD='the-login-password' \
 #        bash crm-setup.sh
 #
+# Multi-tenant: the site comes from tenants/<TENANT>.env (same files as
+# install-production.sh / update.sh). Default TENANT=wise (site 'wise'); for
+# the MicroMax site instead:
+#
+#   sudo TENANT=micromax EMAIL_PASSWORD='...' CRM_USER_PASSWORD='...' bash crm-setup-production.sh
+#
+# One mailbox should be polled by ONE site only: two sites with incoming mail
+# on the same address each import every message (duplicate Communications and
+# Leads). The script warns if another site on this bench already pulls
+# EMAIL_ID; EMAIL_ENABLE_INCOMING=0 sets the account up for sending only.
+# Moving the mailbox from another site (e.g. demo -> wise) in the same run:
+#
+#   sudo REMOVE_MAILBOX_FROM=demo EMAIL_PASSWORD='...' CRM_USER_PASSWORD='...' bash crm-setup-production.sh
+#
 # Every value below can be overridden the same way (SITE_NAME, APEX_DOMAIN-
 # derived defaults, etc.); only EMAIL_PASSWORD and CRM_USER_PASSWORD are
 # required (no hardcoded default — pick real passwords per deployment).
@@ -92,9 +106,22 @@ FRAPPE_USER="${FRAPPE_USER:-maqmalak}"
 FRAPPE_HOME="/home/${FRAPPE_USER}"
 BENCH_DIR="${BENCH_DIR:-${FRAPPE_HOME}/frappe-bench}"
 BENCH_BIN="${BENCH_BIN:-${FRAPPE_HOME}/.local/bin/bench}"
-SITE_NAME="${SITE_NAME:-demo}"
+# The CRM (corporate@wise.edu.pk mailbox, fundraising Leads) belongs to the Wise tenant: default site 'wise'.
+TENANT="${TENANT:-wise}"
+TENANT_FILE="$(dirname "$(readlink -f "$0")")/tenants/${TENANT}.env"
+[[ -f "$TENANT_FILE" ]] || die "No tenant file ${TENANT_FILE} (TENANT=${TENANT})."
+# shellcheck source=/dev/null
+source "$TENANT_FILE"
+SITE_NAME="${SITE_NAME:-wise}"
 
 # ---- Mail (Email Account) ----
+EMAIL_ENABLE_INCOMING="${EMAIL_ENABLE_INCOMING:-1}"   # 0 = SMTP only (no IMAP polling)
+# Sites that should stop using EMAIL_ID (space-separated), e.g. REMOVE_MAILBOX_FROM=demo when the
+# mailbox moves to wise. There, the mail setting and the CRM login are switched off — never deleted,
+# so no email, email link or assignment is lost; roles are not touched:
+#   - Email Account for EMAIL_ID: disabled (no incoming, no outgoing, not default).
+#   - User CRM_USER_EMAIL: disabled (can't log in).
+REMOVE_MAILBOX_FROM="${REMOVE_MAILBOX_FROM:-}"
 EMAIL_ACCOUNT_NAME="${EMAIL_ACCOUNT_NAME:-Corporate (Wise)}"
 EMAIL_ID="${EMAIL_ID:-corporate@wise.edu.pk}"
 EMAIL_PASSWORD="${EMAIL_PASSWORD:?Set EMAIL_PASSWORD to the mailbox password for ${EMAIL_ID:-the mail account}.}"
@@ -172,7 +199,7 @@ else:
 account.password = email_password
 account.awaiting_password = 0
 account.auth_method = "Basic"
-account.enable_incoming = 1
+account.enable_incoming = ${EMAIL_ENABLE_INCOMING}
 account.use_imap = 1
 account.email_server = "${EMAIL_SERVER}"
 account.incoming_port = "${EMAIL_IMAP_PORT}"
@@ -182,7 +209,7 @@ account.smtp_server = "${EMAIL_SMTP_SERVER}"
 account.smtp_port = "${EMAIL_SMTP_PORT}"
 account.use_ssl_for_outgoing = 1
 account.use_tls = 0
-account.default_incoming = 1
+account.default_incoming = ${EMAIL_ENABLE_INCOMING}
 account.default_outgoing = 1
 # Always send as the account's own address, regardless of which Frappe user
 # triggers the send — without this, outgoing mail carries the sending user's
@@ -385,6 +412,8 @@ frappe.clear_cache(doctype="CRM Notification")
 frappe.db.commit()
 
 # ---------------------------------------------------------------- 5. Email Template custom field
+# Since mm_core (installed on every site) defines crm_template and task_category and re-applies them
+# on every migrate, steps 5 and 6 are normally no-ops; they stay as a fallback for a site that predates it.
 # Email Template is a core, desk-wide doctype (HR/Payroll notification
 # templates live in the same table) — crm_template tags a row as belonging
 # to the CRM's own Email Templates list (src/pages/CRM/EmailTemplatesPage.tsx)
@@ -432,10 +461,79 @@ else:
 frappe.clear_cache(doctype="CRM Task")
 frappe.db.commit()
 
+# ---------------------------------------------------------------- 7. Check shared CRM Lead fields
+# Read-only. The CRM Lead fundraising / second-contact fields come from mm_core.custom_fields (install +
+# every migrate), not from this script; warn if they're missing (mm_core not installed / not migrated).
+if frappe.db.exists("DocType", "CRM Lead"):
+    expected = ["priority", "csr_department", "focus_area", "education_focus", "proposed_ask",
+                "first_contact_date", "second_contact_name", "second_contact_email"]
+    meta = frappe.get_meta("CRM Lead")
+    missing = [f for f in expected if not meta.has_field(f)]
+    if missing:
+        print("WARNING: CRM Lead is missing", missing, "- install mm_core on this site and run bench migrate")
+    else:
+        print("CRM Lead shared fields present (mm_core)")
+
 print("ALL DONE")
 PYEOF
 chmod 600 "$PYFILE"
 chown "${FRAPPE_USER}:${FRAPPE_USER}" "$PYFILE"
+
+for old_site in $REMOVE_MAILBOX_FROM; do
+  [[ "$old_site" == "$SITE_NAME" ]] && die "REMOVE_MAILBOX_FROM includes the target site '${SITE_NAME}' itself."
+  [[ -d "${BENCH_DIR}/sites/${old_site}" ]] || die "REMOVE_MAILBOX_FROM: site '${old_site}' not found under ${BENCH_DIR}/sites."
+  log "Switching off ${EMAIL_ID} (mail setting + login) on site '${old_site}' — nothing is deleted"
+  RM_PY="$(mktemp "${TMPDIR:-/tmp}/crm_rm_mailbox.XXXXXX.py")"
+  cat > "$RM_PY" <<RMEOF
+import frappe
+
+# Disable, never delete: deleting an Email Account blanks the email_account link on every email it
+# received/sent, and deleting a User deletes its ToDos (= every Lead/Deal assignment), private Events,
+# shares and user permissions. Disabled, the site stops using the mailbox and the login, and all of
+# that history stays exactly as it was.
+email_id, user_email = "${EMAIL_ID}", "${CRM_USER_EMAIL}"
+names = frappe.get_all("Email Account", filters={"email_id": email_id}, pluck="name")
+if not names:
+    print(f"No Email Account for {email_id} on this site - nothing to remove")
+for name in names:
+    before = frappe.db.count("Communication", {"email_account": name})
+    acc = frappe.get_doc("Email Account", name)
+    acc.enable_incoming = 0
+    acc.enable_outgoing = 0
+    acc.default_incoming = 0
+    acc.default_outgoing = 0
+    acc.save(ignore_permissions=True)
+    frappe.db.commit()
+    after = frappe.db.count("Communication", {"email_account": name})
+    print(f"Disabled Email Account '{name}' (no incoming/outgoing) - emails linked: {before} before, {after} after")
+
+if not frappe.db.exists("User", user_email):
+    print(f"No User {user_email} on this site - nothing to remove")
+else:
+    todos = frappe.db.count("ToDo", {"allocated_to": user_email})
+    comms = frappe.db.count("Communication", {"sender": ["like", f"%{user_email}%"]})
+    frappe.db.set_value("User", user_email, "enabled", 0)
+    frappe.db.commit()
+    print(f"Disabled User '{user_email}' (cannot log in) - kept {todos} assignments, {comms} emails sent by it")
+RMEOF
+  chmod 644 "$RM_PY"; chown "${FRAPPE_USER}:${FRAPPE_USER}" "$RM_PY"
+  sudo -iu "$FRAPPE_USER" env "PATH=${UV_BIN_DIR}:/usr/local/bin:/usr/bin:/bin" bash -c \
+    "cd '${BENCH_DIR}' && echo \"exec(open('${RM_PY}').read(), {})\" | '${BENCH_BIN}' --site '${old_site}' console" \
+    | grep -E "Disabled|nothing to remove|Error" || true
+  rm -f "$RM_PY"
+done
+
+if [[ "$EMAIL_ENABLE_INCOMING" == "1" ]]; then
+  for other in $(find "${BENCH_DIR}/sites" -mindepth 2 -maxdepth 2 -name site_config.json -printf '%h\n' | xargs -rn1 basename); do
+    [[ "$other" == "$SITE_NAME" ]] && continue
+    hit="$(sudo -iu "$FRAPPE_USER" env "PATH=${UV_BIN_DIR}:/usr/local/bin:/usr/bin:/bin" bash -c \
+      "cd '${BENCH_DIR}' && '${BENCH_BIN}' --site '${other}' execute frappe.db.get_value --kwargs \"{'doctype': 'Email Account', 'filters': {'email_id': '${EMAIL_ID}', 'enable_incoming': 1}}\"" 2>/dev/null | tail -1 || true)"
+    if [[ -n "$hit" && "$hit" != "None" && "$hit" != "null" ]]; then
+      echo -e "\033[1;33mWARN:\033[0m site '${other}' already pulls ${EMAIL_ID} (Email Account '${hit}'). Both sites will import every message." >&2
+      echo "      Turn incoming off on one of them (Email Account -> Enable Incoming), or re-run with EMAIL_ENABLE_INCOMING=0." >&2
+    fi
+  done
+fi
 
 log "Applying CRM mail/role/user/select-option setup on site '${SITE_NAME}'"
 as_frappe_sh_with_secrets "cd '${BENCH_DIR}' && echo \"exec(open('${PYFILE}').read(), {})\" | '${BENCH_BIN}' --site '${SITE_NAME}' console"
@@ -443,17 +541,23 @@ as_frappe_sh_with_secrets "cd '${BENCH_DIR}' && echo \"exec(open('${PYFILE}').re
 log "Done."
 cat <<EOF
 
-  Email Account: ${EMAIL_ID} (${EMAIL_SERVER}, IMAP ${EMAIL_IMAP_PORT} / SMTP ${EMAIL_SMTP_PORT})
+  Site:          ${SITE_NAME}${TENANT:+ (tenant ${TENANT})}$([[ -n "$REMOVE_MAILBOX_FROM" ]] && echo "
+  Mailbox moved: ${EMAIL_ID} mail setting + ${CRM_USER_EMAIL} login disabled on: ${REMOVE_MAILBOX_FROM} (emails, assignments, roles kept)")
+  Email Account: ${EMAIL_ID} (${EMAIL_SERVER}, $([[ "$EMAIL_ENABLE_INCOMING" == "1" ]] && echo "IMAP ${EMAIL_IMAP_PORT} + " || echo "incoming off, ")SMTP ${EMAIL_SMTP_PORT})
   Role:          ${CRM_ROLE} (full access to CRM + mail/WhatsApp/notification doctypes)
   CRM login:     ${CRM_USER_EMAIL} (roles: ${CRM_ROLE}, Sales Manager, Sales User, Super Email User)
   Contract:      party_type/document_type widened to accept CRM Lead/Deal/Organization
   Notification:  CRM Notification.type widened to accept "Email"
   Email Template: crm_template custom field ready (Email Templates page + compose-box picker)
   CRM Task:      task_category custom field ready (Tasks vs Follow-ups list filtering)
+  CRM Lead:      shared fundraising fields checked (from mm_core — see output above)
 
   Re-run this script any time (e.g. after rotating the mailbox password) —
   every step above updates the existing record instead of duplicating it.
 
+EOF
+if [[ "$TENANT" == "micromax" ]]; then
+  cat <<EOF
   If this is the first time deploying the mail send/receive notification
   feature (micromax/crm_mail_notifications.py + crm_reminders.py's
   _notify_mail_send_status), make sure update.sh has been run with
@@ -461,3 +565,4 @@ cat <<EOF
   this script only prepares the CRM Notification.type option for it, it
   doesn't deploy the code itself.
 EOF
+fi

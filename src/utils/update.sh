@@ -8,7 +8,7 @@
 # It does these independent, idempotent things, in this order:
 #
 #   A0. Add new bench apps — fetches + installs any app in EXTRA_APPS that
-#      the site doesn't have yet (currently POS Awesome, `posawesome`), and
+#      the site doesn't have yet (currently `mm_core` and POS Awesome, `posawesome`), and
 #      pulls/rebuilds it when it's already there. Runs with the backend
 #      update (skip both with UPDATE_BACKEND=0; skip just this with
 #      UPDATE_EXTRA_APPS=0).
@@ -75,6 +75,12 @@
 #                                              # deploy your own POS Awesome fork
 #   sudo REMOVE_APPAREL=1 bash update.sh       # frontend + one-time app swap
 #
+# Multi-tenant: TENANT picks tenants/<name>.env (site, apps, frontend);
+# default micromax. Code is shared by the whole bench, so after pulling new
+# shared code (mm_core, frappe apps) migrate every tenant: TENANT=all.
+#   sudo TENANT=wise bash update.sh            # the school site only
+#   sudo TENANT=all bash update.sh             # every tenants/*.env in turn
+#
 # Idempotency: safe to re-run — already-applied steps (app already removed,
 # already installed, frontend already up to date) are skipped rather than
 # failing.
@@ -87,11 +93,28 @@ set -euo pipefail
 FRAPPE_USER="${FRAPPE_USER:-maqmalak}"
 FRAPPE_HOME="/home/${FRAPPE_USER}"
 BENCH_DIR="${BENCH_DIR:-${FRAPPE_HOME}/frappe-bench}"
-SITE_NAME="${SITE_NAME:-demo}"
+
+# Tenant: site, apps and frontend come from tenants/<TENANT>.env.
+TENANT="${TENANT:-micromax}"
+TENANTS_DIR="$(dirname "$(readlink -f "$0")")/tenants"
+if [[ "$TENANT" == "all" ]]; then
+  for f in "$TENANTS_DIR"/*.env; do
+    t="$(basename "$f" .env)"
+    echo -e "\n\033[1;35m######## tenant: ${t}\033[0m"
+    TENANT="$t" bash "$(readlink -f "$0")" || { echo "ERROR: update failed for tenant '${t}' — later tenants not updated." >&2; exit 1; }
+  done
+  exit 0
+fi
+TENANT_FILE="${TENANTS_DIR}/${TENANT}.env"
+[[ -f "$TENANT_FILE" ]] || { echo "ERROR: no tenant file ${TENANT_FILE} (TENANT=${TENANT})" >&2; exit 1; }
+# shellcheck source=/dev/null
+source "$TENANT_FILE"
+# shellcheck source=lib/react-nginx.sh
+source "${TENANTS_DIR}/../lib/react-nginx.sh"
+FORCE_FRONTEND_BUILD="${FORCE_FRONTEND_BUILD:-0}"   # 1 = rebuild even if dist/ matches the checkout
+
 NODE_MAJOR="${NODE_MAJOR:-24}"
 
-FRONTEND_REPO="${FRONTEND_REPO:-https://github.com/maqmalak/react-frontend.git}"
-FRONTEND_DIR="${FRONTEND_DIR:-${FRAPPE_HOME}/react-frontend}"
 FRONTEND_BRANCH="${FRONTEND_BRANCH:-main}"
 
 MICROMAX_REPO="${MICROMAX_REPO:-https://github.com/maqmalak/micromax.git}"
@@ -116,9 +139,27 @@ SKIP_BACKUP="${SKIP_BACKUP:-0}"
 UPDATE_EXTRA_APPS="${UPDATE_EXTRA_APPS:-1}"
 POSAWESOME_REPO="${POSAWESOME_REPO:-https://github.com/maqmalak/posawesome.git}"
 POSAWESOME_BRANCH="${POSAWESOME_BRANCH:-main}"
-declare -A EXTRA_APP_REPO=([posawesome]="$POSAWESOME_REPO")
-declare -A EXTRA_APP_BRANCH=([posawesome]="$POSAWESOME_BRANCH")
-EXTRA_APPS=(posawesome)
+# mm_core holds the Custom Fields shared by every site on the bench (micromax requires it), so it is
+# fetched + installed here, before section A migrates micromax.
+MM_CORE_REPO="${MM_CORE_REPO:-https://github.com/maqmalak/mm_core.git}"
+MM_CORE_BRANCH="${MM_CORE_BRANCH:-main}"
+declare -A EXTRA_APP_REPO=(
+  [mm_core]="$MM_CORE_REPO"
+  [posawesome]="$POSAWESOME_REPO"
+  [education]="https://github.com/frappe/education.git"
+  [nl_school]="https://github.com/navariltd/Junior-School.git"   # Junior-School installs as nl_school
+)
+declare -A EXTRA_APP_BRANCH=(
+  [mm_core]="$MM_CORE_BRANCH"
+  [posawesome]="$POSAWESOME_BRANCH"
+  [education]="version-16"
+  [nl_school]="version-16"
+)
+# Which of these this tenant pulls + installs (tenant file's EXTRA_APPS_LIST).
+read -ra EXTRA_APPS <<<"$EXTRA_APPS_LIST"
+# Every app the tenant's site should have (tenant file's SITE_APPS); A0 also installs any of these
+# that are already in the bench but not yet on the site (e.g. crm for wise), without pulling them.
+read -ra SITE_APP_LIST <<<"$SITE_APPS"
 
 # Section A2 (indexes + data backfills) — on by default, RUN_BACKFILLS=0 skips.
 RUN_BACKFILLS="${RUN_BACKFILLS:-1}"
@@ -132,6 +173,7 @@ SHIFT_GRACE_FORCE="${SHIFT_GRACE_FORCE:-0}"
 # Opt-in switch for section C (see header comment) — deliberately off by
 # default because uninstall-app is destructive (drops that app's data).
 REMOVE_APPAREL="${REMOVE_APPAREL:-0}"
+[[ "$REMOVE_APPAREL" != "1" || "$TENANT" == "micromax" ]] || { echo "REMOVE_APPAREL=1 only applies to TENANT=micromax" >&2; exit 1; }
 # The old app section C removes. Referenced in A's and C's messages, so it must be
 # defined even when C doesn't run (set -u would otherwise abort on it).
 APPAREL_APP="${APPAREL_APP:-apparel}"
@@ -291,7 +333,53 @@ else
     fi
     EXTRA_APPS_DONE+=("$app")
   done
+
+  # Bench apps this tenant's site should have but doesn't yet (SITE_APPS) — installed as they are,
+  # not pulled (they are shared with the other sites; updating them is a bench-wide decision).
+  A0_INSTALLED_APPS="$(as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' list-apps" 2>/dev/null | awk '{print $1}' || true)"
+  A0_BACKED_UP=0
+  for app in "${SITE_APP_LIST[@]}"; do
+    grep -qx "$app" <<<"$A0_INSTALLED_APPS" && continue
+    if [[ ! -d "${BENCH_DIR}/apps/${app}" ]]; then
+      warn "A0. '${app}' is in SITE_APPS for '${TENANT}' but not in the bench — fetch it first (install-production.sh TENANT=${TENANT}, or add it to EXTRA_APPS_LIST)."
+      continue
+    fi
+    if [[ "$SKIP_BACKUP" != "1" && "$A0_BACKED_UP" == "0" ]]; then
+      log "Backing up '${SITE_NAME}' before installing missing site apps"
+      as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' backup" \
+        || die "Backup failed — not installing '${app}' (re-run with SKIP_BACKUP=1 to accept the risk)."
+      A0_BACKED_UP=1
+    fi
+    log "A0. Installing bench app '${app}' on site '${SITE_NAME}'"
+    as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' install-app '${app}'"
+    EXTRA_APPS_DONE+=("$app")
+  done
 fi
+
+# Backup, migrate, clear cache, restart — the tail of section A for every tenant.
+migrate_site() {
+  if [[ "$SKIP_BACKUP" == "1" ]]; then
+    warn "SKIP_BACKUP=1 — migrating without a database backup."
+  else
+    log "Backing up the '${SITE_NAME}' database before migrating (bench backup; files land in ${BENCH_DIR}/sites/${SITE_NAME}/private/backups)"
+    as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' backup" \
+      || die "Pre-migrate backup failed — not migrating. Fix that (or re-run with SKIP_BACKUP=1 if you accept the risk)."
+  fi
+
+  # A failed migrate aborts here (set -e), on purpose: the frontend is not
+  # deployed on top of a half-migrated backend, and the backup above is the way back.
+  log "Running bench migrate for site '${SITE_NAME}'"
+  as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' migrate"
+
+  if [[ "${1:-}" == "--build-micromax" ]]; then
+    log "Rebuilding backend app assets (bench build --app ${MICROMAX_APP})"
+    as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' build --app '${MICROMAX_APP}'"
+  fi
+
+  log "Clearing cache and restarting bench workers/web processes"
+  as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' clear-cache"
+  as_root_sh "supervisorctl restart all" || warn "supervisorctl restart failed — restart the bench's supervisor group manually."
+}
 
 # ===================================================== A. Backend app update
 if [[ "$REMOVE_APPAREL" == "1" ]]; then
@@ -300,13 +388,16 @@ elif [[ "$UPDATE_BACKEND" != "1" ]]; then
   log "A. Skipping backend update (UPDATE_BACKEND=0)"
 else
   MICROMAX_DIR="${BENCH_DIR}/apps/${MICROMAX_APP}"
-  log "A. Updating backend app '${MICROMAX_APP}' (${MICROMAX_DIR})"
+  log "A. Updating backend for tenant '${TENANT}' (site ${SITE_NAME})"
 
   # `|| true`: if list-apps itself fails we just can't confirm the install,
   # which the check below reports — not a reason to abort the whole deploy.
   A_INSTALLED_APPS="$(as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' list-apps" 2>/dev/null | awk '{print $1}' || true)"
 
-  if [[ ! -d "$MICROMAX_DIR" ]] || ! grep -qx "$MICROMAX_APP" <<<"$A_INSTALLED_APPS"; then
+  if [[ " ${SITE_APP_LIST[*]} " != *" ${MICROMAX_APP} "* ]]; then
+    log "Tenant '${TENANT}' doesn't use '${MICROMAX_APP}' — migrating site '${SITE_NAME}' for the apps it has"
+    migrate_site
+  elif [[ ! -d "$MICROMAX_DIR" ]] || ! grep -qx "$MICROMAX_APP" <<<"$A_INSTALLED_APPS"; then
     warn "'${MICROMAX_APP}' isn't installed on site '${SITE_NAME}' — skipping the backend update. The frontend below expects the micromax backend changes; if this box still runs '${APPAREL_APP}', run once with REMOVE_APPAREL=1."
   else
     if ! as_frappe git -C "$MICROMAX_DIR" remote get-url origin >/dev/null 2>&1; then
@@ -333,25 +424,7 @@ else
       log "'${MICROMAX_APP}' updated ${A_BEFORE_SHA:0:8} -> ${A_AFTER_SHA:0:8}"
     fi
 
-    if [[ "$SKIP_BACKUP" == "1" ]]; then
-      warn "SKIP_BACKUP=1 — migrating without a database backup."
-    else
-      log "Backing up the '${SITE_NAME}' database before migrating (bench backup; files land in ${BENCH_DIR}/sites/${SITE_NAME}/private/backups)"
-      as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' backup" \
-        || die "Pre-migrate backup failed — not migrating. Fix that (or re-run with SKIP_BACKUP=1 if you accept the risk)."
-    fi
-
-    # A failed migrate aborts here (set -e), on purpose: the frontend is not
-    # deployed on top of a half-migrated backend, and the backup above is the way back.
-    log "Running bench migrate for site '${SITE_NAME}'"
-    as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' migrate"
-
-    log "Rebuilding backend app assets (bench build --app ${MICROMAX_APP})"
-    as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' build --app '${MICROMAX_APP}'"
-
-    log "Clearing cache and restarting bench workers/web processes"
-    as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' clear-cache"
-    as_root_sh "supervisorctl restart all" || warn "supervisorctl restart failed — restart the bench's supervisor group manually."
+    migrate_site --build-micromax
   fi
 fi
 
@@ -447,6 +520,9 @@ A2EOF
 fi
 
 # ======================================================== B. Frontend deploy
+if [[ -z "$FRONTEND_REPO" ]]; then
+  log "B/B2. Tenant '${TENANT}' has no React frontend (FRONTEND_REPO empty) — skipping frontend deploy"
+else
 log "B. Updating React frontend (${FRONTEND_DIR})"
 if [[ ! -d "$FRONTEND_DIR" ]]; then
   log "Frontend not cloned yet — cloning ${FRONTEND_REPO}"
@@ -458,63 +534,55 @@ else
   as_frappe git -C "$FRONTEND_DIR" reset --hard "origin/${FRONTEND_BRANCH}"
   AFTER_SHA="$(as_frappe git -C "$FRONTEND_DIR" rev-parse HEAD)"
   if [[ "$BEFORE_SHA" == "$AFTER_SHA" ]]; then
-    log "Frontend already at latest ${FRONTEND_BRANCH} (${AFTER_SHA:0:8}) — rebuilding anyway in case local deps/config changed"
+    log "Frontend already at latest ${FRONTEND_BRANCH} (${AFTER_SHA:0:8})"
   else
     log "Frontend updated ${BEFORE_SHA:0:8} -> ${AFTER_SHA:0:8}"
   fi
 fi
 
-[[ -f "${FRONTEND_DIR}/.env.production" ]] || warn "${FRONTEND_DIR}/.env.production is missing — re-run install.sh's frontend section, or restore it, before building."
+if [[ ! -f "${FRONTEND_DIR}/.env.production" ]]; then
+  log "Writing ${FRONTEND_DIR}/.env.production (same-origin; the build is site-agnostic — nginx picks the site)"
+  as_frappe bash -c "printf 'VITE_FRAPPE_URL=\nVITE_ENABLE_SOCKET=true\n' > '${FRONTEND_DIR}/.env.production'"
+fi
 
-log "Installing dependencies and building (npm ci && npm run build)"
-as_frappe_sh "cd '${FRONTEND_DIR}' && npm ci --silent && npm run build"
+# Tenants can share one build (FRONTEND_DIR); with TENANT=all the second tenant finds it already built.
+FRONTEND_SHA="$(as_frappe git -C "$FRONTEND_DIR" rev-parse HEAD)"
+if [[ "$FORCE_FRONTEND_BUILD" != "1" && "$(cat "${FRONTEND_DIR}/dist/.built-sha" 2>/dev/null)" == "$FRONTEND_SHA" ]]; then
+  log "dist/ already built from ${FRONTEND_SHA:0:8} — not rebuilding (FORCE_FRONTEND_BUILD=1 to force)"
+else
+  log "Installing dependencies and building (npm ci && npm run build)"
+  as_frappe_sh "cd '${FRONTEND_DIR}' && npm ci --silent && npm run build && echo '${FRONTEND_SHA}' > dist/.built-sha"
+fi
 
 log "Re-applying nginx (www-data) read access to the new build output"
 chmod -R o+rx "$FRAPPE_HOME"
 
 log "Frontend deployed — nginx serves ${FRONTEND_DIR}/dist directly off disk, no reload needed."
 
-# ================================================ B2. nginx desk passthrough
-# The React app now links into the Frappe desk on its own domain — "Open in
-# desk" (/app/<doctype>/<name>), Print (/printview?...) and the POS Awesome
-# launcher (/app/posapp). install.sh's frontend server block only proxies
-# /api /files /private, so those URLs fell through to the SPA's index.html.
-# Adds one proxied location for them, once (marker comment = idempotent).
+# ================================================ B2. React nginx block
+# Each tenant's React domain needs its own server block that pins its site (lib/react-nginx.sh).
+# Written when missing (a tenant that just got a React app), and regenerated once from blocks made by
+# older installers — those lacked the /app + /printview desk passthrough (now included) and the
+# site header on /socket.io (realtime fell back to the bench's default site).
 REACT_NGINX_CONF="${REACT_NGINX_CONF:-/etc/nginx/conf.d/${SITE_NAME}-react.conf}"
-if [[ ! -f "$REACT_NGINX_CONF" ]]; then
-  warn "B2. ${REACT_NGINX_CONF} not found — skipping the /app + /printview nginx passthrough (set REACT_NGINX_CONF)."
-elif grep -q "micromax: desk passthrough" "$REACT_NGINX_CONF"; then
-  log "B2. nginx already proxies /app and /printview to the backend"
+if [[ -f "$REACT_NGINX_CONF" ]] && grep -q "Generated by react-nginx.sh" "$REACT_NGINX_CONF"; then
+  log "B2. ${REACT_NGINX_CONF} is current"
 else
-  log "B2. Adding /app + /printview passthrough to ${REACT_NGINX_CONF}"
-  cp "$REACT_NGINX_CONF" "${REACT_NGINX_CONF}.bak.$(date +%Y%m%d%H%M%S)"
-  python3 - "$REACT_NGINX_CONF" "$SITE_NAME" <<'NGEOF'
-import sys
-path, site = sys.argv[1], sys.argv[2]
-conf = open(path).read()
-anchor = "    location /socket.io/ {"
-block = f"""    # micromax: desk passthrough — /app (desk, POS Awesome) and /printview (print) served by Frappe
-    location ~ ^/(app|printview)(/|$) {{
-        proxy_pass http://{site}_backend;
-        proxy_set_header Host $host;
-        proxy_set_header X-Frappe-Site-Name {site};
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_read_timeout 240;
-    }}
-
-"""
-if anchor not in conf:
-    sys.exit("socket.io location not found — add the /app|/printview location by hand")
-open(path, "w").write(conf.replace(anchor, block + anchor, 1))
-NGEOF
+  [[ -f "$REACT_NGINX_CONF" ]] && log "B2. Regenerating ${REACT_NGINX_CONF} from the shared template" \
+    || log "B2. No React nginx block for '${SITE_NAME}' yet — writing ${REACT_NGINX_CONF} (${FRONTEND_DOMAIN})"
+  unmap_frontend_domain_from_site
+  write_react_nginx_conf >/dev/null
   if nginx -t; then
     systemctl reload nginx
+    restore_react_https
   else
-    warn "nginx -t failed after the edit — restoring the backup."
-    cp "$(ls -t "${REACT_NGINX_CONF}".bak.* | head -1)" "$REACT_NGINX_CONF"
+    warn "nginx -t failed with the new block — restoring the previous one (if any)."
+    LAST_BAK="$(ls -t "${REACT_NGINX_CONF}".bak.* 2>/dev/null | head -1 || true)"
+    if [[ -n "$LAST_BAK" ]]; then cp "$LAST_BAK" "$REACT_NGINX_CONF"; else rm -f "$REACT_NGINX_CONF"; fi
     nginx -t && systemctl reload nginx
   fi
+  [[ -n "${REACT_HAD_SSL:-}" ]] || warn "B2. ${FRONTEND_DOMAIN} is HTTP only — once DNS resolves: sudo certbot --nginx -d ${FRONTEND_DOMAIN}"
+fi
 fi
 
 # =============================================== C. apparel -> micromax swap
@@ -637,7 +705,8 @@ cat <<EOF
   New apps:  ${EXTRA_APPS_DONE[*]:-none this run} (A0 — fetched/updated + installed on the site)
   Backfills: $([[ "$UPDATE_BACKEND" == "1" && "$RUN_BACKFILLS" == "1" ]] && echo "GL indexes, BOM categories, Production Plan raw materials (A2)" || echo "skipped")
   HR:        $([[ "$UPDATE_BACKEND" == "1" && "$RUN_BACKFILLS" == "1" ]] && echo "check-in indexes, shift grace ${SHIFT_GRACE_MINUTES} min (once per site unless SHIFT_GRACE_FORCE=1), endpoint smoke test — see A2 output" || echo "skipped")
-  Frontend:  ${FRONTEND_DIR} (rebuilt, served by nginx from dist/)
+  Frontend:  $([[ -n "$FRONTEND_REPO" ]] && echo "${FRONTEND_DIR} (rebuilt, served by nginx from dist/)" || echo "none for this tenant")
+  Tenant:    ${TENANT} (${TENANT_FILE})
   Site:      ${SITE_NAME}
   Bench:     ${BENCH_DIR}
 EOF

@@ -48,6 +48,12 @@ export interface AppTile {
    */
   module?: string[];
   /**
+   * Frappe apps this tile's pages need on the backend (all of them). The Desktop, the home sidebar and the
+   * route itself are hidden on a site that lacks any of them (see useInstalledApps) — e.g. Production needs
+   * `micromax`, so the school site shows no Production tile. Undefined = core ERPNext/Frappe, always shown.
+   */
+  apps?: string[];
+  /**
    * Curated capability bullets (copied from the public website's module
    * catalogue, website-data.ts MODULES) shown under the tile's description.
    * When unset, the Desktop falls back to real, live doctype names for
@@ -84,6 +90,7 @@ export const APPS: AppTile[] = [
     description: "The whole mill at a glance — headline KPIs, insights and trade in one view.",
     icon: LayoutDashboard,
     to: "/dashboard",
+    apps: ["mm_core"],
     colorClass: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
     features: ["Revenue, profit & cash", "Insight feed", "Module scorecards", "Export & import"],
   },
@@ -95,6 +102,7 @@ export const APPS: AppTile[] = [
     description: "Drill-down dashboards for every department, Jul–Jun by default.",
     icon: BarChart3,
     to: "/analytics/accounts",
+    apps: ["mm_core"],
     colorClass: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
     features: ["Sales & buying analysis", "Production yield & OPS", "Quality & HR", "Financial statements"],
   },
@@ -106,6 +114,7 @@ export const APPS: AppTile[] = [
     description: "Audit-ready registers and query reports across every module.",
     icon: BarChart3,
     to: "/reports/import",
+    apps: ["micromax"],
     colorClass: "bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400",
     features: ["Stock & GL ledgers", "Ageing analysis", "Shipment registers", "Custom query reports"],
   },
@@ -165,6 +174,7 @@ export const APPS: AppTile[] = [
     description: "Blend BOMs, routings and work orders with yield, OPS and operating cost.",
     icon: Factory,
     to: "/production",
+    apps: ["micromax"],
     colorClass: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
     features: ["Blend BOMs & routings", "Work orders & job cards", "Workstations & downtime", "Yield & spindle planning"],
   },
@@ -223,6 +233,7 @@ export const APPS: AppTile[] = [
     description: "Employees, shifts, attendance and leave for a three-shift workforce.",
     icon: Users2,
     to: "/hr",
+    apps: ["hrms"],
     colorClass: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
     module: ["HR"],
     features: ["Employee records", "Shifts & biometric check-ins", "Attendance & leave", "Advances & claims"],
@@ -235,6 +246,7 @@ export const APPS: AppTile[] = [
     description: "Monthly payroll from attendance to bank advice, with EOBI and tax.",
     icon: Banknote,
     to: "/payroll",
+    apps: ["hrms"],
     colorClass: "bg-lime-500/10 text-lime-600 dark:text-lime-400",
     module: ["Payroll"],
     features: ["Salary structures", "Payroll runs", "Salary slips", "Components & deductions"],
@@ -248,6 +260,7 @@ export const APPS: AppTile[] = [
     description: "Pipeline from first enquiry to repeat order, with every touchpoint logged.",
     icon: Handshake,
     to: "/crm",
+    apps: ["crm"],
     colorClass: "bg-pink-500/10 text-pink-600 dark:text-pink-400",
     module: ["CRM", "FCRM"],
     features: ["Leads & deals", "Activities & follow-ups", "Targets vs achievement", "Customer 360"],
@@ -296,6 +309,7 @@ export const APPS: AppTile[] = [
     description: "Fast counter billing that posts straight into stock and the ledger.",
     icon: CreditCard,
     to: "/pos",
+    apps: ["posawesome"],
     colorClass: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
     module: ["POS", "Selling"],
     features: ["Touch billing screen", "Barcode & scale items", "Multi-counter & shift", "Cash, card & wallet"],
@@ -308,6 +322,7 @@ export const APPS: AppTile[] = [
     description: "From registration and OPD through pharmacy, lab and IPD billing.",
     icon: Stethoscope,
     to: "/hospital",
+    apps: ["healthcare"],
     colorClass: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
     features: ["Patient registration & MRN", "OPD & token queue", "Clinical notes & orders", "Pharmacy, lab & IPD billing"],
   },
@@ -319,6 +334,7 @@ export const APPS: AppTile[] = [
     description: "Admissions, academics and fee collection for schools and institutes.",
     icon: GraduationCap,
     to: "/education",
+    apps: ["education"],
     colorClass: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
     features: ["Admissions & enrolment", "Attendance & timetable", "Exams & report cards", "Fees & concessions"],
   },

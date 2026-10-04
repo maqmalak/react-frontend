@@ -53,12 +53,12 @@ http.interceptors.request.use((config) => {
  * `frappe.sessions.get_csrf_token` (what Frappe injects server-side into
  * pages it renders itself) is not whitelisted for direct API access, and
  * this SPA is served by Vite in dev — not by Frappe — so it has no such
- * injection point. `micromax.api.get_csrf_token_for_session` is a minimal
- * whitelisted wrapper added to the `micromax` app for exactly this.
+ * injection point. `mm_core.api.get_csrf_token_for_session` (every site) is a minimal
+ * whitelisted wrapper for exactly this.
  */
 export async function refreshCSRFToken(): Promise<void> {
   try {
-    const res = await fetch("/api/method/micromax.api.get_csrf_token_for_session", {
+    const res = await fetch("/api/method/mm_core.api.get_csrf_token_for_session", {
       credentials: "include",
     });
     if (!res.ok) return;
