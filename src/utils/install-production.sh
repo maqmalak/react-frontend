@@ -393,11 +393,11 @@ log "Enabling bench's multi-domain nginx routing (bench config dns_multitenant o
 as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' config dns_multitenant on"
 
 log "Mapping ${BACKEND_DOMAIN} to site '${SITE_NAME}' (bench setup add-domain) — this is the ERPNext/Frappe desk UI"
-as_root_sh "cd '$BENCH_DIR' && '$BENCH_BIN' setup add-domain '$BACKEND_DOMAIN' --site '$SITE_NAME'"
+map_desk_domain "$BACKEND_DOMAIN" >/dev/null   # with its certificate when one already exists (lib/react-nginx.sh)
 if [[ -z "$FRONTEND_REPO" ]]; then
   # No React app for this tenant: its public domain is served by the Frappe site itself.
   log "Tenant '${TENANT}' has no React frontend — mapping ${FRONTEND_DOMAIN} to site '${SITE_NAME}' too"
-  as_root_sh "cd '$BENCH_DIR' && '$BENCH_BIN' setup add-domain '$FRONTEND_DOMAIN' --site '$SITE_NAME'"
+  map_desk_domain "$FRONTEND_DOMAIN" >/dev/null
 fi
 as_root_sh "cd '$BENCH_DIR' && '$BENCH_BIN' setup nginx --yes"
 nginx -t && systemctl reload nginx

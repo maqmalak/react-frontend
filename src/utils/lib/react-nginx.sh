@@ -113,3 +113,55 @@ unmap_frontend_domain_from_site() {
     as_root_sh "cd '$BENCH_DIR' && '$BENCH_BIN' setup nginx --yes"
   fi
 }
+
+# The Let's Encrypt folder whose certificate covers $1. certbot names a folder after the FIRST domain on
+# a certificate (or adds -0001), so a domain's certificate is often not in live/<domain>/: match the
+# certificate's names instead. Prints the folder (no trailing slash), or nothing.
+find_le_cert_dir() {
+  local domain="$1" d
+  for d in /etc/letsencrypt/live/*/; do
+    [[ -f "${d}cert.pem" ]] || continue
+    if openssl x509 -in "${d}cert.pem" -noout -ext subjectAltName 2>/dev/null | grep -qE "DNS:${domain//./\\.}(,|\$)"; then
+      echo "${d%/}"
+      return 0
+    fi
+  done
+}
+
+# Map a Frappe desk domain to SITE_NAME in bench's own nginx (bench setup add-domain). When a Let's
+# Encrypt certificate for it exists, the paths go into the site config too, so every later
+# `bench setup nginx` writes HTTPS itself — certbot's own edits to frappe-bench.conf don't survive
+# a regeneration. A plain mapping is upgraded once a certificate exists. Prints "changed" when the
+# site config changed (caller then runs `bench setup nginx` and reloads).
+map_desk_domain() {
+  local domain="$1"
+  local cfg="${BENCH_DIR}/sites/${SITE_NAME}/site_config.json"
+  local live
+  live="$(find_le_cert_dir "$domain")"
+  local state
+  state="$(python3 - "$cfg" "$domain" <<'PY'
+import json, sys
+cfg, domain = sys.argv[1], sys.argv[2]
+try:
+    domains = json.load(open(cfg)).get("domains", [])
+except FileNotFoundError:
+    domains = []
+for d in domains:
+    if isinstance(d, dict) and d.get("domain") == domain:
+        print("ssl"); break
+    if d == domain:
+        print("plain"); break
+else:
+    print("none")
+PY
+)"
+  if [[ -n "$live" && -f "${live}/fullchain.pem" && -f "${live}/privkey.pem" ]]; then
+    [[ "$state" == "ssl" ]] && return 0
+    [[ "$state" == "plain" ]] && as_root_sh "cd '$BENCH_DIR' && '$BENCH_BIN' setup remove-domain '$domain' --site '$SITE_NAME'" >/dev/null
+    as_root_sh "cd '$BENCH_DIR' && '$BENCH_BIN' setup add-domain '$domain' --site '$SITE_NAME' --ssl-certificate '${live}/fullchain.pem' --ssl-certificate-key '${live}/privkey.pem'" >/dev/null
+    echo "changed"
+  elif [[ "$state" == "none" ]]; then
+    as_root_sh "cd '$BENCH_DIR' && '$BENCH_BIN' setup add-domain '$domain' --site '$SITE_NAME'" >/dev/null
+    echo "changed"
+  fi
+}

@@ -519,6 +519,19 @@ A2EOF
   as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' clear-cache"
 fi
 
+# ===================================== A3. Desk domain HTTPS kept by bench
+# After `certbot --nginx -d <desk domain>`, store the certificate in the site's domain mapping so the
+# next `bench setup nginx` keeps HTTPS (lib/react-nginx.sh: map_desk_domain). No-op once done.
+if [[ -n "${BACKEND_DOMAIN:-}" ]]; then
+  if [[ "$(map_desk_domain "$BACKEND_DOMAIN")" == "changed" ]]; then
+    log "A3. ${BACKEND_DOMAIN}: certificate stored in site '${SITE_NAME}' domains — regenerating bench nginx"
+    as_root_sh "cd '$BENCH_DIR' && '$BENCH_BIN' setup nginx --yes"
+    if nginx -t; then systemctl reload nginx; else warn "nginx -t failed after bench setup nginx — check /etc/nginx/conf.d/frappe-bench.conf"; fi
+  else
+    log "A3. ${BACKEND_DOMAIN}: desk domain mapping current"
+  fi
+fi
+
 # ======================================================== B. Frontend deploy
 if [[ -z "$FRONTEND_REPO" ]]; then
   log "B/B2. Tenant '${TENANT}' has no React frontend (FRONTEND_REPO empty) — skipping frontend deploy"
