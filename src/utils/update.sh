@@ -146,14 +146,16 @@ MM_CORE_BRANCH="${MM_CORE_BRANCH:-main}"
 declare -A EXTRA_APP_REPO=(
   [mm_core]="$MM_CORE_REPO"
   [posawesome]="$POSAWESOME_REPO"
-  [education]="https://github.com/frappe/education.git"
-  [nl_school]="https://github.com/navariltd/Junior-School.git"   # Junior-School installs as nl_school
+  # Pinned copy of frappe/education (version-16 as of 22e0910); updated only when we pull upstream on purpose.
+  [education]="${EDUCATION_REPO:-https://github.com/maqmalak/education.git}"
+  # Junior-School (installs as nl_school): our fork of navariltd/Junior-School with the v16 fixes.
+  [nl_school]="${NL_SCHOOL_REPO:-https://github.com/maqmalak/Junior-School.git}"
 )
 declare -A EXTRA_APP_BRANCH=(
   [mm_core]="$MM_CORE_BRANCH"
   [posawesome]="$POSAWESOME_BRANCH"
-  [education]="version-16"
-  [nl_school]="version-16"
+  [education]="${EDUCATION_BRANCH:-main}"
+  [nl_school]="${NL_SCHOOL_BRANCH:-main}"
 )
 # Which of these this tenant pulls + installs (tenant file's EXTRA_APPS_LIST).
 read -ra EXTRA_APPS <<<"$EXTRA_APPS_LIST"
@@ -298,13 +300,19 @@ else
         fi
         REMOTE=origin
       fi
-      [[ -z "$(as_frappe git -C "$APP_DIR" status --porcelain)" ]] || warn "'${APP_DIR}' has local changes — the reset below DISCARDS them."
+      # Build output tracked in git (e.g. education's public/frontend/index.html) shows up as "local changes";
+      # the forced checkout below resets it, so the app is rebuilt afterwards even if the commit is the same.
+      APP_DIRTY=0
+      if [[ -n "$(as_frappe git -C "$APP_DIR" status --porcelain)" ]]; then
+        APP_DIRTY=1
+        warn "'${APP_DIR}' has local changes — the reset below DISCARDS them (the app is rebuilt afterwards)."
+      fi
       APP_BEFORE="$(as_frappe git -C "$APP_DIR" rev-parse HEAD)"
       as_frappe git -C "$APP_DIR" fetch "$REMOTE" "${EXTRA_APP_BRANCH[$app]}" \
         || die "Could not fetch ${EXTRA_APP_BRANCH[$app]} of ${EXTRA_APP_REPO[$app]}."
       as_frappe git -C "$APP_DIR" checkout -f -B "${EXTRA_APP_BRANCH[$app]}" "${REMOTE}/${EXTRA_APP_BRANCH[$app]}"
       APP_AFTER="$(as_frappe git -C "$APP_DIR" rev-parse HEAD)"
-      if [[ "$APP_BEFORE" != "$APP_AFTER" ]] || ! grep -qx "$app" <<<"$A0_INSTALLED_APPS"; then
+      if [[ "$APP_BEFORE" != "$APP_AFTER" || "$APP_DIRTY" == "1" ]] || ! grep -qx "$app" <<<"$A0_INSTALLED_APPS"; then
         # Also on a first install: a previous run's get-app may have cloned the
         # app and then died in its asset build (e.g. wrong node), leaving code
         # that is already "latest" but never built / pip-installed.

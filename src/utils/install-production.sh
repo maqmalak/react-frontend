@@ -85,8 +85,10 @@ declare -A APP_REPO=(
   # Shared Custom Fields for every site on the bench; micromax requires it.
   [mm_core]="${MM_CORE_REPO:-https://github.com/maqmalak/mm_core.git}"
   # School tenant (wise). The Junior-School repo installs as app `nl_school`.
-  [education]="https://github.com/frappe/education.git"
-  [nl_school]="https://github.com/navariltd/Junior-School.git"
+  # Pinned copy of frappe/education (version-16 as of 22e0910); updated only when we pull upstream on purpose.
+  [education]="${EDUCATION_REPO:-https://github.com/maqmalak/education.git}"
+  # Our fork of navariltd/Junior-School with the Frappe/Education v16 report + app-home fixes.
+  [nl_school]="${NL_SCHOOL_REPO:-https://github.com/maqmalak/Junior-School.git}"
 )
 declare -A APP_BRANCH=(
   [erpnext]="version-16"
@@ -100,8 +102,8 @@ declare -A APP_BRANCH=(
   [crm]="main"
   [whatsapp]="main"
   [mm_core]="${MM_CORE_BRANCH:-main}"
-  [education]="version-16"
-  [nl_school]="version-16"
+  [education]="${EDUCATION_BRANCH:-main}"
+  [nl_school]="${NL_SCHOOL_BRANCH:-main}"
 )
 # Installed in this exact order — the tenant file's SITE_APPS (see comment
 # above on why micromax is last). Only these apps are fetched into the bench.
