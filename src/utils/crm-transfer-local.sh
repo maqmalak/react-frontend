@@ -36,6 +36,9 @@ MAILBOX="${MAILBOX:-corporate@wise.edu.pk}"
 EXPORT_DIR="${EXPORT_DIR:-${HOME}/crm-transfer-${SOURCE_SITE}-to-${TARGET_SITE}-$(date +%Y%m%d-%H%M%S)}"
 CONFIRM="${CONFIRM:-0}"
 TOP_UP="${TOP_UP:-0}"
+# Doctypes whose same-named records on the target are replaced by the source's, e.g. OVERWRITE="Email Template"
+# (ERPNext installs standard templates under the same names). Templates / lookup lists only.
+OVERWRITE="${OVERWRITE:-}"
 FALLBACK_USER="${FALLBACK_USER:-}"
 ALLOW_MISSING_FIELDS="${ALLOW_MISSING_FIELDS:-0}"
 
@@ -48,7 +51,7 @@ for s in "$SOURCE_SITE" "$TARGET_SITE"; do
     || die "mm_core isn't installed on '${s}' (bench --site ${s} install-app mm_core)."
 done
 
-KW="'path': '${EXPORT_DIR}', 'allow_missing_fields': ${ALLOW_MISSING_FIELDS}, 'top_up': ${TOP_UP}"
+KW="'path': '${EXPORT_DIR}', 'allow_missing_fields': ${ALLOW_MISSING_FIELDS}, 'top_up': ${TOP_UP}, 'overwrite': '${OVERWRITE}'"
 [[ -n "$FALLBACK_USER" ]] && KW="${KW}, 'fallback_user': '${FALLBACK_USER}'"
 
 log "Exporting CRM data from '${SOURCE_SITE}' to ${EXPORT_DIR} (read-only on ${SOURCE_SITE})"

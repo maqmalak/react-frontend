@@ -58,6 +58,9 @@ ALLOW_MISSING_FIELDS="${ALLOW_MISSING_FIELDS:-0}"
 MAILBOX="${MAILBOX:-corporate@wise.edu.pk}"
 # 1 = second run after the first import: adds only records that are new on the source since then.
 TOP_UP="${TOP_UP:-0}"
+# Doctypes whose same-named records on the target are replaced by the source's, e.g. OVERWRITE="Email Template"
+# (ERPNext installs standard templates under the same names). Templates / lookup lists only.
+OVERWRITE="${OVERWRITE:-}"
 
 [[ "$SOURCE_SITE" != "$TARGET_SITE" ]] || die "SOURCE_SITE and TARGET_SITE are both '${TARGET_SITE}'."
 for s in "$SOURCE_SITE" "$TARGET_SITE"; do
@@ -72,7 +75,7 @@ for s in "$SOURCE_SITE" "$TARGET_SITE"; do
     || die "mm_core isn't installed on '${s}' — run update.sh / install-production.sh for that tenant first."
 done
 
-KW="'path': '${EXPORT_DIR}', 'allow_missing_fields': ${ALLOW_MISSING_FIELDS}, 'top_up': ${TOP_UP}"
+KW="'path': '${EXPORT_DIR}', 'allow_missing_fields': ${ALLOW_MISSING_FIELDS}, 'top_up': ${TOP_UP}, 'overwrite': '${OVERWRITE}'"
 [[ -n "$FALLBACK_USER" ]] && KW="${KW}, 'fallback_user': '${FALLBACK_USER}'"
 
 log "Exporting CRM data from '${SOURCE_SITE}' to ${EXPORT_DIR} (read-only on ${SOURCE_SITE})"
