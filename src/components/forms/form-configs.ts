@@ -1044,7 +1044,7 @@ export const CRM_NOTE_FIELDS: FormFieldMeta[] = [
 
 /**
  * `CRM Prospect Scrape` review-queue row — edited by hand before
- * "Convert to Lead" (see `micromax.crm_scraper`). Scraper-filled fields stay
+ * "Convert to Lead" (see `mm_core.crm_scraper`). Scraper-filled fields stay
  * editable here since the heuristics are best-effort, not authoritative.
  */
 export const CRM_PROSPECT_SCRAPE_FIELDS: FormFieldMeta[] = [
