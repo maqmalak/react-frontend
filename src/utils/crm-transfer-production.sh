@@ -5,20 +5,23 @@
 # every link between them. Uses mm_core.crm_transfer (installed on every site).
 #
 # What moves: CRM Organizations, Leads, Deals (with products, contacts, status
-# history), all CRM Tasks, Notes and Call Logs, linked Contacts/Addresses, emails
-# (Communication), comments, field-change history (Version), assignments (ToDo),
-# events, WhatsApp messages, attachments (files copied), and the CRM lookup lists
-# (statuses, sources, industries, territories, lost reasons).
+# history), all CRM Tasks, Notes and Call Logs, linked Contacts/Addresses, every
+# email MAILBOX sent or received plus all CRM-linked emails, comments, field-change
+# history (Version), assignments (ToDo), calendar events (CRM-linked and standalone
+# meetings/reminders), WhatsApp messages, attachments (files copied), and the CRM
+# lookup lists (statuses, sources, industries, territories, lost reasons).
 #
 # The source site is only read — nothing there is changed or deleted.
 #
-# Order on production (each step once):
-#   1. install-production.sh TENANT=wise             (site + apps, incl. mm_core)
-#   2. crm-setup-production.sh REMOVE_MAILBOX_FROM=demo   (mail, CRM role, login)
-#   3. this script — first without CONFIRM (dry run), then with CONFIRM=1:
-#
-#   sudo bash crm-transfer-production.sh              # export + dry run, writes nothing
-#   sudo CONFIRM=1 bash crm-transfer-production.sh    # backup wise, export, import
+# Order on production — the data moves BEFORE the mailbox leaves demo:
+#   1. install-production.sh TENANT=wise                    (site + apps, incl. mm_core)
+#   2. crm-setup-production.sh EMAIL_ENABLE_INCOMING=0      (wise: mail account, CRM role, login; demo untouched)
+#   3. this script — dry run, then CONFIRM=1:
+#        sudo bash crm-transfer-production.sh
+#        sudo CONFIRM=1 bash crm-transfer-production.sh
+#   4. crm-setup-production.sh REMOVE_MAILBOX_FROM=demo     (demo: mailbox + login disabled; wise: incoming on)
+#   5. top-up — anything demo received between 3 and 4:
+#        sudo TOP_UP=1 CONFIRM=1 bash crm-transfer-production.sh
 #
 # Safety: the import stops without writing if any lead/deal/organization/task/
 # call-log name already exists on the target, or if CRM records hold values in
@@ -51,6 +54,10 @@ EXPORT_DIR="${EXPORT_DIR:-${FRAPPE_HOME}/crm-transfer-${SOURCE_SITE}-to-${TARGET
 CONFIRM="${CONFIRM:-0}"
 FALLBACK_USER="${FALLBACK_USER:-}"
 ALLOW_MISSING_FIELDS="${ALLOW_MISSING_FIELDS:-0}"
+# Every email this address sent or received on the source site moves too (not only CRM-linked ones).
+MAILBOX="${MAILBOX:-corporate@wise.edu.pk}"
+# 1 = second run after the first import: adds only records that are new on the source since then.
+TOP_UP="${TOP_UP:-0}"
 
 [[ "$SOURCE_SITE" != "$TARGET_SITE" ]] || die "SOURCE_SITE and TARGET_SITE are both '${TARGET_SITE}'."
 for s in "$SOURCE_SITE" "$TARGET_SITE"; do
@@ -65,18 +72,18 @@ for s in "$SOURCE_SITE" "$TARGET_SITE"; do
     || die "mm_core isn't installed on '${s}' — run update.sh / install-production.sh for that tenant first."
 done
 
-KW="'path': '${EXPORT_DIR}', 'allow_missing_fields': ${ALLOW_MISSING_FIELDS}"
+KW="'path': '${EXPORT_DIR}', 'allow_missing_fields': ${ALLOW_MISSING_FIELDS}, 'top_up': ${TOP_UP}"
 [[ -n "$FALLBACK_USER" ]] && KW="${KW}, 'fallback_user': '${FALLBACK_USER}'"
 
 log "Exporting CRM data from '${SOURCE_SITE}' to ${EXPORT_DIR} (read-only on ${SOURCE_SITE})"
-as_frappe_sh "mkdir -p '${EXPORT_DIR}' && cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SOURCE_SITE' execute mm_core.crm_transfer.export_crm --kwargs \"{'path': '${EXPORT_DIR}'}\"" \
+as_frappe_sh "mkdir -p '${EXPORT_DIR}' && cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SOURCE_SITE' execute mm_core.crm_transfer.export_crm --kwargs \"{'path': '${EXPORT_DIR}', 'mailbox': '${MAILBOX}'}\"" \
   | grep -v '^{.*}$' || die "Export failed."
 
 log "Dry run on '${TARGET_SITE}' (nothing written)"
 DRY="$(as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$TARGET_SITE' execute mm_core.crm_transfer.import_crm --kwargs \"{${KW}, 'dry_run': 1}\"" 2>&1)" \
   || { echo "$DRY"; die "Dry run failed."; }
 echo "$DRY" | sed '/^{"/d'
-if grep -q "CONFLICT\|MISSING FIELDS" <<<"$DRY"; then
+if grep -q "^CONFLICT\|MISSING FIELDS" <<<"$DRY"; then
   die "The import would stop (see above). Nothing was written to '${TARGET_SITE}'."
 fi
 
