@@ -90,7 +90,8 @@ export default function TasksPage() {
         { fieldname: "status", label: "Status", fieldtype: "Select", options: STATUSES.join("\n"), default: "Todo" },
         { fieldname: "due_date", label: "Due Date & Time", fieldtype: "Datetime" },
         { fieldname: "assigned_to", label: "Assigned To", fieldtype: "Link", options: "User" },
-        { fieldname: "description", label: "Description", fieldtype: "Text" },
+        // Rich text, like the follow-up form on the Lead/Deal pages (description is stored as HTML).
+        { fieldname: "description", label: "Description", fieldtype: "Text Editor" },
       ],
       defaults: { status: "Todo", priority: "Medium", task_category: "Task" },
       kanbanField: "status",

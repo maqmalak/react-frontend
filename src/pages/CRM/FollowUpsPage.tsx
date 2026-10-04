@@ -8,6 +8,7 @@ import type { CrmTask } from "@/types/frappe";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useCrmReferenceLabels, type CrmReference } from "@/hooks/useCrmReferenceLabels";
+import { htmlToText } from "@/utils/text";
 
 const STATUSES = ["Todo", "In Progress", "Done", "Cancelled"];
 const PRIORITIES = ["Low", "Medium", "High"];
@@ -59,8 +60,8 @@ const baseColumns: ColumnDef<FollowUpRow>[] = [
   {
     key: "description",
     label: "Notes",
-    render: (r) => <p className="max-w-sm truncate text-sm text-muted-foreground">{r.description || "—"}</p>,
-    getValue: (r) => r.description,
+    render: (r) => <p className="max-w-sm truncate text-sm text-muted-foreground">{htmlToText(r.description) || "—"}</p>,
+    getValue: (r) => htmlToText(r.description),
   },
 ];
 
@@ -98,7 +99,8 @@ export default function FollowUpsPage() {
         options: "User",
         description: "Required for the automatic overdue/due-soon reminder — a follow-up with no assignee is never notified.",
       },
-      { fieldname: "description", label: "Notes", fieldtype: "Text" },
+      // Same rich-text editor as the follow-up form on the Lead/Deal pages (description is stored as HTML).
+      { fieldname: "description", label: "Notes", fieldtype: "Text Editor" },
     ],
     defaults: { status: "Todo", priority: "Medium", assigned_to: currentUser ?? undefined, task_category: "Follow-up" },
     kanbanField: "status",

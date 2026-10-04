@@ -15,6 +15,7 @@ import { useFrappeGetDocCount } from "frappe-react-sdk";
 import { useCrmNotifications, type CrmNotificationDoc } from "@/hooks/useCrmNotifications";
 import { formatDateTime } from "@/utils/dates";
 import { cn } from "@/utils/cn";
+import { htmlToText } from "@/utils/text";
 
 function Breadcrumbs() {
   const { pathname } = useLocation();
@@ -167,7 +168,7 @@ function NotificationsBell() {
                 >
                   <span className="flex items-center gap-1.5 text-sm">
                     {!n.read && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />}
-                    <span className="truncate font-medium">{n.notification_text || "Notification"}</span>
+                    <span className="truncate font-medium">{htmlToText(n.notification_text) || "Notification"}</span>
                   </span>
                   <span className="text-xs text-muted-foreground">{formatDateTime(n.creation)}</span>
                 </button>
