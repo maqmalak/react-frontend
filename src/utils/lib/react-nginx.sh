@@ -148,17 +148,27 @@ except FileNotFoundError:
     domains = []
 for d in domains:
     if isinstance(d, dict) and d.get("domain") == domain:
-        print("ssl"); break
+        print("ssl " + (d.get("ssl_certificate") or "")); break
     if d == domain:
         print("plain"); break
 else:
     print("none")
 PY
 )"
+  local current_cert="${state#ssl }"
+  [[ "$state" == ssl* ]] && state="ssl"
   if [[ -n "$live" && -f "${live}/fullchain.pem" && -f "${live}/privkey.pem" ]]; then
-    [[ "$state" == "ssl" ]] && return 0
-    [[ "$state" == "plain" ]] && as_root_sh "cd '$BENCH_DIR' && '$BENCH_BIN' setup remove-domain '$domain' --site '$SITE_NAME'" >/dev/null
+    # Already mapped to this certificate: nothing to do. Mapped to another path (e.g. a folder that
+    # doesn't exist, which makes `nginx -t` fail): re-map.
+    [[ "$state" == "ssl" && "$current_cert" == "${live}/fullchain.pem" ]] && return 0
+    [[ "$state" == "plain" || "$state" == "ssl" ]] && as_root_sh "cd '$BENCH_DIR' && '$BENCH_BIN' setup remove-domain '$domain' --site '$SITE_NAME'" >/dev/null
     as_root_sh "cd '$BENCH_DIR' && '$BENCH_BIN' setup add-domain '$domain' --site '$SITE_NAME' --ssl-certificate '${live}/fullchain.pem' --ssl-certificate-key '${live}/privkey.pem'" >/dev/null
+    echo "changed"
+  elif [[ "$state" == "ssl" && ! -f "$current_cert" ]]; then
+    # Mapped to a certificate file that doesn't exist and no certificate covers the domain:
+    # fall back to a plain mapping so nginx stays valid.
+    as_root_sh "cd '$BENCH_DIR' && '$BENCH_BIN' setup remove-domain '$domain' --site '$SITE_NAME'" >/dev/null
+    as_root_sh "cd '$BENCH_DIR' && '$BENCH_BIN' setup add-domain '$domain' --site '$SITE_NAME'" >/dev/null
     echo "changed"
   elif [[ "$state" == "none" ]]; then
     as_root_sh "cd '$BENCH_DIR' && '$BENCH_BIN' setup add-domain '$domain' --site '$SITE_NAME'" >/dev/null
