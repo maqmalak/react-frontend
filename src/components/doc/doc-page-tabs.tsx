@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { History, LayoutList, Link2 } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { ConnectionsPanel } from "./connections-panel";
-import { ActivityPanel } from "./activity-panel";
+import { ActivityTimeline, DocActionsPanel } from "@/components/common/activity-panel";
 
 type TabId = string;
 /** A page-specific tab shown between Details and Connections (e.g. a lead's second contact). */
@@ -16,7 +16,8 @@ const TABS: { id: TabId; label: string; icon: typeof LayoutList }[] = [
 /**
  * Tab bar for hand-built detail pages. Drop it right after the page header: the page's own content (every
  * following sibling) is the "Details" tab and is hidden while Connections or Activity is shown
- * (see `.doc-page-tabs[data-active]` in globals.css).
+ * (see `.doc-page-tabs[data-active]` in globals.css). The Activity tab carries the record's timeline (with email)
+ * and its sidebar: assignments, attachments, tags and sharing.
  */
 export function DocPageTabs({ doctype, name, extraTabs = [], initial = "details" }: { doctype: string; name?: string; extraTabs?: ExtraPageTab[]; /** Tab shown first (default "details"). */ initial?: string }) {
   const [active, setActive] = useState<TabId>(initial);
@@ -49,7 +50,18 @@ export function DocPageTabs({ doctype, name, extraTabs = [], initial = "details"
       </div>
       {extra?.content}
       {active === "connections" && <ConnectionsPanel doctype={doctype} name={name} />}
-      {active === "activity" && <ActivityPanel doctype={doctype} name={name} />}
+      {active === "activity" && (
+        // Timeline (comments, changes, emails + "New Email" with the Quill composer) beside Frappe's form
+        // sidebar (assigned to, attachments, tags, shared with) — the same features DocFormPage pages show.
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+          <div className="min-w-0">
+            <ActivityTimeline doctype={doctype} docname={name} />
+          </div>
+          <aside className="xl:sticky xl:top-20">
+            <DocActionsPanel doctype={doctype} docname={name} />
+          </aside>
+        </div>
+      )}
     </div>
   );
 }

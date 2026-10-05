@@ -23,7 +23,7 @@ import { notifyDataChanged } from "@/hooks/useRealtime";
 import { humanizeError } from "@/services/frappe";
 import type { ChildRows, ChildTableSpec, DocConfig, DocField, DocValues, ExtraContext, FormAction } from "./doc-config";
 import { ConnectionsPanel } from "./connections-panel";
-import { ActivityPanel } from "./activity-panel";
+import { ActivityTimeline, DocActionsPanel } from "@/components/common/activity-panel";
 import { cn } from "@/utils/cn";
 
 interface FormState {
@@ -352,6 +352,7 @@ export function DocFormPage({ config }: { config: DocConfig }) {
   const extraCtx: ExtraContext = { name: routeName, isNew, docstatus, readOnly: Boolean(readOnly), values, rows, reload: () => void mutate(), patch: applyPatch };
   const connectionsOn = config.connections !== false && !isNew && !config.single;
   const activityOn = !isNew && !config.single;
+  const sidebarOn = activityOn && !!routeName;
   const showTabBar = tabs.length > 1 || connectionsOn || activityOn;
   const currentTab = tabs.some((t) => t.label === activeTab) || (activeTab === "Connections" && connectionsOn) || (activeTab === "Activity" && activityOn) ? activeTab : tabs[0]?.label ?? "";
 
@@ -511,6 +512,8 @@ export function DocFormPage({ config }: { config: DocConfig }) {
         </div>
       )}
 
+      <div className={cn(sidebarOn && "grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_300px]")}>
+      <div className="min-w-0 space-y-6">
       {showTabBar ? (
         <>
           <div className="sticky top-14 z-20 -mx-1 overflow-x-auto rounded-xl border border-border bg-card/90 p-1 shadow-sm backdrop-blur scrollbar-thin">
@@ -543,7 +546,8 @@ export function DocFormPage({ config }: { config: DocConfig }) {
           {currentTab === "Connections" && routeName ? (
             <ConnectionsPanel doctype={config.doctype} name={routeName} />
           ) : currentTab === "Activity" && routeName ? (
-            <ActivityPanel doctype={config.doctype} name={routeName} />
+            // Comments, field changes and emails — with "New Email" (Quill composer), like the desk's timeline.
+            <ActivityTimeline doctype={config.doctype} docname={routeName} />
           ) : (
             (() => {
               const t = tabs.find((x) => x.label === currentTab) ?? tabs[0];
@@ -572,6 +576,14 @@ export function DocFormPage({ config }: { config: DocConfig }) {
       )}
 
       {config.extra?.(extraCtx)}
+      </div>
+      {sidebarOn && (
+        // Frappe's form sidebar: assignments, attachments, tags and sharing for this record.
+        <aside className="xl:sticky xl:top-20">
+          <DocActionsPanel doctype={config.doctype} docname={routeName} />
+        </aside>
+      )}
+      </div>
 
 
       <ConfirmDialog

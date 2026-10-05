@@ -20,6 +20,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { formatDateTime } from "@/utils/dates";
 import { cn } from "@/utils/cn";
 import type { FrappeComment, FrappeToDo, FrappeVersion } from "@/types/frappe";
+import { RichTextEditor } from "@/components/forms/rich-text-editor";
 
 function formatBytes(n?: number): string {
   if (!n) return "";
@@ -843,7 +844,7 @@ function EmailDialog({
         name: docname,
         recipients: recipients.trim(),
         subject: subject.trim(),
-        content: message.trim() || subject.trim(),
+        content: message.trim() || `<p>${subject.trim().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`,
         send_email: 1,
         send_me_a_copy: sendCopy ? 1 : 0,
         read_receipt: readReceipt ? 1 : 0,
@@ -876,7 +877,8 @@ function EmailDialog({
         </div>
         <div>
           <Label>Message</Label>
-          <Textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={8} />
+          {/* Same Quill editor as Frappe's desk email form: formatting, lists and links go out as HTML. */}
+          <RichTextEditor value={message} onChange={setMessage} placeholder="Write your message…" />
         </div>
         <div className="flex flex-wrap gap-4">
           <Checkbox label="Send me a copy" checked={sendCopy} onChange={(e) => setSendCopy(e.target.checked)} />

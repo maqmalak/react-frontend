@@ -81,6 +81,7 @@ export const JOURNAL_ENTRY_CONFIG: DocConfig = {
   fields: [
     tab("Entry"),
     sec("Voucher"),
+    data("title", "Title"), // editable after submit too; ERPNext fills it from the first party / account when left empty
     req(select("voucher_type", "Entry Type", VOUCHER_TYPES)),
     req(select("naming_series", "Series", ["ACC-JV-.FY.-"])),
     req(date("posting_date", "Posting Date")),

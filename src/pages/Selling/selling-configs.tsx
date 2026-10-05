@@ -90,7 +90,7 @@ export const TAXES: ChildTableSpec = {
   tab: "Taxes & Totals",
   key: "taxes",
   label: "Sales Taxes and Charges",
-  description: "GST, further tax, freight… The server recalculates amounts on save.",
+  description: "GST, further tax, freight… Amounts update as you edit; the server recalculates them on save.",
   doctype: "Sales Taxes and Charges",
   wide: true,
   columns: [req(select("charge_type", "Type", ["Actual", "On Net Total", "On Previous Row Amount", "On Previous Row Total", "On Item Quantity"])),
@@ -109,15 +109,50 @@ export const PAYMENT_SCHEDULE: ChildTableSpec = {
   totals: (rows) => [{ label: "Scheduled", value: fmtMoney(rows.reduce((s, r) => s + asNumber(r.payment_amount), 0)), align: "right" }],
 };
 
-/** Live line amounts and totals; the server recomputes taxes and grand total on save. */
+/**
+ * Tax rows computed as ERPNext does (erpnext/public/js/controllers/taxes_and_totals.js), so a template's rows
+ * show their amounts as soon as it's picked. Rows are applied in order; "On Previous Row …" uses row_id (the
+ * 1-based row it refers to); "Deduct" rows subtract. The server recomputes everything on save.
+ */
+export function computeTaxRows(taxRows: DocValues[], base: number, totalQty: number) {
+  const amounts: number[] = [];
+  const totals: number[] = [];
+  const rows = taxRows.map((r, i) => {
+    const rate = asNumber(r.rate);
+    const ref = Math.max(0, Math.min(i, asNumber(r.row_id) || i)) - 1; // previous row index (row_id is 1-based)
+    let amt: number;
+    switch (r.charge_type) {
+      case "On Net Total": amt = (base * rate) / 100; break;
+      case "On Previous Row Amount": amt = ref >= 0 ? (amounts[ref] * rate) / 100 : 0; break;
+      case "On Previous Row Total": amt = ref >= 0 ? (totals[ref] * rate) / 100 : 0; break;
+      case "On Item Quantity": amt = totalQty * rate; break;
+      default: amt = asNumber(r.tax_amount); // Actual: the amount as entered
+    }
+    amt = Math.round(amt * 100) / 100;
+    const signed = r.add_deduct_tax === "Deduct" ? -amt : amt;
+    amounts.push(amt);
+    totals.push((i ? totals[i - 1] : base) + signed);
+    return { ...r, tax_amount: amt, total: totals[i] };
+  });
+  return { rows, taxes: totals.length ? totals[totals.length - 1] - base : 0 };
+}
+
+/** Live line amounts, tax rows and totals; the server recomputes them on save. */
 export const computeSelling = (v: DocValues, rows: Record<string, DocValues[]>) => {
   const items: DocValues[] = (rows.items ?? []).map((r) => ({ ...r, amount: asNumber(r.qty) * asNumber(r.rate) }));
   const total = items.reduce((s, r) => s + asNumber(r.amount), 0);
-  const taxes = (rows.taxes ?? []).reduce((s, r) => s + (r.charge_type === "On Net Total" ? (total * asNumber(r.rate)) / 100 : asNumber(r.tax_amount)), 0);
+  const totalQty = items.reduce((s, r) => s + asNumber(r.qty), 0);
   const discount = asNumber(v.discount_amount) || (total * asNumber(v.additional_discount_percentage)) / 100;
+  // ERPNext applies the additional discount either before tax ("Net Total") or after it ("Grand Total", the default).
+  const onNet = v.apply_discount_on === "Net Total";
+  const netTotal = onNet ? total - discount : total;
+  const tax = computeTaxRows(rows.taxes ?? [], netTotal, totalQty);
   return {
-    rows: { items },
-    values: { total_qty: items.reduce((s, r) => s + asNumber(r.qty), 0), total, net_total: total - discount, total_taxes_and_charges: taxes, grand_total: total - discount + taxes },
+    rows: { items, taxes: tax.rows },
+    values: {
+      total_qty: totalQty, total, net_total: netTotal, total_taxes_and_charges: tax.taxes,
+      grand_total: netTotal + tax.taxes - (onNet ? 0 : discount),
+    },
   };
 };
 

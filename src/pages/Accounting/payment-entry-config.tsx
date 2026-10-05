@@ -278,6 +278,7 @@ export const PAYMENT_ENTRY_CONFIG: DocConfig = {
   fields: [
     tab("Payment"),
     sec("Payment"),
+    data("title", "Title"), // ERPNext fills it with the party name when left empty
     req(select("payment_type", "Payment Type", ["Receive", "Pay", "Internal Transfer"])),
     req(date("posting_date", "Posting Date")),
     req(link("company", "Company", "Company")),

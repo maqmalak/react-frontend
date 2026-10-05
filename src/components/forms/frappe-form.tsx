@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RichTextEditor } from "./rich-text-editor";
+import { postCall } from "@/services/frappe";
 import {
   type FormFieldMeta,
   type FormValues,
@@ -201,6 +202,23 @@ export function FieldRenderer({
         <FrappeLinkField meta={meta} value={value ?? ""} onChange={(v) => onChange(fieldname, v)} disabled={disabled} />
       );
       break;
+    case "Dynamic Link": {
+      // The target doctype is the value of the field named in `options` (e.g. Quotation.party_name -> quotation_to:
+      // Customer / Lead / Prospect / CRM Deal): a searchable picker on that doctype, like a normal Link.
+      const target = meta.options ? String(values[meta.options] ?? "") : "";
+      input = target ? (
+        <FrappeLinkField
+          key={target}
+          meta={{ ...meta, fieldtype: "Link", options: target }}
+          value={value ?? ""}
+          onChange={(v) => onChange(fieldname, v)}
+          disabled={disabled}
+        />
+      ) : (
+        <Input type="text" value={value ?? ""} disabled placeholder={`Select ${meta.options?.replace(/_/g, " ") ?? "type"} first`} />
+      );
+      break;
+    }
     case "Check":
       input = (
         <Checkbox checked={Boolean(value)} disabled={disabled} onChange={(e) => onChange(fieldname, e.target.checked ? 1 : 0)} label={label} />
@@ -280,6 +298,35 @@ export function FrappeForm({
   children,
 }: FrappeFormProps) {
   const groups = transformLayout(fields);
+
+  // Picking a Terms Template (tc_name) fills the form's Terms editor with that template's text, rendered against
+  // this document (placeholders like {{ customer_name }}), as ERPNext's desk does on Sales / Purchase documents.
+  const hasTerms = fields.some((f) => f.fieldname === "terms");
+  const valuesRef = React.useRef(values);
+  valuesRef.current = values;
+  const change = React.useCallback(
+    (fieldname: string, value: unknown) => {
+      onChange(fieldname, value);
+      // Changing a Dynamic Link's type field (e.g. quotation_to) clears the link: the old value names a record of
+      // the previous type.
+      if (valuesRef.current[fieldname] !== value) {
+        for (const f of fields) {
+          if (f.fieldtype === "Dynamic Link" && f.options === fieldname && valuesRef.current[f.fieldname]) onChange(f.fieldname, "");
+        }
+      }
+      if (fieldname !== "tc_name" || !hasTerms || !value) return;
+      postCall<string | null>("erpnext.setup.doctype.terms_and_conditions.terms_and_conditions.get_terms_and_conditions", {
+        template_name: value,
+        doc: JSON.stringify({ ...valuesRef.current, tc_name: value }),
+      })
+        .then((res) => {
+          const html = typeof res === "string" ? res : (res as { message?: string } | null)?.message;
+          if (html) onChange("terms", html);
+        })
+        .catch(() => undefined); // template unreadable / removed: the editor keeps its current text
+    },
+    [onChange, hasTerms, fields],
+  );
   return (
     <div className="space-y-6">
       {groups.map((section, si) => (
@@ -300,7 +347,7 @@ export function FrappeForm({
             >
               {col.flatMap((meta) => {
                 if (meta.hidden || meta.depends_on) return [];
-                const custom = renderField?.(meta, { values, onChange });
+                const custom = renderField?.(meta, { values, onChange: change });
                 if (custom !== undefined) {
                   return [
                     <div key={meta.fieldname} className="space-y-1">
@@ -339,7 +386,7 @@ export function FrappeForm({
                     key={meta.fieldname}
                     meta={meta}
                     values={values}
-                    onChange={onChange}
+                    onChange={change}
                     errors={errors}
                     readOnly={readOnly}
                     fetchValues={links}
