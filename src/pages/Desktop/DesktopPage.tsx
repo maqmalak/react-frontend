@@ -88,7 +88,7 @@ function dayLabel(iso: string): string {
   const d = iso.slice(0, 10);
   const today = new Date().toISOString().slice(0, 10);
   const yest = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
-  return d === today ? "Today" : d === yest ? "Yesterday" : "Earlier this week";
+  return d === today ? "Today" : d === yest ? "Yesterday" : "Earlier";
 }
 
 /** A document link: React route when the app has a page for it, the Frappe desk otherwise (a full page load). */
@@ -145,8 +145,10 @@ export function DesktopPage() {
     [hasRole, isAvailable, modulesLoading, visibleModules],
   );
   const sections = [...APP_GROUPS, "More"]
-    .map((group) => ({ group, items: apps.filter((a) => (a.group ?? "More") === group) }))
+    .map((group) => ({ group, label: GROUP_LABEL[group] ?? group, items: apps.filter((a) => !HOME_HIDDEN.has(a.id) && (HOME_GROUP[a.id] ?? a.group ?? "More") === group) }))
     .filter((s) => s.items.length > 0);
+  const overview = sections.find((s) => s.group === "Overview");
+  const rest = sections.filter((s) => s !== overview);
   const quick = QUICK.filter((q) => isPathAvailable(q.to));
 
   const pending = home?.approvals.length ?? 0;
@@ -177,6 +179,9 @@ export function DesktopPage() {
             </Button>
           </div>
         </div>
+
+        {/* overview apps first: dashboards and reports */}
+        {overview && <AppSection {...overview} tiles={home?.tiles} />}
 
         {/* needs attention */}
         {home && home.alerts.length > 0 && (
@@ -214,18 +219,27 @@ export function DesktopPage() {
         )}
 
         {/* apps */}
-        {sections.map(({ group, items }) => (
-          <div key={group}>
-            <SectionTitle count={items.length}>{group}</SectionTitle>
-            {/* Fixed-size cards in regular rows (the grid column is 248px, cards never stretch). */}
-            <div className="grid grid-cols-[repeat(auto-fill,248px)] gap-2.5">
-              {items.map((app) => <AppTileCard key={app.id} app={app} stat={home?.tiles[app.id]} />)}
-            </div>
-          </div>
-        ))}
+        {rest.map((sec) => <AppSection key={sec.group} {...sec} tiles={home?.tiles} />)}
       </main>
 
       <ActivityPanel home={home} loading={isLoading && !home} tab={tab} setTab={setTab} onChanged={() => { setRefresh((r) => r + 1); void mutate(); }} />
+    </div>
+  );
+}
+
+/** Home page only: cards not shown here (still reachable from the menu), and cards shown in another section. */
+const HOME_HIDDEN = new Set(["account", "pos", "analytics"]);
+const HOME_GROUP: Record<string, string> = { admin: "Finance & Setup", settings: "Finance & Setup" };
+const GROUP_LABEL: Record<string, string> = { "Finance & Setup": "Accounts & Settings" };
+
+function AppSection({ label, items, tiles }: { label: string; items: AppTile[]; tiles?: HomeData["tiles"] }) {
+  return (
+    <div>
+      <SectionTitle count={items.length}>{label}</SectionTitle>
+      {/* Fixed-size cards in regular rows (the grid column is 248px, cards never stretch). */}
+      <div className="grid grid-cols-[repeat(auto-fill,248px)] gap-2.5">
+        {items.map((app) => <AppTileCard key={app.id} app={app} stat={tiles?.[app.id]} />)}
+      </div>
     </div>
   );
 }
@@ -315,7 +329,7 @@ function ActivityPanel({ home, loading, tab, setTab, onChanged }: { home?: HomeD
   if (loading) return <aside className="w-full flex-[1_1_340px] xl:max-w-[400px]"><Skeleton className="h-[540px] rounded-xl" /></aside>;
   if (!home) return null;
 
-  // Monday–Sunday of this week; later days stay empty.
+  // The last 7 days, today last.
   const week = home.days ?? [];
   const todayIso = isoDaysAgo(0);
   const peak = Math.max(...week.map((d) => d.count), 0);
@@ -340,7 +354,7 @@ function ActivityPanel({ home, loading, tab, setTab, onChanged }: { home?: HomeD
   };
 
   const feed = tab === "approvals" ? [] : home.activity.filter((a) => tab === "all" || a.category === tab);
-  const days = ["Today", "Yesterday", "Earlier this week"]
+  const days = ["Today", "Yesterday", "Earlier"]
     .map((label) => ({ label, items: feed.filter((a) => dayLabel(a.at) === label) }))
     .filter((d) => d.items.length);
 
@@ -367,21 +381,18 @@ function ActivityPanel({ home, loading, tab, setTab, onChanged }: { home?: HomeD
 
         <div>
           <div className="mb-1.5 flex justify-between text-[11px] text-muted-foreground">
-            <span>Entries per day, this week</span>
+            <span>Entries per day, last 7 days</span>
             <span>{weekTotal ? `${weekTotal} total${peakDay ? ` · peak ${dayName(peakDay.date)}` : ""}` : "None yet"}</span>
           </div>
           <div className="flex h-12 items-end gap-1.5">
-            {week.map((d) => {
-              const future = d.date > todayIso;
-              return (
-                <span
-                  key={d.date}
-                  title={`${dayName(d.date)} ${d.date} · ${d.count}`}
-                  className={cn("flex-1 rounded-sm", future ? "bg-muted" : "bg-primary", !future && (d.date === todayIso || (d.count === peak && peak) ? "opacity-100" : "opacity-40"))}
-                  style={{ height: `${peak && !future ? Math.max(6, (d.count / peak) * 100) : 6}%` }}
-                />
-              );
-            })}
+            {week.map((d) => (
+              <span
+                key={d.date}
+                title={`${dayName(d.date)} ${d.date} · ${d.count}`}
+                className={cn("flex-1 rounded-sm bg-primary", d.date === todayIso || (d.count === peak && peak) ? "opacity-100" : "opacity-40")}
+                style={{ height: `${peak ? Math.max(6, (d.count / peak) * 100) : 6}%` }}
+              />
+            ))}
           </div>
           <div className="mt-1 flex gap-1.5 text-[10px] text-muted-foreground">
             {week.map((d) => (
@@ -425,8 +436,9 @@ function ActivityPanel({ home, loading, tab, setTab, onChanged }: { home?: HomeD
                   <div className="flex items-start gap-2">
                     <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm">{a.doctype} {a.name}</div>
-                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                      <div className="truncate text-xs font-medium" title={`${a.doctype} ${a.name}`}>{a.name}</div>
+                      <div className="truncate text-[11px] text-muted-foreground">{a.doctype}</div>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
                         <span className="rounded bg-amber-500/10 px-1.5 text-amber-600 dark:text-amber-400">{a.state}</span>
                         {a.title && <span className="truncate">{a.title}</span>}
                         {a.amount ? <span>{money(a.amount)}</span> : null}
@@ -454,11 +466,14 @@ function ActivityPanel({ home, loading, tab, setTab, onChanged }: { home?: HomeD
                   <DocLink key={`${a.doctype}-${a.name}`} doctype={a.doctype} name={a.name} className="flex items-start gap-2 rounded-lg p-2 hover:bg-muted/50">
                     <span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", tone(cat.tone).bar)} />
                     <span className="min-w-0 flex-1">
-                      <span className="flex items-start justify-between gap-2">
-                        <span className="truncate text-sm">{a.doctype} {a.name}{a.title ? ` · ${a.title}` : ""}</span>
-                        <span className="shrink-0 text-[11px] text-muted-foreground">{ago(a.at)}</span>
+                      <span className="flex items-baseline justify-between gap-2">
+                        <span className="truncate text-xs font-medium" title={`${a.doctype} ${a.name}`}>{a.name}</span>
+                        <span className="shrink-0 text-[10px] text-muted-foreground">{ago(a.at)}</span>
                       </span>
-                      <span className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+                      <span className="block truncate text-[11px] text-muted-foreground" title={a.title || undefined}>
+                        {a.doctype}{a.title ? ` · ${a.title}` : ""}
+                      </span>
+                      <span className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground">
                         <span className={cn("rounded px-1.5", tone(cat.tone).soft, tone(cat.tone).text)}>{a.status}</span>
                         {a.amount ? <span>{money(a.amount)}</span> : null}
                         <Avatar name={a.owner_name} size="sm" className="!h-4 !w-4 !text-[8px]" />
