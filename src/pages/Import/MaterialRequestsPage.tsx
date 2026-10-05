@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useUrlFlag, isoDaysAgo } from "@/hooks/useUrlFlag";
 import toast from "react-hot-toast";
 import { ClipboardList, Plus, Eye, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
@@ -31,14 +32,17 @@ export function MaterialRequestsPage() {
   const [toDate, setToDate] = useState("");
   const [pendingDelete, setPendingDelete] = useState<MaterialRequest | null>(null);
 
+  // ?waiting=1 from the home page's "Needs attention" card — same rule as the card.
+  const waiting = useUrlFlag("waiting", "Waiting over 7 days");
   const filters = useMemo(() => {
     const f: unknown[][] = [...companyFilter(company), ["docstatus", "<", 2]];
+    if (waiting.active) f.push(["docstatus", "=", 1], ["status", "in", ["Pending", "Partially Ordered"]], ["transaction_date", "<", isoDaysAgo(7)]);
     if (type) f.push(["material_request_type", "=", type]);
     if (status) f.push(["status", "=", status]);
     if (fromDate) f.push(["transaction_date", ">=", fromDate]);
     if (toDate) f.push(["transaction_date", "<=", toDate]);
     return f;
-  }, [company, type, status, fromDate, toDate]);
+  }, [company, type, status, fromDate, toDate, waiting.active]);
 
   const { data, error, isLoading, mutate } = useMaterialRequests({ filters, limit: 500 });
   const { deleteDoc, loading: deleting } = useMaterialRequestMutations();
@@ -112,6 +116,7 @@ export function MaterialRequestsPage() {
         ]}
         filters={
           <FilterBar>
+            {waiting.chip}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-muted-foreground">Type</label>
               <Select value={type} onChange={(e) => setType(e.target.value)} className="h-8 w-40 text-xs">

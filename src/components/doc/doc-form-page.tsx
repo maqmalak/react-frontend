@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { ArrowLeft, Ban, ChevronDown, History, Copy, ExternalLink, Link as LinkIcon, Link2, PlusCircle, Printer, RefreshCw, Save, Send, Trash2 } from "lucide-react";
+import { ArrowLeft, Ban, ChevronDown, CircleDot, History, Copy, ExternalLink, Link as LinkIcon, Link2, PlusCircle, Printer, RefreshCw, Save, Send, Trash2 } from "lucide-react";
 import { DropdownMenu, type DropdownItem } from "@/components/ui/dropdown-menu";
-import { deskUrl, docUrl, printUrl } from "@/app/doc-routes";
+import { deskUrl, docUrl } from "@/app/doc-routes";
+import { PrintDialog } from "./print-dialog";
 import useSWR from "swr";
 import { GitBranch } from "lucide-react";
 import { postCall } from "@/services/frappe";
-import { DOC_MAKES } from "./doc-actions-menu";
+import { DOC_MAKES, DOC_STATUS_ACTIONS, runStatusAction } from "./doc-actions-menu";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/common/status-badge";
@@ -61,6 +62,7 @@ export function DocFormPage({ config }: { config: DocConfig }) {
   const [state, setState] = useState<FormState>({ values: {}, rows: {} });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [printing, setPrinting] = useState(false);
   const [confirm, setConfirm] = useState<"submit" | "cancel" | "delete" | null>(null);
   const [activeTab, setActiveTab] = useState<string>(() => searchParams.get("tab") ?? "");
   const loadedFor = useRef<string | null>(null);
@@ -401,12 +403,25 @@ export function DocFormPage({ config }: { config: DocConfig }) {
     if (create.length && other.length) actionItems.push({ label: "", separator: true });
     actionItems.push(...other.map(toItem));
     if (custom.length) actionItems.push({ label: "", separator: true });
+    // The desk's "Status" menu: Close / Hold / Stop / Re-open.
+    const current = { ...values, name: routeName, docstatus };
+    const statuses = (DOC_STATUS_ACTIONS[config.doctype] ?? []).filter((a) => a.show(current));
+    actionItems.push(...statuses.map((a): DropdownItem => ({
+      label: a.label,
+      icon: <CircleDot className="h-4 w-4" />,
+      onClick: () => void (async () => {
+        setBusy(true);
+        if (await runStatusAction(a, current)) { loadedFor.current = null; await mutate(); }
+        setBusy(false);
+      })(),
+    })));
+    if (statuses.length) actionItems.push({ label: "", separator: true });
     actionItems.push(
       { label: "Refresh", icon: <RefreshCw className="h-4 w-4" />, onClick: () => { loadedFor.current = null; void mutate(); } },
       ...(!config.single && canWrite
         ? [{ label: "Duplicate", icon: <Copy className="h-4 w-4" />, onClick: () => void runServer("Duplicate", () => postCall("mm_core.form_actions.duplicate", { doctype: config.doctype, name: routeName })) }]
         : []),
-      { label: "Print", icon: <Printer className="h-4 w-4" />, onClick: () => window.open(printUrl(config.doctype, routeName), "_blank") },
+      { label: "Print…", icon: <Printer className="h-4 w-4" />, onClick: () => setPrinting(true) },
       { label: "Open in ERPNext desk", icon: <ExternalLink className="h-4 w-4" />, onClick: () => window.open(deskUrl(config.doctype, config.single ? undefined : routeName), "_blank") },
       { label: "Copy link", icon: <LinkIcon className="h-4 w-4" />, onClick: () => void navigator.clipboard?.writeText(window.location.href).then(() => toast.success("Link copied")) },
     );
@@ -501,13 +516,13 @@ export function DocFormPage({ config }: { config: DocConfig }) {
       {(statusLabel || summary.length > 0) && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
           {statusLabel && (
-            <Card className="flex min-w-0 flex-col justify-between gap-2 p-4">
+            <Card className="flex min-w-0 flex-col justify-between gap-1.5 px-3 py-2.5">
               <span className="text-xs font-medium text-muted-foreground">Status</span>
               <StatusBadge status={statusLabel} className="w-fit" />
             </Card>
           )}
           {summary.map((s) => (
-            <StatCard key={s.label} label={s.label} value={s.value} tone={s.tone ?? "primary"} icon={<Icon className="h-4 w-4" />} />
+            <StatCard key={s.label} label={s.label} value={s.value} tone={s.tone ?? "primary"} icon={<Icon className="h-4 w-4" />} size="sm" />
           ))}
         </div>
       )}
@@ -615,6 +630,7 @@ export function DocFormPage({ config }: { config: DocConfig }) {
         loading={busy}
         onConfirm={() => void run("delete")}
       />
+      {routeName && !isNew && <PrintDialog doctype={config.doctype} name={routeName} open={printing} onClose={() => setPrinting(false)} />}
     </div>
   );
 }

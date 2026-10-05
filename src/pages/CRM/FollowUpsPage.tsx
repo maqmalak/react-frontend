@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import type { CrmTask } from "@/types/frappe";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
+import { useUrlFlag, nowLocal } from "@/hooks/useUrlFlag";
 import { useCrmReferenceLabels, type CrmReference } from "@/hooks/useCrmReferenceLabels";
 import { htmlToText } from "@/utils/text";
 
@@ -67,6 +68,8 @@ const baseColumns: ColumnDef<FollowUpRow>[] = [
 
 export default function FollowUpsPage() {
   const { currentUser } = useAuth();
+  // ?overdue=1 (home page "Overdue follow-ups"): open follow-ups assigned to me, past their due time.
+  const overdue = useUrlFlag("overdue", "Overdue, assigned to me");
   const { referenceMap } = useCrmReferenceLabels();
   const columns = useMemo(() => [...referenceColumns(referenceMap), ...baseColumns], [referenceMap]);
 
@@ -80,7 +83,12 @@ export default function FollowUpsPage() {
     // created there doesn't also show up as a duplicate row on this list.
     // A blank/legacy task_category still passes this filter, so no
     // pre-existing follow-up disappears.
-    filters: [["task_category", "!=", "Task"]],
+    filters: [
+      ["task_category", "!=", "Task"],
+      ...(overdue.active
+        ? [["status", "in", ["Backlog", "Todo", "In Progress"]], ["assigned_to", "=", currentUser ?? ""], ["due_date", "<", nowLocal()]]
+        : []),
+    ],
     fields: ["name", "title", "task_category", "priority", "status", "start_date", "due_date", "description", "assigned_to", "reference_doctype", "reference_docname", "modified"],
     formFields: [
       { fieldname: "title", label: "Subject", fieldtype: "Data", reqd: true },
@@ -145,5 +153,10 @@ export default function FollowUpsPage() {
     newLabel: "New Follow-up",
   };
 
-  return <CrmManagementPage config={config} />;
+  return (
+    <>
+      {overdue.chip && <div className="mb-3">{overdue.chip}</div>}
+      <CrmManagementPage key={overdue.active ? "overdue" : "all"} config={config} />
+    </>
+  );
 }

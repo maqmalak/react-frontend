@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useUrlFlag, isoDaysAgo } from "@/hooks/useUrlFlag";
 import toast from "react-hot-toast";
 import { ShoppingCart, Plus, Eye, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
@@ -42,14 +43,20 @@ export function PurchaseOrdersPage() {
   const [toDate, setToDate] = useState("");
   const [pendingDelete, setPendingDelete] = useState<PurchaseOrder | null>(null);
 
+  // ?late=1 from the home page's "Needs attention" card — same rule as the card.
+  const late = useUrlFlag("late", "Past due date");
+  // ?running=1 (home page "Purchase orders running"): open orders still to receive or bill.
+  const running = useUrlFlag("running", "Running (to receive / bill)");
   const filters = useMemo(() => {
     const f: unknown[][] = [...companyFilter(company), ["docstatus", "<", 2]];
+    if (running.active) f.push(["docstatus", "=", 1], ["status", "in", ["To Receive and Bill", "To Receive", "To Bill"]]);
+    if (late.active) f.push(["docstatus", "=", 1], ["status", "in", ["To Receive and Bill", "To Receive"]], ["schedule_date", "<", isoDaysAgo(0)]);
     if (supplier) f.push(["supplier", "=", supplier]);
     if (status) f.push(["status", "=", status]);
     if (fromDate) f.push(["transaction_date", ">=", fromDate]);
     if (toDate) f.push(["transaction_date", "<=", toDate]);
     return f;
-  }, [company, supplier, status, fromDate, toDate]);
+  }, [company, supplier, status, fromDate, toDate, late.active, running.active]);
 
   const { data, error, isLoading, mutate } = usePurchaseOrders({ filters, limit: 500 });
   const { deleteDoc, loading: deleting } = usePurchaseOrderMutations();
@@ -155,6 +162,8 @@ export function PurchaseOrdersPage() {
         ]}
         filters={
           <FilterBar>
+            {late.chip}
+            {running.chip}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-muted-foreground">Supplier</label>
               <Select

@@ -535,6 +535,8 @@ export const WORK_ORDER_CONFIG: DocConfig = {
   icon: Factory,
   submittable: true,
   listFields: ["name", "production_item", "item_name", "qty", "produced_qty", "status", "planned_start_date", "planned_end_date", "bom_no", "sales_order", "production_plan", "docstatus", "modified"],
+  // ?running=1 (home page "Work orders running"): in process on the floor.
+  urlFlags: [{ param: "running", label: "Running (in process)", filters: () => [["docstatus", "=", 1], ["status", "=", "In Process"]] }],
   columns: [
     nameCol("Work Order", (r) => r.item_name || r.production_item),
     textCol("bom_no", "BOM"),

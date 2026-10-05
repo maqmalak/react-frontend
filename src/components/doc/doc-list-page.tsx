@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate , useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Plus, Eye, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
@@ -51,15 +51,28 @@ export function DocListPage({ config }: { config: DocConfig }) {
     return f;
   }, [scoped, company, config.baseFilters, config.submittable]);
 
+  // URL flags (config.urlFlags, e.g. ?expiring=1 from the home page) — each shows a removable chip.
+  const [urlParams, setUrlParams] = useSearchParams();
+  const { currentUser } = useAuth();
+  const activeFlags = (config.urlFlags ?? []).filter((fl) => urlParams.get(fl.param) === "1");
+  const flagKey = activeFlags.map((fl) => fl.param).join(",");
+  const clearFlag = (param: string) => {
+    const next = new URLSearchParams(urlParams);
+    next.delete(param);
+    setUrlParams(next, { replace: true });
+  };
+
   // …plus whatever the user picked.
   const filters = useMemo(() => {
     const f = [...baseFilters];
+    activeFlags.forEach((fl) => f.push(...fl.filters({ user: currentUser ?? undefined })));
     if (status && config.statusField) f.push([config.statusField, "=", status]);
     if (config.dateField && from) f.push([config.dateField, ">=", from]);
     if (config.dateField && to) f.push([config.dateField, "<=", to]);
     Object.entries(extra).forEach(([field, value]) => value && f.push([field, "=", value]));
     return f;
-  }, [baseFilters, status, from, to, extra, config.statusField, config.dateField]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseFilters, status, from, to, extra, config.statusField, config.dateField, flagKey, currentUser]);
 
   const { data, error, isLoading, mutate } = useDocList(config.doctype, {
     fields: config.listFields,
@@ -164,8 +177,17 @@ export function DocListPage({ config }: { config: DocConfig }) {
             : []),
         ]}
         filters={
-          (config.dateField || (config.filters?.length ?? 0) > 0 || hasFilters) && (
+          (config.dateField || (config.filters?.length ?? 0) > 0 || hasFilters || activeFlags.length > 0) && (
             <FilterBar>
+              {activeFlags.map((fl) => (
+                <div key={fl.param} className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-muted-foreground">Showing</label>
+                  <button type="button" onClick={() => clearFlag(fl.param)} title="Remove this filter"
+                    className="inline-flex h-8 items-center gap-1.5 rounded-md border border-rose-500/40 bg-rose-500/10 px-2.5 text-xs font-medium text-rose-600 hover:bg-rose-500/20 dark:text-rose-400">
+                    {fl.label} <span aria-hidden>✕</span>
+                  </button>
+                </div>
+              ))}
               {config.filters?.map((f) => (
                 <div key={f.field} className="flex flex-col gap-1">
                   <label className="text-xs font-medium text-muted-foreground">{f.label}</label>

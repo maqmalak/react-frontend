@@ -115,6 +115,8 @@ export interface DocConfig {
   filters?: { field: string; label: string; options?: string[]; optionsFrom?: string }[];
   /** Always applied (e.g. hide template tasks). */
   baseFilters?: unknown[][];
+  /** Filters switched on by a URL flag (`?<param>=1`), e.g. from the home page's "Needs attention" cards. */
+  urlFlags?: { param: string; label: string; filters: (ctx: { user?: string }) => unknown[][] }[];
   /** Company-scoped? Defaults to true when the form has a `company` field. */
   companyScoped?: boolean;
   /** Extra UI above the table (e.g. a view switcher). */

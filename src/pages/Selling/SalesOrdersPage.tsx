@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useUrlFlag, isoDaysAgo } from "@/hooks/useUrlFlag";
 import toast from "react-hot-toast";
 import { Handshake, Plus, Eye, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
@@ -42,14 +43,17 @@ export function SalesOrdersPage() {
   const [toDate, setToDate] = useState("");
   const [pendingDelete, setPendingDelete] = useState<SalesOrder | null>(null);
 
+  // ?late=1 from the home page's "Needs attention" card — same rule as the card.
+  const late = useUrlFlag("late", "Past delivery date");
   const filters = useMemo(() => {
     const f: unknown[][] = [...companyFilter(company), ["docstatus", "<", 2]];
+    if (late.active) f.push(["docstatus", "=", 1], ["status", "in", ["To Deliver and Bill", "To Deliver"]], ["delivery_date", "<", isoDaysAgo(0)]);
     if (customer) f.push(["customer", "=", customer]);
     if (status) f.push(["status", "=", status]);
     if (fromDate) f.push(["transaction_date", ">=", fromDate]);
     if (toDate) f.push(["transaction_date", "<=", toDate]);
     return f;
-  }, [company, customer, status, fromDate, toDate]);
+  }, [company, customer, status, fromDate, toDate, late.active]);
 
   const { data, error, isLoading, mutate } = useSalesOrders({ filters, limit: 500 });
   const { deleteDoc, loading: deleting } = useSalesOrderMutations();
@@ -135,6 +139,7 @@ export function SalesOrdersPage() {
         ]}
         filters={
           <FilterBar>
+            {late.chip}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-muted-foreground">Customer</label>
               <Select value={customer} onChange={(e) => setCustomer(e.target.value)} className="h-8 w-44 text-xs">

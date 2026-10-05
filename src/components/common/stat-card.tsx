@@ -25,10 +25,13 @@ export interface StatCardProps {
   onClick?: () => void;
   /** Highlights the card as the currently applied filter (only meaningful with `onClick`). */
   active?: boolean;
+  /** "sm": compact card (document page headers) — smaller value text so long names fit. */
+  size?: "sm" | "md";
 }
 
 /** Compact KPI card used across CRM list pages. */
-export function StatCard({ label, value, icon, tone = "primary", valueSuffix, onClick, active }: StatCardProps) {
+export function StatCard({ label, value, icon, tone = "primary", valueSuffix, onClick, active, size = "md" }: StatCardProps) {
+  const sm = size === "sm";
   const interactive = onClick
     ? {
         role: "button" as const,
@@ -47,19 +50,20 @@ export function StatCard({ label, value, icon, tone = "primary", valueSuffix, on
     <Card
       {...interactive}
       className={cn(
-        "flex min-w-0 flex-col justify-between gap-2 p-4",
+        "flex min-w-0 flex-col justify-between",
+        sm ? "gap-1.5 px-3 py-2.5" : "gap-2 p-4",
         onClick && "hover-lift cursor-pointer select-none",
         active && "border-primary ring-2 ring-primary/40",
       )}
     >
       <div className="flex min-w-0 items-center justify-between gap-1.5">
         <span className="min-w-0 truncate text-xs font-medium text-muted-foreground">{label}</span>
-        <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", STAT_TONES[tone])}>
+        <span className={cn("flex shrink-0 items-center justify-center rounded-lg", sm ? "h-6 w-6 [&_svg]:h-3.5 [&_svg]:w-3.5" : "h-8 w-8", STAT_TONES[tone])}>
           {icon}
         </span>
       </div>
-      <p className="flex min-w-0 items-baseline gap-1 text-2xl font-bold leading-none tabular-nums">
-        <span className="min-w-0 flex-1 truncate">{value}</span>
+      <p className={cn("flex min-w-0 items-baseline gap-1 leading-tight tabular-nums", sm ? "text-sm font-semibold" : "text-2xl font-bold leading-none")}>
+        <span className="min-w-0 flex-1 truncate" title={typeof value === "string" || typeof value === "number" ? String(value) : undefined}>{value}</span>
         {valueSuffix && <span className="text-xs font-medium text-muted-foreground">{valueSuffix}</span>}
       </p>
     </Card>

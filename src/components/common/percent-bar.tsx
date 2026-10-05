@@ -41,11 +41,13 @@ export function PercentBar({
 }) {
   const pct = Math.max(0, Math.min(100, asNumber(value)));
   const resolved = tone ?? toneFromPercent(pct);
+  // Never round up to "100%" — 99.86% delivered still has qty pending, so show "99.8%".
+  const label = pct >= 100 || pct === Math.floor(pct) ? `${pct.toFixed(0)}%` : `${(Math.floor(pct * 10) / 10).toFixed(1)}%`;
   const heights = { sm: "h-1.5", md: "h-2", lg: "h-2.5" } as const;
   const widths = { sm: "w-16", md: "w-24", lg: "w-32" } as const;
 
   return (
-    <div className={cn("flex items-center gap-2", className)} title={`${pct.toFixed(0)}%`}>
+    <div className={cn("flex items-center gap-2", className)} title={label}>
       <div className={cn("overflow-hidden rounded-full bg-muted", heights[size], widths[size], barClassName)}>
         <div
           className={cn("h-full rounded-full transition-all duration-500", TONE[resolved])}
@@ -54,7 +56,7 @@ export function PercentBar({
       </div>
       {showLabel && (
         <span className="min-w-[2.5rem] text-right text-xs tabular-nums text-muted-foreground">
-          {pct.toFixed(0)}%
+          {label}
         </span>
       )}
     </div>

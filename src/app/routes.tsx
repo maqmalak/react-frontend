@@ -191,6 +191,8 @@ const JournalEntriesPage = lazy(() => import("@/pages/Accounting/JournalEntriesP
 const JournalEntryFormPage = lazy(() => import("@/pages/Accounting/JournalEntryFormPage").then((m) => ({ default: m.JournalEntryFormPage })));
 const PaymentEntriesPage = lazy(() => import("@/pages/Accounting/PaymentEntriesPage").then((m) => ({ default: m.PaymentEntriesPage })));
 const PaymentEntryFormPage = lazy(() => import("@/pages/Accounting/PaymentEntryFormPage").then((m) => ({ default: m.PaymentEntryFormPage })));
+const TodoListPage = lazy(() => Promise.all([import("@/components/doc/doc-list-page"), import("@/pages/Todos/todo-config")]).then(([m, c]) => ({ default: () => <m.DocListPage config={c.TODO_CONFIG} /> })));
+const TodoFormPage = lazy(() => Promise.all([import("@/components/doc/doc-form-page"), import("@/pages/Todos/todo-config")]).then(([m, c]) => ({ default: () => <m.DocFormPage config={c.TODO_CONFIG} /> })));
 const ReportsHubPage = lazy(() => import("@/pages/Reports/ReportsHubPage").then((m) => ({ default: m.ReportsHubPage })));
 const ReportRunPage = lazy(() => import("@/pages/Reports/ReportRunPage").then((m) => ({ default: m.ReportRunPage })));
 const ReportGeneralLedgerPage = lazy(() => import("@/pages/Accounting/ReportGeneralLedgerPage").then((m) => ({ default: m.ReportGeneralLedgerPage })));
@@ -296,6 +298,8 @@ export function AppRoutes() {
         <Route path="inventory/reports/stock-ledger" element={<Suspense fallback={<FullPageLoader />}><ReportStockLedgerPage /></Suspense>} />
 
         {/* Reports */}
+        <Route path="todos" element={<Suspense fallback={<FullPageLoader />}><TodoListPage /></Suspense>} />
+        <Route path="todos/:name" element={<Suspense fallback={<FullPageLoader />}><TodoFormPage /></Suspense>} />
         <Route path="reports" element={<Suspense fallback={<FullPageLoader />}><ReportsHubPage /></Suspense>} />
         <Route path="reports/run/:key" element={<Suspense fallback={<FullPageLoader />}><ReportRunPage /></Suspense>} />
         <Route path="reports/import" element={<ComingSoonPage title="Import Reports" />} />

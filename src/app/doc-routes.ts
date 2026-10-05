@@ -3,6 +3,7 @@
  * Anything not listed opens in the ERPNext desk (`/app/<doctype-slug>/<name>`, proxied in dev).
  */
 export const DOC_ROUTES: Record<string, string> = {
+  ToDo: "/todos/",
   // Buying / import
   "Material Request": "/import/material-requests/",
   "Request for Quotation": "/import/rfqs/",

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useUrlFlag, isoDaysAgo } from "@/hooks/useUrlFlag";
 import toast from "react-hot-toast";
 import { Package, Plus, Eye, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
@@ -42,14 +43,17 @@ export function PurchaseReceiptsPage() {
   const [toDate, setToDate] = useState("");
   const [pendingDelete, setPendingDelete] = useState<PurchaseReceipt | null>(null);
 
+  // ?tobill=1 from the home page's "Needs attention" card — submitted, still to bill, older than 7 days.
+  const tobill = useUrlFlag("tobill", "Not yet billed");
   const filters = useMemo(() => {
     const f: unknown[][] = [...companyFilter(company), ["docstatus", "<", 2]];
+    if (tobill.active) f.push(["docstatus", "=", 1], ["status", "=", "To Bill"], ["posting_date", "<", isoDaysAgo(7)]);
     if (supplier) f.push(["supplier", "=", supplier]);
     if (status) f.push(["status", "=", status]);
     if (fromDate) f.push(["posting_date", ">=", fromDate]);
     if (toDate) f.push(["posting_date", "<=", toDate]);
     return f;
-  }, [company, supplier, status, fromDate, toDate]);
+  }, [company, supplier, status, fromDate, toDate, tobill.active]);
 
   const { data, error, isLoading, mutate } = usePurchaseReceipts({ filters, limit: 500 });
   const { deleteDoc, loading: deleting } = usePurchaseReceiptMutations();
@@ -144,6 +148,7 @@ export function PurchaseReceiptsPage() {
         ]}
         filters={
           <FilterBar>
+            {tobill.chip}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-muted-foreground">Supplier</label>
               <Select

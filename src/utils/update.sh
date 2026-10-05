@@ -25,6 +25,10 @@
 #      bom_category) need no extra step — micromax's before_migrate hook
 #      runs micromax.install.make_custom_fields on every migrate.
 #
+#   A4. Daily demo data — when the tenant file sets DEMO_DAILY_COMPANY, writes it to the
+#      site config so micromax's 23:00 cron (micromax.demo_daily) keeps that company's
+#      demo data current. DEMO_DAILY_RUN=1 also generates the missing days right away.
+#
 #   (B2, after the frontend build: patches the React nginx server block so
 #   /app/... and /printview reach Frappe — "Open in desk", Print, POS Awesome.)
 #
@@ -69,6 +73,7 @@
 #   sudo bash update.sh                        # backend update + frontend
 #   sudo UPDATE_BACKEND=0 bash update.sh       # frontend only
 #   sudo RUN_BACKFILLS=0 bash update.sh        # skip A2's indexes/backfills
+#   sudo DEMO_DAILY_RUN=1 bash update.sh       # also catch up the daily demo data now (A4)
 #   sudo SHIFT_GRACE_MINUTES=15 SHIFT_GRACE_FORCE=1 bash update.sh
 #                                              # (re)set every shift's grace to 15 min
 #   sudo POSAWESOME_REPO=https://github.com/<you>/posawesome.git bash update.sh
@@ -527,6 +532,22 @@ A2EOF
   as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' clear-cache"
 fi
 
+# ======================================== A4. Daily demo data (micromax.demo_daily)
+# The tenant file's DEMO_DAILY_COMPANY turns on the 23:00 daily generator for this site (site_config
+# demo_daily_company); empty = off (the school tenant). DEMO_DAILY_RUN=1 also generates the missing days now
+# (catch-up up to today, incl. a month's payroll that never ran) instead of waiting for tonight.
+if [[ "$UPDATE_BACKEND" == "1" && -n "${DEMO_DAILY_COMPANY:-}" ]] && \
+   grep -qx "$MICROMAX_APP" <<<"$(as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' list-apps" 2>/dev/null | awk '{print $1}' || true)"; then
+  log "A4. Daily demo data on '${SITE_NAME}' for company '${DEMO_DAILY_COMPANY}' (cron 23:00)"
+  as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' set-config demo_daily_company '${DEMO_DAILY_COMPANY}'"
+  if [[ "${DEMO_DAILY_RUN:-0}" == "1" ]]; then
+    log "A4. Generating the missing days now (can take a few minutes per day)"
+    as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' execute micromax.demo_daily.run --kwargs \"{'company': '${DEMO_DAILY_COMPANY}'}\"" \
+      || warn "A4. Daily demo run failed — see the output above; it retries tonight at 23:00."
+  fi
+  as_frappe_sh "cd '$BENCH_DIR' && '$BENCH_BIN' --site '$SITE_NAME' execute micromax.demo_daily.status --kwargs \"{'company': '${DEMO_DAILY_COMPANY}'}\"" || true
+fi
+
 # ===================================== A3. Desk domain HTTPS kept by bench
 # After `certbot --nginx -d <desk domain>`, store the certificate in the site's domain mapping so the
 # next `bench setup nginx` keeps HTTPS (lib/react-nginx.sh: map_desk_domain). No-op once done.
@@ -724,6 +745,7 @@ cat <<EOF
 
   Backend:   $([[ "$REMOVE_APPAREL" == "1" ]] && echo "handled by the app swap (C)" || { [[ "$UPDATE_BACKEND" == "1" ]] && echo "'${MICROMAX_APP}' updated + migrated (A) — see any WARN above if it was skipped" || echo "not updated this run (UPDATE_BACKEND=0)"; })
   New apps:  ${EXTRA_APPS_DONE[*]:-none this run} (A0 — fetched/updated + installed on the site)
+  Demo data: $([[ "$UPDATE_BACKEND" == "1" && -n "${DEMO_DAILY_COMPANY:-}" ]] && echo "daily at 23:00 for '${DEMO_DAILY_COMPANY}' (A4)$([[ "${DEMO_DAILY_RUN:-0}" == "1" ]] && echo ", caught up now")" || echo "off")
   Backfills: $([[ "$UPDATE_BACKEND" == "1" && "$RUN_BACKFILLS" == "1" ]] && echo "GL indexes, BOM categories, Production Plan raw materials (A2)" || echo "skipped")
   HR:        $([[ "$UPDATE_BACKEND" == "1" && "$RUN_BACKFILLS" == "1" ]] && echo "check-in indexes, shift grace ${SHIFT_GRACE_MINUTES} min (once per site unless SHIFT_GRACE_FORCE=1), endpoint smoke test — see A2 output" || echo "skipped")
   Frontend:  $([[ -n "$FRONTEND_REPO" ]] && echo "${FRONTEND_DIR} (rebuilt, served by nginx from dist/)" || echo "none for this tenant")

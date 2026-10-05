@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { FileText, Plus, Eye, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
@@ -15,7 +15,7 @@ import { useSupplierOptions } from "@/hooks/useSuppliers";
 import { useCompanyContext, companyFilter } from "@/hooks/useCompanyContext";
 import { notifyDataChanged } from "@/hooks/useRealtime";
 import { formatMoney } from "@/utils/currency";
-import { formatDate } from "@/utils/dates";
+import { formatDate, todayISO } from "@/utils/dates";
 import { humanizeError } from "@/services/frappe";
 import type { PurchaseInvoice } from "@/types/frappe";
 
@@ -43,14 +43,24 @@ export function PurchaseInvoicesPage() {
   const [toDate, setToDate] = useState("");
   const [pendingDelete, setPendingDelete] = useState<PurchaseInvoice | null>(null);
 
+  // ?overdue=1 (from the home page's "Overdue …" card): unpaid balance past its due date — the same rule as the card.
+  const [params, setParams] = useSearchParams();
+  const overdue = params.get("overdue") === "1";
+  const clearOverdue = () => {
+    const next = new URLSearchParams(params);
+    next.delete("overdue");
+    setParams(next, { replace: true });
+  };
+
   const filters = useMemo(() => {
     const f: unknown[][] = [...companyFilter(company), ["docstatus", "<", 2]];
+    if (overdue) f.push(["docstatus", "=", 1], ["outstanding_amount", ">", 0], ["due_date", "<", todayISO()]);
     if (supplier) f.push(["supplier", "=", supplier]);
     if (status) f.push(["status", "=", status]);
     if (fromDate) f.push(["posting_date", ">=", fromDate]);
     if (toDate) f.push(["posting_date", "<=", toDate]);
     return f;
-  }, [company, supplier, status, fromDate, toDate]);
+  }, [company, supplier, status, fromDate, toDate, overdue]);
 
   const { data, error, isLoading, mutate } = usePurchaseInvoices({ filters, limit: 500 });
   const { deleteDoc, loading: deleting } = usePurchaseInvoiceMutations();
@@ -151,6 +161,14 @@ export function PurchaseInvoicesPage() {
         ]}
         filters={
           <FilterBar>
+            {overdue && (
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-muted-foreground">Showing</label>
+                <button type="button" onClick={clearOverdue} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-rose-500/40 bg-rose-500/10 px-2.5 text-xs font-medium text-rose-600 hover:bg-rose-500/20 dark:text-rose-400" title="Show all invoices">
+                  Overdue only <span aria-hidden>✕</span>
+                </button>
+              </div>
+            )}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-muted-foreground">Supplier</label>
               <Select

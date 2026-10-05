@@ -9,6 +9,7 @@ import { asNumber } from "@/utils/cn";
 import { formatMoney } from "@/utils/currency";
 import { Tile } from "@/pages/Production/plan-panels";
 import { PAYMENT_SCHEDULE, TAXES, computeSelling, customerEffect, itemsSpec, taxesFromTemplate, termsFields, totalsFields } from "./selling-configs";
+import { isoDaysAgo } from "@/hooks/useUrlFlag";
 
 const TARGETS = (tabLabel: string): ChildTableSpec => ({
   tab: tabLabel,
@@ -47,6 +48,8 @@ export const QUOTATION_CONFIG: DocConfig = {
   icon: FileSignature,
   submittable: true,
   listFields: ["name", "quotation_to", "party_name", "customer_name", "transaction_date", "valid_till", "grand_total", "currency", "status", "docstatus", "modified"],
+  // ?expiring=1 (home page "Quotations expiring this week"): open quotes whose validity ends within 7 days.
+  urlFlags: [{ param: "expiring", label: "Expiring this week", filters: () => [["docstatus", "=", 1], ["status", "in", ["Open", "Replied"]], ["valid_till", "between", [isoDaysAgo(0), isoDaysAgo(-7)]]] }],
   columns: [nameCol("Quotation", (r) => r.customer_name || r.party_name), dateCol("transaction_date", "Date"), dateCol("valid_till", "Valid Till"), moneyCol("grand_total", "Total"), statusCol("status", "Status", "Draft")],
   searchFields: ["name", "party_name", "customer_name"],
   statusField: "status",
