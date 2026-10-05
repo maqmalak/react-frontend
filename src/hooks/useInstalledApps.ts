@@ -20,6 +20,10 @@ export const ROUTE_APPS: { prefix: string; apps: string[] }[] = [
   { prefix: "/analytics/pnl-simulator", apps: ["micromax"] },
   { prefix: "/dashboard/export", apps: ["micromax"] },
   { prefix: "/export/dashboard", apps: ["micromax"] },
+  { prefix: "/reports/import", apps: ["micromax"] },
+  { prefix: "/reports/export", apps: ["micromax"] },
+  { prefix: "/reports/shipments", apps: ["micromax"] },
+  { prefix: "/reports/lc", apps: ["micromax"] },
 ];
 
 /** Analytics modules (mm_core.dashboards) built on MicroMax-only doctypes — mirrors MICROMAX_MODULES there. */

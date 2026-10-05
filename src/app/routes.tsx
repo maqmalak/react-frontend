@@ -191,6 +191,8 @@ const JournalEntriesPage = lazy(() => import("@/pages/Accounting/JournalEntriesP
 const JournalEntryFormPage = lazy(() => import("@/pages/Accounting/JournalEntryFormPage").then((m) => ({ default: m.JournalEntryFormPage })));
 const PaymentEntriesPage = lazy(() => import("@/pages/Accounting/PaymentEntriesPage").then((m) => ({ default: m.PaymentEntriesPage })));
 const PaymentEntryFormPage = lazy(() => import("@/pages/Accounting/PaymentEntryFormPage").then((m) => ({ default: m.PaymentEntryFormPage })));
+const ReportsHubPage = lazy(() => import("@/pages/Reports/ReportsHubPage").then((m) => ({ default: m.ReportsHubPage })));
+const ReportRunPage = lazy(() => import("@/pages/Reports/ReportRunPage").then((m) => ({ default: m.ReportRunPage })));
 const ReportGeneralLedgerPage = lazy(() => import("@/pages/Accounting/ReportGeneralLedgerPage").then((m) => ({ default: m.ReportGeneralLedgerPage })));
 const ReportTrialBalancePage = lazy(() => import("@/pages/Accounting/ReportTrialBalancePage").then((m) => ({ default: m.ReportTrialBalancePage })));
 const ReportBalanceSheetPage = lazy(() => import("@/pages/Accounting/ReportBalanceSheetPage").then((m) => ({ default: m.ReportBalanceSheetPage })));
@@ -294,6 +296,8 @@ export function AppRoutes() {
         <Route path="inventory/reports/stock-ledger" element={<Suspense fallback={<FullPageLoader />}><ReportStockLedgerPage /></Suspense>} />
 
         {/* Reports */}
+        <Route path="reports" element={<Suspense fallback={<FullPageLoader />}><ReportsHubPage /></Suspense>} />
+        <Route path="reports/run/:key" element={<Suspense fallback={<FullPageLoader />}><ReportRunPage /></Suspense>} />
         <Route path="reports/import" element={<ComingSoonPage title="Import Reports" />} />
         <Route path="reports/export" element={<ComingSoonPage title="Export Reports" />} />
         <Route path="reports/shipments" element={<ComingSoonPage title="Shipment Reports" />} />

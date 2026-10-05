@@ -425,8 +425,27 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
     },
   ],
   reports: [
+    { title: "Reports", items: [{ label: "All Reports", to: "/reports", icon: BarChart3 }] },
     {
-      title: "Reports",
+      title: "Accounting",
+      items: [
+        { label: "General Ledger", to: "/accounting/reports/general-ledger", icon: FileText },
+        { label: "Trial Balance", to: "/accounting/reports/trial-balance", icon: FileText },
+        { label: "Accounts Receivable", to: "/reports/run/accounts-receivable", icon: FileText },
+        { label: "Accounts Payable", to: "/reports/run/accounts-payable", icon: FileText },
+      ],
+    },
+    {
+      title: "Trade",
+      items: [
+        { label: "Sales Register", to: "/reports/run/sales-register", icon: FileText },
+        { label: "Purchase Register", to: "/reports/run/purchase-register", icon: FileText },
+        { label: "Stock Balance", to: "/reports/run/stock-balance", icon: FileText },
+      ],
+    },
+    {
+      // MicroMax import / export registers (micromax-only, see ROUTE_APPS).
+      title: "Import & Export",
       items: [
         { label: "Import Reports", to: "/reports/import", icon: BarChart3 },
         { label: "Export Reports", to: "/reports/export", icon: BarChart3 },

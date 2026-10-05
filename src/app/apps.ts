@@ -113,10 +113,9 @@ export const APPS: AppTile[] = [
     group: "Overview",
     description: "Audit-ready registers and query reports across every module.",
     icon: BarChart3,
-    to: "/reports/import",
-    apps: ["micromax"],
+    to: "/reports",
     colorClass: "bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400",
-    features: ["Stock & GL ledgers", "Ageing analysis", "Shipment registers", "Custom query reports"],
+    features: ["Financial statements & ledgers", "Receivable / payable ageing", "Sales, purchase & stock registers", "Attendance, leave & salary"],
   },
   // ------------------------------------------------------------------ Finance & Setup
   {
