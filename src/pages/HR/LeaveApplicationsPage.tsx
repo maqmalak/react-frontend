@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
-  CalendarOff, CalendarPlus2, CheckCircle2, Clock, ExternalLink, Loader2, Plane, Plus, Scale, Users2, XCircle,
+  CalendarOff, CalendarPlus2, CheckCircle2, Clock, ExternalLink, FileText, Loader2, Plane, Plus, Scale, Users2, XCircle,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { ChartCard } from "@/components/charts/chart-card";
@@ -162,6 +162,7 @@ function DecideButtons({ name, busy, decide }: { name: string; busy: string | nu
 }
 
 export default function LeaveApplicationsPage() {
+  const navigate = useNavigate();
   const { company } = useCompanyContext();
   const { employee } = useEmployeeQueryFilter();
   const period = usePeriod("month");
@@ -458,7 +459,8 @@ export default function LeaveApplicationsPage() {
                     { label: "Reject", icon: <XCircle className="h-4 w-4" />, onClick: () => void decide(r.name, "Rejected"), destructive: true },
                   ]
                 : []),
-              { label: "Open in ERPNext", icon: <ExternalLink className="h-4 w-4" />, onClick: () => window.open(`/app/leave-application/${encodeURIComponent(r.name)}`, "_blank") },
+              { label: "Open", icon: <FileText className="h-4 w-4" />, onClick: () => navigate(`/hr/leave-applications/${encodeURIComponent(r.name)}`) },
+              { label: "Open in ERPNext", icon: <ExternalLink className="h-4 w-4" />, onClick: () => window.open(`/desk/leave-application/${encodeURIComponent(r.name)}`, "_blank") },
             ]}
             emptyTitle="No leave applications"
             emptyDescription="Nothing matches this period and these filters."

@@ -479,9 +479,11 @@ export function AppRoutes() {
         <Route path="hr/branches" element={<Suspense fallback={<FullPageLoader />}><HrBranchesPage /></Suspense>} />
         <Route path="hr/attendance" element={<Suspense fallback={<FullPageLoader />}><HrAttendancePage /></Suspense>} />
         <Route path="hr/leave-applications" element={<Suspense fallback={<FullPageLoader />}><HrLeaveApplicationsPage /></Suspense>} />
+        <Route path="hr/leave-applications/:name" element={<Suspense fallback={<FullPageLoader />}><HrDocPage which="leaveApplication" form /></Suspense>} />
         <Route path="hr/leave-allocations" element={<Suspense fallback={<FullPageLoader />}><HrLeaveAllocationsPage /></Suspense>} />
         <Route path="hr/holiday-lists" element={<Suspense fallback={<FullPageLoader />}><HrHolidayListsPage /></Suspense>} />
         <Route path="hr/expense-claims" element={<Suspense fallback={<FullPageLoader />}><HrExpenseClaimsPage /></Suspense>} />
+        <Route path="hr/expense-claims/:name" element={<Suspense fallback={<FullPageLoader />}><HrDocPage which="expenseClaim" form /></Suspense>} />
         <Route path="hr/advances" element={<Suspense fallback={<FullPageLoader />}><HrEmployeeAdvancesPage /></Suspense>} />
         <Route path="hr/gratuity" element={<Suspense fallback={<FullPageLoader />}><HrGratuityPage /></Suspense>} />
 

@@ -50,7 +50,7 @@ export const POS_INVOICE_CONFIG: DocConfig = {
   subtitle: "Counter sales — consolidated into sales invoices when the shift closes",
   icon: ShoppingCart,
   listHeaderExtra: (
-    <a href="/app/posapp" target="_blank" rel="noreferrer"
+    <a href="/desk/posapp" target="_blank" rel="noreferrer"
       className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90">
       <ShoppingCart className="h-4 w-4" /> Open POS terminal
     </a>

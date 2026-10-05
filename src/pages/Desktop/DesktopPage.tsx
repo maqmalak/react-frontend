@@ -99,7 +99,7 @@ function DocLink({ doctype, name, className, children }: { doctype: string; name
 
 /** Attention links: React list pages, or the Frappe desk (/app/...) for screens the app doesn't have. */
 function AlertLink({ to, className, children }: { to: string; className?: string; children: React.ReactNode }) {
-  return to.startsWith("/app/") ? <a href={to} className={className}>{children}</a> : <Link to={to} className={className}>{children}</Link>;
+  return to.startsWith("/app/") || to.startsWith("/desk/") ? <a href={to} className={className}>{children}</a> : <Link to={to} className={className}>{children}</Link>;
 }
 
 const money = (v?: number | null) => (v ? formatMoney(v, undefined, { compact: true }) : "");
@@ -246,6 +246,11 @@ function AppSection({ label, items, tiles }: { label: string; items: AppTile[]; 
 
 /** Each module's usual flow, shown as numbered steps when hovering its card. Others use their sidebar links. */
 const PLAYBOOKS: Record<string, { title: string; steps: { label: string; to: string }[] }> = {
+  dashboard: { title: "Executive Summary first", steps: [
+    { label: "Executive Summary", to: "/dashboard" }, { label: "Accounts", to: "/analytics/accounts" },
+    { label: "Sales Analysis", to: "/analytics/suite/sales" }, { label: "Buying Analysis", to: "/analytics/suite/purchase" },
+    { label: "Stock", to: "/analytics/stock" }, { label: "HR", to: "/analytics/hr" },
+    { label: "Financial Statements", to: "/analytics/financials" }] },
   selling: { title: "Order to cash", steps: [
     { label: "Quotation", to: "/selling/quotations" }, { label: "Sales Order", to: "/selling/sales-orders" },
     { label: "Delivery Note", to: "/selling/delivery-notes" }, { label: "Sales Invoice", to: "/selling/sales-invoices" },
@@ -287,7 +292,7 @@ function AppTileCard({ app, stat }: { app: AppTile; stat?: { value: number; labe
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium">{app.label}</span>
-        {app.tagline && <span className="block truncate text-[10px] uppercase tracking-wide text-muted-foreground">{app.tagline}</span>}
+        {app.tagline && <span className="block truncate text-[10px] leading-tight text-muted-foreground">{app.tagline}</span>}
         {stat && (
           <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
             <span className="font-semibold tabular-nums text-foreground">{stat.value > 9999 ? compactNumber(stat.value) : stat.value.toLocaleString()}</span> {stat.label}
@@ -303,7 +308,7 @@ function AppTileCard({ app, stat }: { app: AppTile; stat?: { value: number; labe
           <div className="mb-2 flex items-center gap-2">
             <span className={cn("flex h-6 w-6 items-center justify-center rounded-md", app.colorClass)}><app.icon className="h-3.5 w-3.5" /></span>
             <span className="text-xs font-semibold">{app.label} playbook</span>
-            <span className="ml-auto truncate text-[10px] uppercase tracking-wide text-muted-foreground">{playbook.title}</span>
+            <span className="ml-auto truncate text-[10px] text-muted-foreground">{playbook.title}</span>
           </div>
           <ol className="space-y-0.5">
             {playbook.steps.map((st, i) => (
@@ -363,7 +368,7 @@ function ActivityPanel({ home, loading, tab, setTab, onChanged }: { home?: HomeD
       <Card className="space-y-4 p-4">
         <div className="flex items-center justify-between">
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Recent activity</h2>
-          <Link to="/approvals" className="text-xs text-primary hover:underline">Approvals</Link>
+          <Link to="/approvals/inbox" className="text-xs text-primary hover:underline">Approvals inbox</Link>
         </div>
 
         <div className="grid grid-cols-3 gap-2">

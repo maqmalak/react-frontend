@@ -306,7 +306,7 @@ export default function SalarySlipsPage() {
             pageSizeOptions={[25, 50, 100, 200]}
             rowActions={(r) => [
               { label: "Open payslip", icon: <Wallet className="h-4 w-4" />, onClick: () => navigate(`/payroll/salary-slips/${encodeURIComponent(r.name)}`) },
-              { label: "Open in ERPNext", icon: <ExternalLink className="h-4 w-4" />, onClick: () => window.open(`/app/salary-slip/${encodeURIComponent(r.name)}`, "_blank") },
+              { label: "Open in ERPNext", icon: <ExternalLink className="h-4 w-4" />, onClick: () => window.open(`/desk/salary-slip/${encodeURIComponent(r.name)}`, "_blank") },
             ]}
             emptyTitle="No salary slips"
             emptyDescription="Nothing matches this period and these filters."

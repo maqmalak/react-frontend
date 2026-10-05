@@ -85,7 +85,7 @@ export const APPS: AppTile[] = [
   {
     id: "dashboard",
     label: "Dashboards",
-    tagline: "Executive summary",
+    tagline: "Executive Summary",
     group: "Overview",
     description: "The whole mill at a glance — headline KPIs, insights and trade in one view.",
     icon: LayoutDashboard,
@@ -97,7 +97,7 @@ export const APPS: AppTile[] = [
   {
     id: "analytics",
     label: "Analytics",
-    tagline: "Fiscal-year dashboards",
+    tagline: "Fiscal-Year Dashboards",
     group: "Overview",
     description: "Drill-down dashboards for every department, Jul–Jun by default.",
     icon: BarChart3,
@@ -109,7 +109,7 @@ export const APPS: AppTile[] = [
   {
     id: "reports",
     label: "Reports",
-    tagline: "Registers & ledgers",
+    tagline: "Registers & Ledgers",
     group: "Overview",
     description: "Audit-ready registers and query reports across every module.",
     icon: BarChart3,
@@ -121,7 +121,7 @@ export const APPS: AppTile[] = [
   {
     id: "accounting",
     label: "Accounting",
-    tagline: "Books, tax & statements",
+    tagline: "Books, Tax & Statements",
     group: "Finance & Setup",
     description: "Multi-currency general ledger with tax compliance and closed-loop reporting.",
     icon: Landmark,
@@ -133,7 +133,7 @@ export const APPS: AppTile[] = [
   {
     id: "masters",
     label: "Setup",
-    tagline: "Masters & company defaults",
+    tagline: "Masters & Company Defaults",
     group: "Finance & Setup",
     description: "The shared records every transaction uses — items, parties and their groups.",
     icon: Boxes,
@@ -145,7 +145,7 @@ export const APPS: AppTile[] = [
   {
     id: "purchase",
     label: "Buying",
-    tagline: "Procure to pay",
+    tagline: "Procure to Pay",
     group: "Operations",
     description: "From material request to supplier invoice, with import costing and landed cost.",
     icon: Package,
@@ -156,7 +156,7 @@ export const APPS: AppTile[] = [
   {
     id: "selling",
     label: "Selling",
-    tagline: "Order to cash",
+    tagline: "Order to Cash",
     group: "Operations",
     description: "Domestic and export orders through delivery, invoicing and collection.",
     icon: ShoppingBag,
@@ -168,7 +168,7 @@ export const APPS: AppTile[] = [
   {
     id: "production",
     label: "Production",
-    tagline: "Plan, spin & cost",
+    tagline: "Plan, Spin & Cost",
     group: "Operations",
     description: "Blend BOMs, routings and work orders with yield, OPS and operating cost.",
     icon: Factory,
@@ -180,7 +180,7 @@ export const APPS: AppTile[] = [
   {
     id: "stock",
     label: "Stock",
-    tagline: "Inventory & warehouses",
+    tagline: "Inventory & Warehouses",
     group: "Operations",
     description: "Real-time stock across godowns, WIP and finished-goods stores.",
     icon: Warehouse,
@@ -191,7 +191,7 @@ export const APPS: AppTile[] = [
   {
     id: "assets",
     label: "Assets",
-    tagline: "Fixed asset register",
+    tagline: "Fixed Asset Register",
     group: "Operations",
     description: "Machinery and equipment from capitalisation to depreciation and disposal.",
     icon: Building2,
@@ -203,7 +203,7 @@ export const APPS: AppTile[] = [
   {
     id: "subcontracting",
     label: "Conversion",
-    tagline: "Conversion & subcontracting",
+    tagline: "Conversion & Subcontracting",
     group: "Operations",
     description: "Yarn conversion for third parties and work sent to subcontractors.",
     icon: Cog,
@@ -215,7 +215,7 @@ export const APPS: AppTile[] = [
   {
     id: "quality",
     label: "Quality",
-    tagline: "QA / QC & lab",
+    tagline: "QA / QC & Lab",
     group: "Operations",
     description: "Fibre, process and yarn lab inspections with SOPs, goals and CAPA.",
     icon: ClipboardCheck,
@@ -227,7 +227,7 @@ export const APPS: AppTile[] = [
   {
     id: "hr",
     label: "HR",
-    tagline: "People & attendance",
+    tagline: "People & Attendance",
     group: "People",
     description: "Employees, shifts, attendance and leave for a three-shift workforce.",
     icon: Users2,
@@ -240,7 +240,7 @@ export const APPS: AppTile[] = [
   {
     id: "payroll",
     label: "Payroll",
-    tagline: "Salary & statutory",
+    tagline: "Salary & Statutory",
     group: "People",
     description: "Monthly payroll from attendance to bank advice, with EOBI and tax.",
     icon: Banknote,
@@ -254,7 +254,7 @@ export const APPS: AppTile[] = [
   {
     id: "crm",
     label: "CRM",
-    tagline: "Leads to repeat orders",
+    tagline: "Leads to Repeat Orders",
     group: "Customers & Collaboration",
     description: "Pipeline from first enquiry to repeat order, with every touchpoint logged.",
     icon: Handshake,
@@ -267,7 +267,7 @@ export const APPS: AppTile[] = [
   {
     id: "support",
     label: "Support",
-    tagline: "Tickets & issues",
+    tagline: "Tickets & Issues",
     group: "Customers & Collaboration",
     description: "Customer complaints and service tickets with SLA tracking.",
     icon: LifeBuoy,
@@ -290,7 +290,7 @@ export const APPS: AppTile[] = [
   {
     id: "projects",
     label: "Projects",
-    tagline: "Tasks & delivery",
+    tagline: "Tasks & Delivery",
     group: "Customers & Collaboration",
     description: "Projects, tasks, timesheets and cost tracking.",
     icon: FolderKanban,
@@ -303,7 +303,7 @@ export const APPS: AppTile[] = [
   {
     id: "pos",
     label: "Point of Sale",
-    tagline: "Counter billing",
+    tagline: "Counter Billing",
     group: "Industry Solutions",
     description: "Fast counter billing that posts straight into stock and the ledger.",
     icon: CreditCard,
@@ -316,7 +316,7 @@ export const APPS: AppTile[] = [
   {
     id: "hospital",
     label: "Hospital",
-    tagline: "Patient journey",
+    tagline: "Patient Journey",
     group: "Industry Solutions",
     description: "From registration and OPD through pharmacy, lab and IPD billing.",
     icon: Stethoscope,
@@ -328,7 +328,7 @@ export const APPS: AppTile[] = [
   {
     id: "education",
     label: "Education",
-    tagline: "Admission to results",
+    tagline: "Admission to Results",
     group: "Industry Solutions",
     description: "Admissions, academics and fee collection for schools and institutes.",
     icon: GraduationCap,
@@ -341,7 +341,7 @@ export const APPS: AppTile[] = [
   {
     id: "admin",
     label: "Administration",
-    tagline: "Users & access",
+    tagline: "Users & Access",
     group: "System",
     description: "Users, roles and audit trail for a controlled, compliant deployment.",
     icon: ShieldCheck,
@@ -353,7 +353,7 @@ export const APPS: AppTile[] = [
   {
     id: "settings",
     label: "Settings",
-    tagline: "Module preferences",
+    tagline: "Module Preferences",
     group: "System",
     description: "Company, buying, selling, import, export and POS settings in one place.",
     icon: Settings,
@@ -364,7 +364,7 @@ export const APPS: AppTile[] = [
   {
     id: "account",
     label: "My Account",
-    tagline: "Profile & security",
+    tagline: "Profile & Security",
     group: "System",
     description: "Your profile, roles, notifications and password.",
     icon: UserCircle,

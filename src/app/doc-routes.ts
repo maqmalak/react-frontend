@@ -1,6 +1,6 @@
 /**
  * Where each DocType's record opens in the React app: `${base}${name}`.
- * Anything not listed opens in the ERPNext desk (`/app/<doctype-slug>/<name>`, proxied in dev).
+ * Anything not listed opens in the ERPNext desk (`/desk/<doctype-slug>/<name>` — Frappe v16; proxied in dev and nginx).
  */
 export const DOC_ROUTES: Record<string, string> = {
   ToDo: "/todos/",
@@ -8,6 +8,9 @@ export const DOC_ROUTES: Record<string, string> = {
   "Material Request": "/import/material-requests/",
   "Request for Quotation": "/import/rfqs/",
   "Purchase Order": "/import/purchase-orders/",
+  "Leave Application": "/hr/leave-applications/",
+  "Expense Claim": "/hr/expense-claims/",
+  "Shift Request": "/hr/shift-requests/",
   "Import Shipment": "/import/shipments/",
   "Import Cost Sheet": "/import/cost-sheets/",
   "Purchase Receipt": "/purchase/receipts/",
@@ -107,6 +110,6 @@ export function docUrl(doctype: string, name: string): { href: string; external:
   return base ? { href: `${base}${encodeURIComponent(name)}`, external: false } : { href: deskUrl(doctype, name), external: true };
 }
 
-export const deskUrl = (doctype: string, name?: string) => `/app/${slug(doctype)}${name ? `/${encodeURIComponent(name)}` : ""}`;
+export const deskUrl = (doctype: string, name?: string) => `/desk/${slug(doctype)}${name ? `/${encodeURIComponent(name)}` : ""}`;
 export const printUrl = (doctype: string, name: string, format?: string) =>
   `/printview?doctype=${encodeURIComponent(doctype)}&name=${encodeURIComponent(name)}&trigger_print=1${format ? `&format=${encodeURIComponent(format)}` : ""}`;

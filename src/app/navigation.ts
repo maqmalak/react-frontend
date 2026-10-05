@@ -40,6 +40,7 @@ import {
   Flag,
   DoorOpen,
   DoorClosed,
+  Inbox,
   Workflow,
   BellRing,
   Shuffle,
@@ -417,6 +418,7 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
     {
       title: "Approvals & Alerts",
       items: [
+        { label: "Approvals Inbox", to: "/approvals/inbox", icon: Inbox },
         { label: "Approval Workflows", to: "/approvals/workflows", icon: Workflow },
         { label: "Alerts & Notifications", to: "/approvals/notifications", icon: BellRing },
         { label: "Assignment Rules", to: "/approvals/assignment-rules", icon: Shuffle },

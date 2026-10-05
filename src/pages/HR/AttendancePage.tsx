@@ -669,7 +669,7 @@ export default function AttendancePage() {
             printTitle="Attendance"
             printSubtitle={period.label}
             pageSizeOptions={[25, 50, 100, 200]}
-            rowActions={(r) => [{ label: "Open in ERPNext", icon: <ExternalLink className="h-4 w-4" />, onClick: () => window.open(`/app/attendance/${encodeURIComponent(r.name)}`, "_blank") }]}
+            rowActions={(r) => [{ label: "Open in ERPNext", icon: <ExternalLink className="h-4 w-4" />, onClick: () => window.open(`/desk/attendance/${encodeURIComponent(r.name)}`, "_blank") }]}
             emptyTitle="No attendance records"
             emptyDescription="Nothing matches this period and these filters."
             serverSide={{

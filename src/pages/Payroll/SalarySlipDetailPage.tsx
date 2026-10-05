@@ -272,7 +272,7 @@ export default function SalarySlipDetailPage() {
             </Button>
             {s.docstatus === 0 && (
               <>
-                <Button variant="outline" size="sm" onClick={() => window.open(`/app/salary-slip/${encodeURIComponent(s.name)}`, "_blank")}>
+                <Button variant="outline" size="sm" onClick={() => window.open(`/desk/salary-slip/${encodeURIComponent(s.name)}`, "_blank")}>
                   <ExternalLink className="h-4 w-4" /> Edit in ERPNext
                 </Button>
                 <Button variant="destructive" size="sm" onClick={() => setConfirmDelete(true)} disabled={deleteLoading}>
