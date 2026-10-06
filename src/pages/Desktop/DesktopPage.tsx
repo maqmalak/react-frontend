@@ -280,7 +280,7 @@ function AppSection({ label, items, tiles, extra, oneRow }: { label: string; ite
 const PLAYBOOKS: Record<string, { title: string; steps: { label: string; to: string }[] }> = {
   dashboard: { title: "Executive Summary first", steps: [
     { label: "Executive Summary", to: "/dashboard" }, { label: "Accounts", to: "/analytics/accounts" },
-    { label: "Sales Analysis", to: "/analytics/suite/sales" }, { label: "Buying Analysis", to: "/analytics/suite/purchase" },
+    { label: "Sales", to: "/analytics/suite/sales" }, { label: "Buying", to: "/analytics/suite/purchase" },
     { label: "Stock", to: "/analytics/stock" }, { label: "HR", to: "/analytics/hr" },
     { label: "Financial Statements", to: "/analytics/financials" }] },
   selling: { title: "Order to cash", steps: [

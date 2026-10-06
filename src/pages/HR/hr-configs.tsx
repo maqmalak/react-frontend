@@ -13,6 +13,7 @@ import { notifyDataChanged } from "@/hooks/useRealtime";
 import { humanizeError, postCall } from "@/services/frappe";
 import { formatDate, todayISO } from "@/utils/dates";
 import { asNumber } from "@/utils/cn";
+import { LoanEligibilityPanel } from "./loan-eligibility";
 
 /* ============================================================================ shared helpers */
 
@@ -1023,6 +1024,21 @@ export const HR_SETTINGS_CONFIG: DocConfig = {
     colBreak(),
     link("hiring_sender", "Hiring Sender (Email Account)", "Email Account"),
     when(ro(data("hiring_sender_email", "Hiring Sender Email")), (v) => Boolean(v.hiring_sender)),
+    tab("Salary Loans"),
+    sec("Who may borrow and how much"),
+    text("mm_loan_employment_types", "Eligible Employment Types", { description: "One per line, e.g. Full-time." }),
+    int("mm_loan_min_service_months", "Minimum Service (months)"),
+    float("mm_loan_salary_multiple", "Maximum Loan (× average gross salary)"),
+    colBreak(),
+    float("mm_loan_max_installment_pct", "Maximum Instalment (% of average net pay)"),
+    int("mm_loan_max_months", "Maximum Tenure (months)"),
+    int("mm_loan_max_active", "Other Loans Allowed While One Is Outstanding"),
+    sec("Guarantor and recovery"),
+    select("mm_loan_guarantor_required", "Guarantor Required", ["Always", "Above one month's gross salary", "Never"]),
+    int("mm_loan_guarantor_min_service_months", "Guarantor Minimum Service (months)"),
+    colBreak(),
+    int("mm_loan_guarantor_max_guarantees", "Loans One Guarantor May Back"),
+    link("mm_loan_component", "Recovery Salary Component", "Salary Component", { description: "Default: Loan Recovery (created automatically)." }),
   ],
   connections: false,
 };
@@ -1176,4 +1192,84 @@ export const EXPENSE_CLAIM_CONFIG: DocConfig = {
   ],
   defaults: ({ company }) => ({ company, posting_date: todayISO(), approval_status: "Draft" }),
   linkEffects: { employee: (emp) => employeeInfo(emp, ["expense_approver"]) },
+};
+
+
+/* ============================================================================ Employee Advance (+ salary loan) */
+// Detail page for advances; the list stays the hand-built EmployeeAdvancesPage. A "salary loan" is an advance
+// repaid in monthly instalments from salary — mm_core.loans checks the loan policy (live panel below, enforced on submit).
+
+export const EMPLOYEE_ADVANCE_CONFIG: DocConfig = {
+  doctype: "Employee Advance",
+  base: "/hr/advances",
+  singular: "Employee Advance",
+  plural: "Employee Advances",
+  subtitle: "Cash advance or salary loan to an employee — loans are recovered in monthly instalments from salary",
+  icon: Coins,
+  submittable: true,
+  listFields: ["name", "employee", "employee_name", "posting_date", "advance_amount", "paid_amount", "return_amount", "status", "mm_is_loan", "docstatus"],
+  columns: [employeeCol, dateCol("posting_date", "Date"), moneyCol("advance_amount", "Amount"), moneyCol("return_amount", "Repaid"), statusCol("status", "Status", "Draft")],
+  searchFields: ["name", "employee", "employee_name"],
+  statusField: "status",
+  statuses: ["Draft", "Unpaid", "Paid", "Claimed", "Returned", "Partly Claimed and Returned", "Cancelled"],
+  dateField: "posting_date",
+  sort: { key: "posting_date", dir: "desc" },
+  fields: [
+    sec("Advance"),
+    req(link("employee", "Employee", "Employee")),
+    ro(data("employee_name", "Employee Name")),
+    ro(link("department", "Department", "Department")),
+    req(link("company", "Company", "Company")),
+    colBreak(),
+    req(date("posting_date", "Posting Date")),
+    req(currency("advance_amount", "Amount")),
+    req(link("currency", "Currency", "Currency")),
+    req(link("advance_account", "Advance Account", "Account")),
+    link("mode_of_payment", "Mode of Payment", "Mode of Payment"),
+    sec("Purpose"),
+    req(text("purpose", "Purpose")),
+    sec("Salary Loan"),
+    check("mm_is_loan", "Salary loan (repay in instalments from salary)"),
+    when(int("mm_installment_months", "Instalments (months)"), (v) => Boolean(v.mm_is_loan)),
+    when(ro(currency("mm_monthly_installment", "Monthly Instalment")), (v) => Boolean(v.mm_is_loan)),
+    when(date("mm_first_deduction", "First Deduction Month"), (v) => Boolean(v.mm_is_loan)),
+    colBreak(),
+    when(link("mm_guarantor", "Guarantor", "Employee"), (v) => Boolean(v.mm_is_loan)),
+    when(ro(data("mm_guarantor_name", "Guarantor Name")), (v) => Boolean(v.mm_is_loan)),
+    when(text("mm_override_reason", "Override Reason (HR Manager)", { description: "Only to approve a loan that fails the policy." }), (v) => Boolean(v.mm_is_loan)),
+    sec("Repayment"),
+    ro(currency("paid_amount", "Paid")),
+    ro(currency("claimed_amount", "Claimed (expenses)")),
+    colBreak(),
+    ro(currency("return_amount", "Repaid")),
+    ro(currency("pending_amount", "Pending")),
+    ro(data("status", "Status")),
+  ],
+  defaults: ({ company }) => ({ company, posting_date: todayISO(), currency: "PKR", exchange_rate: 1 }),
+  linkEffects: {
+    employee: (emp) => employeeInfo(emp),
+    mm_guarantor: async (emp) => ({ mm_guarantor_name: emp ? (await employeeInfo(emp)).employee_name : "" }),
+    company: async (c) => {
+      const v = c ? await getLinkedValues("Company", c, ["default_employee_advance_account", "default_currency"]) : {};
+      return { advance_account: v?.default_employee_advance_account, currency: v?.default_currency || "PKR" };
+    },
+  },
+  actions: [
+    { label: "Pay out", group: "create", make: "hrms.overrides.employee_payment_entry.get_payment_entry_for_employee",
+      makeArgs: (c) => ({ dt: "Employee Advance", dn: c.name }),
+      show: (c) => c.docstatus === 1 && Number(c.values.paid_amount ?? 0) < Number(c.values.advance_amount ?? 0) },
+    { label: "Set up instalments", icon: CalendarRange,
+      show: (c) => c.docstatus === 1 && Boolean(c.values.mm_is_loan) && Number(c.values.paid_amount ?? 0) > 0,
+      run: async (c) => {
+        try {
+          const r = await postCall<{ message?: string }>("mm_core.loans.create_installments", { advance: c.name });
+          toast.success(`Instalments: ${(r as { message?: string })?.message ?? "set up"}`);
+          notifyDataChanged();
+          c.reload();
+        } catch (e) {
+          toast.error(humanizeError(e));
+        }
+      } },
+  ],
+  extra: (c) => <LoanEligibilityPanel values={c.values} name={c.name} />,
 };

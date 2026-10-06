@@ -10,6 +10,7 @@ export const DOC_ROUTES: Record<string, string> = {
   "Purchase Order": "/import/purchase-orders/",
   "Leave Application": "/hr/leave-applications/",
   "Expense Claim": "/hr/expense-claims/",
+  "Employee Advance": "/hr/advances/",
   "Shift Request": "/hr/shift-requests/",
   "Import Shipment": "/import/shipments/",
   "Import Cost Sheet": "/import/cost-sheets/",

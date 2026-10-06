@@ -146,19 +146,19 @@ export function AnalyticsTabs() {
     { to: "/dashboard", label: "Executive", icon: Gauge },
     ...MODULES.filter((m) => !merged.includes(m.id)).map((m) =>
       m.id === "sales"
-        ? { to: "/analytics/suite/sales", label: "Sales Analysis", icon: m.icon }
+        ? { to: "/analytics/suite/sales", label: "Sales", icon: m.icon }
         : m.id === "purchase"
-          ? { to: "/analytics/suite/purchase", label: "Buying Analysis", icon: m.icon }
+          ? { to: "/analytics/suite/purchase", label: "Buying", icon: m.icon }
           : m.id === "production"
             ? { to: "/production", label: "Production", icon: m.icon }
             : { to: `/analytics/${m.id}`, label: m.label, icon: m.icon },
     ),
   ];
-  // The Export & Import dashboard (LCs, shipments, landed cost) sits right after Sales Analysis.
+  // The Export & Import dashboard (LCs, shipments, landed cost) sits right after Sales.
   const at = base.findIndex((t) => t.to === "/analytics/suite/sales") + 1;
   const tabs = [
     ...base.slice(0, at),
-    { to: "/analytics/suite/trade", label: "Import & Export", icon: Ship },
+    { to: "/analytics/suite/trade", label: "Imp/Exp", icon: Ship },
     ...base.slice(at),
     { to: "/analytics/pnl-simulator", label: "P&L Simulator", icon: Scale },
   ];

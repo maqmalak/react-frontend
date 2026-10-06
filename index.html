@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark" style="color-scheme: dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -16,6 +16,15 @@
       href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600&display=swap"
       rel="stylesheet"
     />
+      <script>
+      // Dark by default; light only when the visitor chose it (saved by the theme toggle). Runs before first paint.
+      try {
+        if (localStorage.getItem("micromax-theme") === "light") {
+          document.documentElement.classList.remove("dark");
+          document.documentElement.style.colorScheme = "light";
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

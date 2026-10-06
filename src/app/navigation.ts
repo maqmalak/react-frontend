@@ -225,7 +225,7 @@ const ANALYTICS_NAV: NavGroup[] = [
     ],
   },
   {
-    title: "Buying Analysis",
+    title: "Buying",
     items: [
       { label: "Overview (one page)", to: "/analytics/suite/purchase", icon: LayoutList },
       { label: "Purchases", to: "/analytics/purchase", icon: ShoppingCart },
@@ -234,7 +234,7 @@ const ANALYTICS_NAV: NavGroup[] = [
     ],
   },
   {
-    title: "Sales Analysis",
+    title: "Sales",
     items: [
       { label: "Overview (one page)", to: "/analytics/suite/sales", icon: LayoutList },
       { label: "Sales", to: "/analytics/sales", icon: TrendingUp },
@@ -244,7 +244,7 @@ const ANALYTICS_NAV: NavGroup[] = [
     ],
   },
   {
-    title: "Import & Export",
+    title: "Imp/Exp",
     items: [
       { label: "Overview (one page)", to: "/analytics/suite/trade", icon: LayoutList },
       { label: "Export Analysis", to: "/analytics/export_analysis", icon: Ship },

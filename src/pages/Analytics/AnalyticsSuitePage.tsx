@@ -26,9 +26,9 @@ import {
 
 /** Module dashboards shown together on one page, in order. */
 export const SUITES: Record<string, { title: string; subtitle: string; modules: ModuleId[] }> = {
-  sales: { title: "Sales Analysis", subtitle: "Sales, order book and deliveries on one page", modules: ["sales", "so_analysis", "do_analysis"] },
-  trade: { title: "Import & Export Analysis", subtitle: "Exports, LCs, shipments, imports and landed cost on one page", modules: ["export_analysis", "import_analysis"] },
-  purchase: { title: "Buying Analysis", subtitle: "Spend, suppliers, buying cycle, lead times and price variance on one page", modules: ["purchase", "procurement"] },
+  sales: { title: "Sales", subtitle: "Sales, order book and deliveries on one page", modules: ["sales", "so_analysis", "do_analysis"] },
+  trade: { title: "Imp/Exp", subtitle: "Exports, LCs, shipments, imports and landed cost on one page", modules: ["export_analysis", "import_analysis"] },
+  purchase: { title: "Buying", subtitle: "Spend, suppliers, buying cycle, lead times and price variance on one page", modules: ["purchase", "procurement"] },
   production: { title: "Production", subtitle: "Output, yield, cost per spindle and downtime, then work-order and job-card (operation) performance", modules: ["production", "wo_analysis", "jc_analysis"] },
 };
 

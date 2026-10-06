@@ -485,6 +485,7 @@ export function AppRoutes() {
         <Route path="hr/expense-claims" element={<Suspense fallback={<FullPageLoader />}><HrExpenseClaimsPage /></Suspense>} />
         <Route path="hr/expense-claims/:name" element={<Suspense fallback={<FullPageLoader />}><HrDocPage which="expenseClaim" form /></Suspense>} />
         <Route path="hr/advances" element={<Suspense fallback={<FullPageLoader />}><HrEmployeeAdvancesPage /></Suspense>} />
+        <Route path="hr/advances/:name" element={<Suspense fallback={<FullPageLoader />}><HrDocPage which="employeeAdvance" form /></Suspense>} />
         <Route path="hr/gratuity" element={<Suspense fallback={<FullPageLoader />}><HrGratuityPage /></Suspense>} />
 
         {/* Payroll */}
