@@ -6,6 +6,7 @@ import { ComingSoonPage, FullPageLoader } from "@/pages/common/ComingSoonPage";
 import { RequireRole } from "@/components/common/require-role";
 
 // Heavier / less-frequently visited modules are code-split.
+const HrSalaryLoansPage = lazy(() => import("@/pages/HR/SalaryLoansPage"));
 // Loaded on demand (kept out of the main bundle).
 const DesktopPage = lazy(() => import("@/pages/Desktop/DesktopPage").then((m) => ({ default: m.DesktopPage })));
 const DashboardPage = lazy(() => import("@/pages/Dashboard/DashboardPage").then((m) => ({ default: m.DashboardPage })));
@@ -486,6 +487,7 @@ export function AppRoutes() {
         <Route path="hr/expense-claims" element={<Suspense fallback={<FullPageLoader />}><HrExpenseClaimsPage /></Suspense>} />
         <Route path="hr/expense-claims/:name" element={<Suspense fallback={<FullPageLoader />}><HrDocPage which="expenseClaim" form /></Suspense>} />
         <Route path="hr/advances" element={<Suspense fallback={<FullPageLoader />}><HrEmployeeAdvancesPage /></Suspense>} />
+        <Route path="hr/loans" element={<Suspense fallback={<FullPageLoader />}><HrSalaryLoansPage /></Suspense>} />
         <Route path="hr/advances/:name" element={<Suspense fallback={<FullPageLoader />}><HrDocPage which="employeeAdvance" form /></Suspense>} />
         <Route path="hr/gratuity" element={<Suspense fallback={<FullPageLoader />}><HrGratuityPage /></Suspense>} />
 
