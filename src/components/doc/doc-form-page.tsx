@@ -43,7 +43,16 @@ const newUuid = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ?
  *  - Save, Submit, Cancel document, Delete — as the document's state allows
  *  - read-only once submitted; child rows round-trip every field so nothing is lost on save
  */
+/**
+ * Keyed by DocType: two routes in one route group (e.g. /projects/list and /projects/tasks) render this component at
+ * the same place, and React would otherwise reuse it — carrying one DocType's sort / filters / form state into the
+ * other (sorting Tasks by Project's expected_end_date → "You do not have permission to access field").
+ */
 export function DocFormPage({ config }: { config: DocConfig }) {
+  return <DocFormPageInner key={`${config.doctype}|${config.base}`} config={config} />;
+}
+
+function DocFormPageInner({ config }: { config: DocConfig }) {
   const { name: paramName } = useParams<{ name?: string }>();
   const routeName = config.single ? config.doctype : paramName;
   const [searchParams] = useSearchParams();

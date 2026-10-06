@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Bell, ChevronRight, LogOut, Menu, Search, Settings as SettingsIcon, User as UserIcon, UserCircle, CheckCheck } from "lucide-react";
+import { AtSign, Award, Bell, BellRing, ChevronRight, LogOut, ListTodo, Menu, MessageSquare, Search, Settings as SettingsIcon, Share2, User as UserIcon, UserCheck, UserCircle, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,8 @@ import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { titleForSegment } from "@/app/navigation";
 import { useFrappeGetDocCount } from "frappe-react-sdk";
 import { useCrmNotifications, type CrmNotificationDoc } from "@/hooks/useCrmNotifications";
+import { useNotificationLog } from "@/hooks/useNotificationLog";
+import { docUrl } from "@/app/doc-routes";
 import { formatDateTime } from "@/utils/dates";
 import { cn } from "@/utils/cn";
 import { htmlToText } from "@/utils/text";
@@ -69,26 +71,28 @@ function notificationHref(n: CrmNotificationDoc): string | undefined {
   }
 }
 
+const LOG_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
+  Assignment: UserCheck, Mention: AtSign, Alert: BellRing, Share: Share2, "Energy Point": Award,
+};
+
+interface BellItem {
+  key: string; source: "frappe" | "crm"; type: string; text: string; when: string; read: boolean;
+  href?: string; external?: boolean; name: string;
+}
+
 function NotificationsBell() {
-  // Open ToDos assigned to the user (created by the micromax LC alert
-  // scheduler) plus CRM follow-up/reminder notifications (assignment/mention
-  // hooks in the crm app, and our own crm_reminders scheduled job) share one
-  // bell — both are "things assigned or due to you" from the user's POV.
+  // One bell for: Frappe's Notification Log (assignments, mentions, alerts, shares — what the desk bell shows)
+  // and CRM notifications (follow-up reminders, CRM assignments / mentions). Open to-dos are linked in the footer.
   const { currentUser } = useAuth();
   const { data: todoCount } = useFrappeGetDocCount(
     "ToDo",
-    [
-      ["status", "=", "Open"],
-      ["owner", "=", currentUser ?? ""],
-    ],
+    [["status", "=", "Open"], ["allocated_to", "=", currentUser ?? ""]],
     false,
     currentUser ? `micromax.todo.count.${currentUser}` : null,
-    // Poll rather than rely solely on remount/refocus — this header stays
-    // mounted across the whole app, so without this the badge would only
-    // ever update when the browser tab regains focus.
     { refreshInterval: 30_000 },
   );
-  const { notifications, unreadCount, markRead } = useCrmNotifications();
+  const crm = useCrmNotifications();
+  const log = useNotificationLog();
 
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -108,29 +112,38 @@ function NotificationsBell() {
     };
   }, [open]);
 
-  const total = Number(todoCount ?? 0) + unreadCount;
+  const items: BellItem[] = [
+    ...log.notifications.map((n): BellItem => {
+      const u = n.document_type && n.document_name ? docUrl(n.document_type, n.document_name) : undefined;
+      return { key: `f:${n.name}`, name: n.name, source: "frappe", type: n.type, text: htmlToText(n.subject) || n.type, when: n.creation,
+        read: Boolean(n.read), href: u?.href, external: u?.external };
+    }),
+    ...crm.notifications.map((n): BellItem => ({
+      key: `c:${n.name}`, name: n.name, source: "crm", type: "CRM", text: htmlToText(n.notification_text) || "Notification", when: n.creation,
+      read: Boolean(n.read), href: notificationHref(n),
+    })),
+  ].sort((a, b) => b.when.localeCompare(a.when));
+  const unread = log.unreadCount + crm.unreadCount;
 
-  const openNotification = (n: CrmNotificationDoc) => {
+  const openItem = (n: BellItem) => {
     setOpen(false);
-    if (!n.read) void markRead(n.name);
-    const href = notificationHref(n);
-    if (href) navigate(href);
+    if (!n.read) void (n.source === "frappe" ? log.markRead(n.name) : crm.markRead(n.name));
+    if (!n.href) return;
+    if (n.external) window.location.assign(n.href);
+    else navigate(n.href);
+  };
+  const markAll = () => {
+    if (log.unreadCount) void log.markRead();
+    if (crm.unreadCount) void crm.markRead();
   };
 
   return (
     <div className="relative" ref={ref}>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="relative"
-        aria-label="Notifications"
-        title="Alerts"
-        onClick={() => setOpen((o) => !o)}
-      >
+      <Button variant="ghost" size="icon" className="relative" aria-label="Notifications" title="Notifications" onClick={() => setOpen((o) => !o)}>
         <Bell className="h-5 w-5" />
-        {total > 0 && (
+        {unread > 0 && (
           <span className="absolute right-1 top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground">
-            {total > 99 ? "99+" : total}
+            {unread > 99 ? "99+" : unread}
           </span>
         )}
       </Button>
@@ -138,42 +151,53 @@ function NotificationsBell() {
       {open && (
         <div
           className={cn(
-            "absolute right-0 z-40 mt-1 w-80 animate-fade-in rounded-md border border-border bg-popover shadow-lg",
+            "absolute right-0 z-40 mt-1 w-96 max-w-[calc(100vw-1.5rem)] animate-fade-in overflow-hidden rounded-xl border border-border bg-popover shadow-xl",
             "dark:border-white/10 dark:bg-[hsl(216_67%_9%_/_0.97)] dark:shadow-[0_18px_60px_rgb(2_6_23_/_0.55)] dark:backdrop-blur-xl",
           )}
         >
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reminders</p>
-            {unreadCount > 0 && (
-              <button
-                onClick={() => void markRead()}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-              >
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Notifications {unread > 0 && <span className="rounded-full bg-primary/10 px-1.5 text-[10px] text-primary">{unread} new</span>}
+            </p>
+            {unread > 0 && (
+              <button onClick={markAll} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
                 <CheckCheck className="h-3.5 w-3.5" /> Mark all read
               </button>
             )}
           </div>
-          <div className="max-h-80 overflow-y-auto">
-            {notifications.length === 0 ? (
-              <p className="px-3 py-6 text-center text-sm text-muted-foreground">Nothing due — you're all caught up.</p>
+          <div className="max-h-96 overflow-y-auto">
+            {items.length === 0 ? (
+              <p className="px-3 py-6 text-center text-sm text-muted-foreground">Nothing new — you're all caught up.</p>
             ) : (
-              notifications.slice(0, 15).map((n) => (
-                <button
-                  key={n.name}
-                  onClick={() => openNotification(n)}
-                  className={cn(
-                    "flex w-full flex-col gap-0.5 border-b border-border px-3 py-2 text-left last:border-0 hover:bg-accent/50",
-                    !n.read && "bg-primary/5",
-                  )}
-                >
-                  <span className="flex items-center gap-1.5 text-sm">
-                    {!n.read && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />}
-                    <span className="truncate font-medium">{htmlToText(n.notification_text) || "Notification"}</span>
-                  </span>
-                  <span className="text-xs text-muted-foreground">{formatDateTime(n.creation)}</span>
-                </button>
-              ))
+              items.slice(0, 25).map((n) => {
+                const Icon = n.source === "crm" ? MessageSquare : LOG_ICON[n.type] ?? Bell;
+                return (
+                  <button key={n.key} onClick={() => openItem(n)}
+                    className={cn("flex w-full gap-2.5 border-b border-border px-3 py-2.5 text-left last:border-0 hover:bg-accent/50", !n.read && "bg-primary/5")}>
+                    <span className={cn("mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
+                      n.type === "Assignment" ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
+                        : n.type === "Mention" ? "bg-sky-500/10 text-sky-600 dark:text-sky-400"
+                          : n.type === "Alert" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                            : "bg-muted text-muted-foreground")}>
+                      <Icon className="h-3.5 w-3.5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="line-clamp-2 text-[13px] leading-snug">{n.text}</span>
+                      <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                        {!n.read && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                        {n.type} · {formatDateTime(n.when)}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })
             )}
+          </div>
+          <div className="flex items-center justify-between border-t border-border px-3 py-2 text-xs">
+            <Link to="/todos" onClick={() => setOpen(false)} className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground">
+              <ListTodo className="h-3.5 w-3.5" /> {Number(todoCount ?? 0)} open to-do{Number(todoCount ?? 0) === 1 ? "" : "s"}
+            </Link>
+            <Link to="/approvals/inbox" onClick={() => setOpen(false)} className="text-primary hover:underline">Approvals inbox</Link>
           </div>
         </div>
       )}

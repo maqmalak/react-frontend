@@ -102,7 +102,7 @@ export const DOC_ROUTES: Record<string, string> = {
   Role: "/admin/roles/",
 };
 
-const slug = (doctype: string) => doctype.toLowerCase().replace(/ /g, "-");
+export const slug = (doctype: string) => doctype.toLowerCase().replace(/ /g, "-");
 
 /** React route for a record, or the desk URL (external) when the app has no screen for it. */
 export function docUrl(doctype: string, name: string): { href: string; external: boolean } {

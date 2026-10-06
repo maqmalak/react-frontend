@@ -1,7 +1,12 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { useFrappeGetDocList } from "frappe-react-sdk";
-import { Search, CornerDownLeft } from "lucide-react";
+import { useFrappeGetCall, useFrappeGetDocList } from "frappe-react-sdk";
+import { Search, CornerDownLeft, ExternalLink } from "lucide-react";
+import { APPS } from "@/app/apps";
+import { APP_NAVIGATION } from "@/app/navigation";
+import { DOC_ROUTES, docUrl, slug } from "@/app/doc-routes";
+import { useInstalledApps } from "@/hooks/useInstalledApps";
+import { ALL_REPORTS } from "@/pages/Reports/report-catalog";
 import { Dialog } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -23,28 +28,40 @@ import { cn } from "@/utils/cn";
  */
 
 interface SearchHit {
+  kind: Kind;
+  /** Badge text (doctype, module, app…). */
   doctype: string;
   name: string;
   label: string;
   route: string;
+  /** Opens with a full page load (the Frappe desk). */
+  external?: boolean;
 }
 
-/** DocType -> { SPA route builder, field to search/display alongside `name` }. */
-const SEARCH_DOCTYPES: Record<string, { route: (name: string) => string; titleField: string }> = {
-  "LC Proforma": { route: (n) => `/export/lc-proforma/${encodeURIComponent(n)}`, titleField: "proforma_no" },
-  "Export Shipment": { route: (n) => `/export/shipments/${encodeURIComponent(n)}`, titleField: "shipment_no" },
-  "Import Shipment": { route: (n) => `/import/shipments/${encodeURIComponent(n)}`, titleField: "shipment_no" },
-  "Import Cost Sheet": { route: (n) => `/import/cost-sheets/${encodeURIComponent(n)}`, titleField: "name" },
-  "Sales Order": { route: (n) => `/export/orders/${encodeURIComponent(n)}`, titleField: "customer_name" },
-  "Purchase Order": { route: () => `/import/purchase-orders`, titleField: "supplier_name" },
-  Item: { route: () => `/masters/items`, titleField: "item_name" },
-  Customer: { route: () => `/masters/customers`, titleField: "customer_name" },
-  Supplier: { route: () => `/masters/suppliers`, titleField: "supplier_name" },
-  "Work Order": { route: () => `/production/work-orders`, titleField: "production_item" },
-  "Sales Invoice": { route: () => `/reports/export`, titleField: "customer_name" },
-  "CRM Lead": { route: (n) => `/crm/leads/${encodeURIComponent(n)}`, titleField: "lead_name" },
-  "CRM Deal": { route: (n) => `/crm/deals/${encodeURIComponent(n)}`, titleField: "organization" },
+/** DocType -> field to search/display alongside `name`. Hits open the document (docUrl: React page, else desk). */
+const SEARCH_DOCTYPES: Record<string, { titleField: string }> = {
+  "LC Proforma": { titleField: "proforma_no" },
+  "Export Shipment": { titleField: "shipment_no" },
+  "Import Shipment": { titleField: "shipment_no" },
+  "Import Cost Sheet": { titleField: "name" },
+  "Sales Order": { titleField: "customer_name" },
+  "Purchase Order": { titleField: "supplier_name" },
+  Item: { titleField: "item_name" },
+  Customer: { titleField: "customer_name" },
+  Supplier: { titleField: "supplier_name" },
+  "Work Order": { titleField: "production_item" },
+  "Sales Invoice": { titleField: "customer_name" },
+  "CRM Lead": { titleField: "lead_name" },
+  "CRM Deal": { titleField: "organization" },
 };
+
+type Kind = "page" | "doctype" | "report" | "record";
+const KIND_LABEL: Record<Kind, string> = { page: "Pages", doctype: "DocTypes", report: "Reports", record: "Records" };
+const deskReport = (r: { name: string; type?: string; ref_doctype?: string }) =>
+  r.type === "Report Builder" && r.ref_doctype
+    ? `/desk/${slug(r.ref_doctype)}/view/report/${encodeURIComponent(r.name)}`
+    : `/desk/query-report/${encodeURIComponent(r.name)}`;
+const norm = (v: string) => v.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
 function useDebounced<T>(value: T, delay = 250): T {
   const [debounced, setDebounced] = React.useState(value);
@@ -116,30 +133,76 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
     useDoctypeSearch("CRM Deal", SEARCH_DOCTYPES["CRM Deal"].titleField, debounced, enabled),
   ];
 
-  const isLoading = groups.some((g) => g.isLoading);
+  const { isPathAvailable } = useInstalledApps();
+  const { data: meta, isLoading: metaLoading } = useFrappeGetCall<{ message: { doctypes: { name: string; module: string; single: number }[]; reports: { name: string; type: string; ref_doctype?: string; module?: string }[] } }>(
+    "mm_core.api.awesome_search", { txt: debounced }, enabled ? `mm_core.awesome.${debounced}` : null,
+  );
+  const isLoading = metaLoading || groups.some((g) => g.isLoading);
+
+  // Every page in the app: sidebar links of each module + the app tiles (deduplicated, installed apps only).
+  const pages = React.useMemo(() => {
+    const seen = new Set<string>();
+    const out: { label: string; to: string; where: string }[] = [];
+    const add = (label: string, to: string, where: string) => {
+      if (!to || seen.has(to) || !isPathAvailable(to)) return;
+      seen.add(to);
+      out.push({ label, to, where });
+    };
+    APPS.forEach((a) => add(a.label, a.to, "App"));
+    Object.entries(APP_NAVIGATION).forEach(([seg, groups]) => {
+      const app = APPS.find((a) => a.to.replace(/^\//, "").split("/")[0] === seg)?.label ?? seg;
+      groups.forEach((g) => g.items.forEach((i) => add(i.label, i.to, g.title && g.title !== app ? `${app} · ${g.title}` : app)));
+    });
+    return out;
+  }, [isPathAvailable]);
 
   const results: SearchHit[] = React.useMemo(() => {
     if (!enabled) return [];
-    const hits: SearchHit[] = [];
+    const q = norm(debounced);
+    const words = q.split(" ").filter(Boolean);
+    const matches = (text: string) => { const t = norm(text); return words.every((w) => t.includes(w)); };
+    const rank = (text: string) => (norm(text).startsWith(q) ? 0 : 1);
+
+    const pageHits: SearchHit[] = pages.filter((p) => matches(`${p.label} ${p.where}`))
+      .sort((a, b) => rank(a.label) - rank(b.label) || a.label.length - b.label.length).slice(0, 6)
+      .map((p) => ({ kind: "page", doctype: p.where, name: p.to, label: p.label, route: p.to }));
+
+    const m = (meta as unknown as { message?: { doctypes: { name: string; module: string; single: number }[]; reports: { name: string; type: string; ref_doctype?: string; module?: string }[] } })?.message;
+    const doctypeHits: SearchHit[] = (m?.doctypes ?? []).map((d) => {
+      const base = DOC_ROUTES[d.name];
+      const react = base && !d.single ? base.replace(/\/$/, "") : null;
+      return { kind: "doctype", doctype: d.module, name: d.name, label: d.single ? `${d.name} (settings)` : `${d.name} list`,
+        route: react ?? `/desk/${slug(d.name)}`, external: !react };
+    });
+
+    const catalogHits = ALL_REPORTS.filter((r) => matches(`${r.title} ${r.report}`));
+    const catalogNames = new Set(catalogHits.map((r) => r.report));
+    const reportHits: SearchHit[] = [
+      ...catalogHits.slice(0, 6).map((r) => ({ kind: "report" as const, doctype: "Report", name: r.report, label: r.title, route: r.to ?? `/reports/run/${r.key}` })),
+      ...(m?.reports ?? []).filter((r) => !catalogNames.has(r.name)).map((r) => ({
+        kind: "report" as const, doctype: r.type ?? "Report", name: r.name, label: r.name, route: deskReport(r), external: true })),
+    ].slice(0, 8);
+
+    const recordHits: SearchHit[] = [];
     groups.forEach((g) => {
-      const meta = SEARCH_DOCTYPES[g.doctype];
       g.data.forEach((d) => {
         const name = String(d.name ?? "");
         if (!name) return;
         const title = g.titleField !== "name" ? (d[g.titleField] as string | undefined) : undefined;
-        const label = title && title !== name ? `${title} (${name})` : name;
-        hits.push({ doctype: g.doctype, name, label, route: meta.route(name) });
+        const u = docUrl(g.doctype, name);
+        recordHits.push({ kind: "record", doctype: g.doctype, name, label: title && title !== name ? `${title} (${name})` : name, route: u.href, external: u.external });
       });
     });
-    return hits.slice(0, 20);
+    return [...pageHits, ...doctypeHits, ...reportHits, ...recordHits.slice(0, 15)];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, ...groups.map((g) => g.data)]);
+  }, [enabled, debounced, pages, meta, ...groups.map((g) => g.data)]);
 
   React.useEffect(() => setActiveIndex(0), [debounced]);
 
   const go = React.useCallback(
     (hit: SearchHit) => {
-      navigate(hit.route);
+      if (hit.external) window.location.assign(hit.route);
+      else navigate(hit.route);
       onClose();
       setQuery("");
     },
@@ -168,13 +231,13 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="Search orders, shipments, LCs, items, customers…"
+          placeholder="Search pages, doctypes, reports and records…"
           className="h-11 w-full bg-transparent text-base outline-none placeholder:text-muted-foreground"
         />
         {isLoading && <Spinner className="text-muted-foreground" />}
       </div>
 
-      <div className="max-h-80 overflow-y-auto p-1 scrollbar-thin">
+      <div className="max-h-[60vh] overflow-y-auto p-1 scrollbar-thin">
         {!enabled ? (
           <p className="px-3 py-8 text-center text-sm text-muted-foreground">
             Type at least 2 characters to search across ERPNext.
@@ -185,20 +248,27 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
           </p>
         ) : (
           results.map((hit, i) => (
-            <button
-              key={`${hit.doctype}-${hit.name}`}
-              onMouseEnter={() => setActiveIndex(i)}
-              onClick={() => go(hit)}
-              className={cn(
-                "flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors",
-                i === activeIndex ? "bg-accent" : "hover:bg-accent/60",
+            <React.Fragment key={`${hit.kind}-${hit.doctype}-${hit.name}`}>
+              {(i === 0 || results[i - 1].kind !== hit.kind) && (
+                <div className="px-3 pb-1 pt-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{KIND_LABEL[hit.kind]}</div>
               )}
-            >
-              <span className="min-w-0 truncate font-medium">{hit.label}</span>
-              <Badge variant="secondary" className="shrink-0">
-                {hit.doctype}
-              </Badge>
-            </button>
+              <button
+                onMouseEnter={() => setActiveIndex(i)}
+                onClick={() => go(hit)}
+                className={cn(
+                  "flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors",
+                  i === activeIndex ? "bg-accent" : "hover:bg-accent/60",
+                )}
+              >
+                <span className="flex min-w-0 items-center gap-1.5 truncate font-medium">
+                  {hit.label}
+                  {hit.external && <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />}
+                </span>
+                <Badge variant="secondary" className="max-w-[45%] shrink-0 truncate">
+                  {hit.doctype}
+                </Badge>
+              </button>
+            </React.Fragment>
           ))
         )}
       </div>

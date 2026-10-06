@@ -23,7 +23,16 @@ import type { DocConfig } from "./doc-config";
  * Generic list screen for a DocType: status tabs with live counts, filters, server-side search,
  * sorting and paging (so it stays fast with tens of thousands of rows), row actions.
  */
+/**
+ * Keyed by DocType: two routes in one route group (e.g. /projects/list and /projects/tasks) render this component at
+ * the same place, and React would otherwise reuse it — carrying one DocType's sort / filters / form state into the
+ * other (sorting Tasks by Project's expected_end_date → "You do not have permission to access field").
+ */
 export function DocListPage({ config }: { config: DocConfig }) {
+  return <DocListPageInner key={`${config.doctype}|${config.base}`} config={config} />;
+}
+
+function DocListPageInner({ config }: { config: DocConfig }) {
   const navigate = useNavigate();
   const { company } = useCompanyContext();
   const { hasRole } = useAuth();

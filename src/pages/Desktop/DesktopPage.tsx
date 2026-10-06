@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useFrappeGetCall } from "frappe-react-sdk";
 import toast from "react-hot-toast";
 import {
-  AlertTriangle, BookOpen, Boxes, CalendarCheck, ChevronRight, ClipboardList, FileText, HandCoins, Receipt, RefreshCw,
+  AlertTriangle, BookOpen, Boxes, Building2, CalendarCheck, ChevronRight, ClipboardList, FileText, Globe, HandCoins, Inbox, ListTodo, Receipt, RefreshCw,
   ShoppingCart, Target, Truck, type LucideIcon,
 } from "lucide-react";
 import { APPS, APP_GROUPS, type AppTile } from "@/app/apps";
@@ -19,6 +19,8 @@ import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { useInstalledApps } from "@/hooks/useInstalledApps";
 import { useVisibleModules } from "@/hooks/useWorkspaces";
 import { isoDaysAgo } from "@/hooks/useUrlFlag";
+import { SystemStatusCard } from "./system-status";
+import { COMPANY } from "@/pages/Website/website-data";
 import { humanizeError, postCall } from "@/services/frappe";
 import { cn } from "@/utils/cn";
 import { compactNumber, formatMoney } from "@/utils/currency";
@@ -30,7 +32,7 @@ interface Approval { doctype: string; name: string; state: string; amount?: numb
 interface Activity { doctype: string; name: string; category: string; title: string; amount?: number | null; status: string; owner: string; owner_name: string; at: string }
 interface HomeData {
   company: string; alerts: Alert[]; approvals: Approval[]; activity: Activity[];
-  hours: number[]; days?: { date: string; count: number }[]; mix: Record<string, number>; stats: { entries_today: number; pending: number; posted_today: number };
+  hours: number[]; days?: { date: string; count: number }[]; todos?: { open: number; overdue: number }; mix: Record<string, number>; stats: { entries_today: number; pending: number; posted_today: number };
   tiles: Record<string, { value: number; label: string }>;
 }
 
@@ -181,7 +183,8 @@ export function DesktopPage() {
         </div>
 
         {/* overview apps first: dashboards and reports */}
-        {overview && <AppSection {...overview} tiles={home?.tiles} />}
+        {overview && <AppSection {...overview} tiles={home?.tiles} extra={<>{hasRole("System Manager") && <SystemStatusCard />}<CompanyProfileCard /></>}
+          oneRow={overview.items.length + (hasRole("System Manager") ? 2 : 1)} />}
 
         {/* needs attention */}
         {home && home.alerts.length > 0 && (
@@ -219,7 +222,10 @@ export function DesktopPage() {
         )}
 
         {/* apps */}
-        {rest.map((sec) => <AppSection key={sec.group} {...sec} tiles={home?.tiles} />)}
+        {rest.map((sec) => {
+          const cols = SECTION_COLUMNS[sec.group];
+          return <AppSection key={sec.group} {...sec} tiles={home?.tiles} oneRow={cols === "all" ? sec.items.length : cols} />;
+        })}
       </main>
 
       <ActivityPanel home={home} loading={isLoading && !home} tab={tab} setTab={setTab} onChanged={() => { setRefresh((r) => r + 1); void mutate(); }} />
@@ -227,18 +233,44 @@ export function DesktopPage() {
   );
 }
 
+/** Overview card: the company's public website (home page at /). */
+function CompanyProfileCard() {
+  return (
+    <Link to="/" className="group flex h-[76px] w-full items-center gap-3 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-emerald-500/[0.07] via-card to-teal-500/[0.07] p-3 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+        <Building2 className="h-4 w-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium">Company Profile</span>
+        <span className="block truncate text-[10px] leading-tight text-muted-foreground">Website Home</span>
+        <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{COMPANY.legalName}</span>
+      </span>
+      <Globe className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:scale-110" />
+    </Link>
+  );
+}
+
 /** Home page only: cards not shown here (still reachable from the menu), and cards shown in another section. */
 const HOME_HIDDEN = new Set(["account", "pos", "analytics"]);
+/** Cards per row for these sections ("all" = the whole section on one line); others wrap at 248px. */
+const SECTION_COLUMNS: Record<string, number | "all"> = {
+  "Finance & Setup": "all",
+  Operations: 4,
+  "Customers & Collaboration": "all",
+};
 const HOME_GROUP: Record<string, string> = { admin: "Finance & Setup", settings: "Finance & Setup" };
 const GROUP_LABEL: Record<string, string> = { "Finance & Setup": "Accounts & Settings" };
 
-function AppSection({ label, items, tiles }: { label: string; items: AppTile[]; tiles?: HomeData["tiles"] }) {
+function AppSection({ label, items, tiles, extra, oneRow }: { label: string; items: AppTile[]; tiles?: HomeData["tiles"]; extra?: React.ReactNode; oneRow?: number }) {
   return (
     <div>
       <SectionTitle count={items.length}>{label}</SectionTitle>
-      {/* Fixed-size cards in regular rows (the grid column is 248px, cards never stretch). */}
-      <div className="grid grid-cols-[repeat(auto-fill,248px)] gap-2.5">
+      {/* Fixed-size cards in regular rows (248px columns). `oneRow`: that many cards per line — up to 248px each,
+          narrower on a small screen instead of wrapping early (Overview, Accounts & Settings, Operations…). */}
+      <div className={cn("grid gap-2.5", !oneRow && "grid-cols-[repeat(auto-fill,248px)]")}
+        style={oneRow ? { gridTemplateColumns: `repeat(${oneRow}, minmax(0, 248px))` } : undefined}>
         {items.map((app) => <AppTileCard key={app.id} app={app} stat={tiles?.[app.id]} />)}
+        {extra}
       </div>
     </div>
   );
@@ -286,7 +318,7 @@ function AppTileCard({ app, stat }: { app: AppTile; stat?: { value: number; labe
   const playbook = playbookFor(app, isPathAvailable);
   return (
     <div className="group/tile relative">
-    <Link to={app.to} className="group flex h-[76px] w-[248px] items-center gap-3 overflow-hidden rounded-xl border border-border bg-card p-3 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
+    <Link to={app.to} className="group flex h-[76px] w-full items-center gap-3 overflow-hidden rounded-xl border border-border bg-card p-3 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
       <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", app.colorClass)}>
         <app.icon className="h-4 w-4" />
       </span>
@@ -366,9 +398,31 @@ function ActivityPanel({ home, loading, tab, setTab, onChanged }: { home?: HomeD
   return (
     <aside className="w-full flex-[1_1_340px] xl:sticky xl:top-20 xl:max-w-[400px]">
       <Card className="space-y-4 p-4">
-        <div className="flex items-center justify-between">
+        <div className="space-y-2.5">
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Recent activity</h2>
-          <Link to="/approvals/inbox" className="text-xs text-primary hover:underline">Approvals inbox</Link>
+          {/* To-dos + approvals: their own row of two equal tiles, so nothing overlaps in the narrow panel */}
+          <div className="grid grid-cols-2 gap-2">
+            <Link to={home.todos?.overdue ? "/todos?overdue=1" : "/todos"} title={home.todos?.overdue ? `${home.todos.overdue} overdue` : "Your open to-dos"}
+              className="group flex min-w-0 items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 transition-colors hover:border-primary/40 hover:bg-muted/40">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-violet-500/10 text-violet-600 dark:text-violet-400"><ListTodo className="h-3.5 w-3.5" /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-xs font-medium">To-dos <span className="tabular-nums text-muted-foreground">{home.todos?.open ?? 0}</span></span>
+                <span className={cn("block truncate text-[10px]", home.todos?.overdue ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground")}>
+                  {home.todos?.overdue ? `${home.todos.overdue} overdue` : "none overdue"}
+                </span>
+              </span>
+            </Link>
+            <Link to="/approvals/inbox" title="Workflow and HR requests waiting for you"
+              className="group flex min-w-0 items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 transition-colors hover:border-primary/40 hover:bg-muted/40">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400"><Inbox className="h-3.5 w-3.5" /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-xs font-medium">Approvals <span className="tabular-nums text-muted-foreground">{home.approvals.length}</span></span>
+                <span className={cn("block truncate text-[10px]", home.approvals.length ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground")}>
+                  {home.approvals.length ? "waiting for you" : "all clear"}
+                </span>
+              </span>
+            </Link>
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-2">
