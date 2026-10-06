@@ -31,7 +31,7 @@ TENANT_FILE="$(dirname "$(readlink -f "$0")")/tenants/${TENANT}.env"
 # shellcheck source=/dev/null
 source "$TENANT_FILE"
 
-USERS="${USERS:-vision@micromaxonline.uk spinning@micromaxonline.uk director@micromaxonline.uk ceo@micromaxonline.uk demo@micromaxonline.uk sales@micromaxonline.uk}"
+USERS="${USERS:-vision@micromaxonline.uk spinning@micromaxonline.uk director@micromaxonline.uk ceo@micromaxonline.uk demo@micromaxonline.uk sales@micromaxonline.uk purchase@micromaxonline.uk hr@micromaxonline.uk payroll@micromaxonline.uk}"
 USER_PASSWORD="${USER_PASSWORD:?Set USER_PASSWORD to the password for these logins.}"
 
 [[ -d "${BENCH_DIR}/sites/${SITE_NAME}" ]] || die "Site '${SITE_NAME}' not found under ${BENCH_DIR}/sites."

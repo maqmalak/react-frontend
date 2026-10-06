@@ -2,26 +2,27 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { LoginPage } from "@/pages/Auth/LoginPage";
-import { DesktopPage } from "@/pages/Desktop/DesktopPage";
-import { DashboardPage } from "@/pages/Dashboard/DashboardPage";
-import { LCProformaListPage } from "@/pages/LCProforma/LCProformaListPage";
-import { LCProformaFormPage } from "@/pages/LCProforma/LCProformaFormPage";
-import { ItemsPage } from "@/pages/Masters/ItemsPage";
-import { ItemFormPage } from "@/pages/Masters/ItemFormPage";
-import { ItemGroupsPage } from "@/pages/Masters/ItemGroupsPage";
-import { ItemGroupFormPage } from "@/pages/Masters/ItemGroupFormPage";
-import { CustomersPage } from "@/pages/Masters/CustomersPage";
-import { CustomerFormPage } from "@/pages/Masters/CustomerFormPage";
-import { CustomerGroupsPage } from "@/pages/Masters/CustomerGroupsPage";
-import { CustomerGroupFormPage } from "@/pages/Masters/CustomerGroupFormPage";
-import { SuppliersPage } from "@/pages/Masters/SuppliersPage";
-import { SupplierFormPage } from "@/pages/Masters/SupplierFormPage";
-import { SupplierGroupsPage } from "@/pages/Masters/SupplierGroupsPage";
-import { SupplierGroupFormPage } from "@/pages/Masters/SupplierGroupFormPage";
 import { ComingSoonPage, FullPageLoader } from "@/pages/common/ComingSoonPage";
 import { RequireRole } from "@/components/common/require-role";
 
 // Heavier / less-frequently visited modules are code-split.
+// Loaded on demand (kept out of the main bundle).
+const DesktopPage = lazy(() => import("@/pages/Desktop/DesktopPage").then((m) => ({ default: m.DesktopPage })));
+const DashboardPage = lazy(() => import("@/pages/Dashboard/DashboardPage").then((m) => ({ default: m.DashboardPage })));
+const LCProformaListPage = lazy(() => import("@/pages/LCProforma/LCProformaListPage").then((m) => ({ default: m.LCProformaListPage })));
+const LCProformaFormPage = lazy(() => import("@/pages/LCProforma/LCProformaFormPage").then((m) => ({ default: m.LCProformaFormPage })));
+const ItemsPage = lazy(() => import("@/pages/Masters/ItemsPage").then((m) => ({ default: m.ItemsPage })));
+const ItemFormPage = lazy(() => import("@/pages/Masters/ItemFormPage").then((m) => ({ default: m.ItemFormPage })));
+const ItemGroupsPage = lazy(() => import("@/pages/Masters/ItemGroupsPage").then((m) => ({ default: m.ItemGroupsPage })));
+const ItemGroupFormPage = lazy(() => import("@/pages/Masters/ItemGroupFormPage").then((m) => ({ default: m.ItemGroupFormPage })));
+const CustomersPage = lazy(() => import("@/pages/Masters/CustomersPage").then((m) => ({ default: m.CustomersPage })));
+const CustomerFormPage = lazy(() => import("@/pages/Masters/CustomerFormPage").then((m) => ({ default: m.CustomerFormPage })));
+const CustomerGroupsPage = lazy(() => import("@/pages/Masters/CustomerGroupsPage").then((m) => ({ default: m.CustomerGroupsPage })));
+const CustomerGroupFormPage = lazy(() => import("@/pages/Masters/CustomerGroupFormPage").then((m) => ({ default: m.CustomerGroupFormPage })));
+const SuppliersPage = lazy(() => import("@/pages/Masters/SuppliersPage").then((m) => ({ default: m.SuppliersPage })));
+const SupplierFormPage = lazy(() => import("@/pages/Masters/SupplierFormPage").then((m) => ({ default: m.SupplierFormPage })));
+const SupplierGroupsPage = lazy(() => import("@/pages/Masters/SupplierGroupsPage").then((m) => ({ default: m.SupplierGroupsPage })));
+const SupplierGroupFormPage = lazy(() => import("@/pages/Masters/SupplierGroupFormPage").then((m) => ({ default: m.SupplierGroupFormPage })));
 const ExportOrdersPage = lazy(() => import("@/pages/Export/ExportOrdersPage").then((m) => ({ default: m.ExportOrdersPage })));
 const ExportPackingPage = lazy(() => import("@/pages/Export/ExportPackingPage").then((m) => ({ default: m.ExportPackingPage })));
 const ExportPackingFormPage = lazy(() => import("@/pages/Export/ExportPackingPage").then((m) => ({ default: m.ExportPackingFormPage })));
@@ -230,8 +231,8 @@ export function AppRoutes() {
 
       {/* Authenticated shell */}
       <Route element={<AppShell />}>
-        <Route path="home" element={<DesktopPage />} />
-        <Route path="dashboard" element={<DashboardPage />} />
+        <Route path="home" element={<Suspense fallback={<FullPageLoader />}><DesktopPage /></Suspense>} />
+        <Route path="dashboard" element={<Suspense fallback={<FullPageLoader />}><DashboardPage /></Suspense>} />
         <Route path="dashboard/export" element={<Suspense fallback={<FullPageLoader />}><ExportDashboardPage /></Suspense>} />
         <Route path="export/dashboard" element={<Suspense fallback={<FullPageLoader />}><ExportDashboardPage /></Suspense>} />
 
@@ -273,9 +274,9 @@ export function AppRoutes() {
         <Route path="purchase/landed-costs/:name/edit" element={<Suspense fallback={<FullPageLoader />}><LandedCostVoucherFormPage /></Suspense>} />
 
         {/* Export */}
-        <Route path="export/lc-proforma" element={<LCProformaListPage />} />
-        <Route path="export/lc-proforma/new" element={<LCProformaFormPage />} />
-        <Route path="export/lc-proforma/:name" element={<LCProformaFormPage />} />
+        <Route path="export/lc-proforma" element={<Suspense fallback={<FullPageLoader />}><LCProformaListPage /></Suspense>} />
+        <Route path="export/lc-proforma/new" element={<Suspense fallback={<FullPageLoader />}><LCProformaFormPage /></Suspense>} />
+        <Route path="export/lc-proforma/:name" element={<Suspense fallback={<FullPageLoader />}><LCProformaFormPage /></Suspense>} />
         <Route path="export/orders" element={<Suspense fallback={<FullPageLoader />}><ExportOrdersPage /></Suspense>} />
         <Route path="export/orders/:name" element={<Suspense fallback={<FullPageLoader />}><ExportOrdersPage /></Suspense>} />
         <Route path="export/packing" element={<Suspense fallback={<FullPageLoader />}><ExportPackingPage /></Suspense>} />
@@ -308,24 +309,24 @@ export function AppRoutes() {
         <Route path="reports/lc" element={<ComingSoonPage title="LC Reports" />} />
 
         {/* Masters */}
-        <Route path="masters/items" element={<ItemsPage />} />
-        <Route path="masters/items/new" element={<ItemFormPage />} />
-        <Route path="masters/items/:name" element={<ItemFormPage />} />
-        <Route path="masters/item-groups" element={<ItemGroupsPage />} />
-        <Route path="masters/item-groups/new" element={<ItemGroupFormPage />} />
-        <Route path="masters/item-groups/:name" element={<ItemGroupFormPage />} />
-        <Route path="masters/customers" element={<CustomersPage />} />
-        <Route path="masters/customers/new" element={<CustomerFormPage />} />
-        <Route path="masters/customers/:name" element={<CustomerFormPage />} />
-        <Route path="masters/customer-groups" element={<CustomerGroupsPage />} />
-        <Route path="masters/customer-groups/new" element={<CustomerGroupFormPage />} />
-        <Route path="masters/customer-groups/:name" element={<CustomerGroupFormPage />} />
-        <Route path="masters/suppliers" element={<SuppliersPage />} />
-        <Route path="masters/suppliers/new" element={<SupplierFormPage />} />
-        <Route path="masters/suppliers/:name" element={<SupplierFormPage />} />
-        <Route path="masters/supplier-groups" element={<SupplierGroupsPage />} />
-        <Route path="masters/supplier-groups/new" element={<SupplierGroupFormPage />} />
-        <Route path="masters/supplier-groups/:name" element={<SupplierGroupFormPage />} />
+        <Route path="masters/items" element={<Suspense fallback={<FullPageLoader />}><ItemsPage /></Suspense>} />
+        <Route path="masters/items/new" element={<Suspense fallback={<FullPageLoader />}><ItemFormPage /></Suspense>} />
+        <Route path="masters/items/:name" element={<Suspense fallback={<FullPageLoader />}><ItemFormPage /></Suspense>} />
+        <Route path="masters/item-groups" element={<Suspense fallback={<FullPageLoader />}><ItemGroupsPage /></Suspense>} />
+        <Route path="masters/item-groups/new" element={<Suspense fallback={<FullPageLoader />}><ItemGroupFormPage /></Suspense>} />
+        <Route path="masters/item-groups/:name" element={<Suspense fallback={<FullPageLoader />}><ItemGroupFormPage /></Suspense>} />
+        <Route path="masters/customers" element={<Suspense fallback={<FullPageLoader />}><CustomersPage /></Suspense>} />
+        <Route path="masters/customers/new" element={<Suspense fallback={<FullPageLoader />}><CustomerFormPage /></Suspense>} />
+        <Route path="masters/customers/:name" element={<Suspense fallback={<FullPageLoader />}><CustomerFormPage /></Suspense>} />
+        <Route path="masters/customer-groups" element={<Suspense fallback={<FullPageLoader />}><CustomerGroupsPage /></Suspense>} />
+        <Route path="masters/customer-groups/new" element={<Suspense fallback={<FullPageLoader />}><CustomerGroupFormPage /></Suspense>} />
+        <Route path="masters/customer-groups/:name" element={<Suspense fallback={<FullPageLoader />}><CustomerGroupFormPage /></Suspense>} />
+        <Route path="masters/suppliers" element={<Suspense fallback={<FullPageLoader />}><SuppliersPage /></Suspense>} />
+        <Route path="masters/suppliers/new" element={<Suspense fallback={<FullPageLoader />}><SupplierFormPage /></Suspense>} />
+        <Route path="masters/suppliers/:name" element={<Suspense fallback={<FullPageLoader />}><SupplierFormPage /></Suspense>} />
+        <Route path="masters/supplier-groups" element={<Suspense fallback={<FullPageLoader />}><SupplierGroupsPage /></Suspense>} />
+        <Route path="masters/supplier-groups/new" element={<Suspense fallback={<FullPageLoader />}><SupplierGroupFormPage /></Suspense>} />
+        <Route path="masters/supplier-groups/:name" element={<Suspense fallback={<FullPageLoader />}><SupplierGroupFormPage /></Suspense>} />
 
         {/* Accounting */}
         <Route path="analytics" element={<Navigate to="/analytics/accounts" replace />} />
