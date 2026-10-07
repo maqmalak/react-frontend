@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useFrappeGetCall } from "frappe-react-sdk";
 import toast from "react-hot-toast";
 import {
-  AlertTriangle, BookOpen, Boxes, Building2, CalendarCheck, ChevronRight, ClipboardList, FileText, Globe, HandCoins, Hourglass, Inbox, ListTodo, Receipt, RefreshCw,
+  AlertTriangle, BookOpen, Boxes, Building2, CalendarCheck, ChevronRight, ClipboardList, FileText, Globe, HandCoins, Inbox, ListTodo, Receipt, RefreshCw,
   ShoppingCart, Target, Truck, type LucideIcon,
 } from "lucide-react";
 import { APPS, APP_GROUPS, type AppTile } from "@/app/apps";
@@ -251,7 +251,7 @@ function CompanyProfileCard() {
   );
 }
 
-/** A small link tile in the activity panel header (to-dos, approvals, uncleared cheques). */
+/** A small link tile in the activity panel header (to-dos, approvals). */
 function PanelTile({ to, icon: Icon, tone, title, label, count, sub, warn, warnTone }: {
   to: string; icon: LucideIcon; tone: "violet" | "amber" | "sky"; title: string; label: string; count: number; sub: string;
   warn: boolean; warnTone: "rose" | "amber" | "sky";
@@ -421,20 +421,14 @@ function ActivityPanel({ home, loading, tab, setTab, onChanged }: { home?: HomeD
       <Card className="space-y-4 p-4">
         <div className="space-y-2.5">
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Recent activity</h2>
-          {/* To-dos, approvals (and uncleared cheques): their own row of equal tiles, so nothing overlaps in the narrow panel */}
-          <div className={cn("grid gap-2", home.cheques ? "grid-cols-3" : "grid-cols-2")}>
+          {/* To-dos + approvals: their own row of equal tiles, so nothing overlaps in the narrow panel */}
+          <div className="grid grid-cols-2 gap-2">
             <PanelTile to={home.todos?.overdue ? "/todos?overdue=1" : "/todos"} icon={ListTodo} tone="violet" title="Your open to-dos"
               label="To-dos" count={home.todos?.open ?? 0}
               sub={home.todos?.overdue ? `${home.todos.overdue} overdue` : "none overdue"} warn={Boolean(home.todos?.overdue)} warnTone="rose" />
             <PanelTile to="/approvals/inbox" icon={Inbox} tone="amber" title="Workflow and HR requests waiting for you"
               label="Approvals" count={home.approvals.length}
               sub={home.approvals.length ? "waiting for you" : "all clear"} warn={home.approvals.length > 0} warnTone="amber" />
-            {home.cheques && (
-              <PanelTile to="/accounting/cheque-tracking?status=Issued" icon={Hourglass} tone="sky"
-                title={home.cheques.oldest ? `Issued, not yet paid by the bank — oldest ${home.cheques.oldest}` : "Issued, not yet paid by the bank"}
-                label="Uncleared" count={home.cheques.count}
-                sub={home.cheques.count ? money(home.cheques.amount) : "all cleared"} warn={home.cheques.count > 0} warnTone="sky" />
-            )}
           </div>
         </div>
 
