@@ -457,6 +457,7 @@ function DocFormPageInner({ config }: { config: DocConfig }) {
           rows={spec.derive ? list.map(spec.derive) : list}
           onChange={onRowChange(spec)}
           onLinkChange={onRowLinkChange(spec)}
+          renderCell={spec.renderCell}
           onRemoveRow={ro ? undefined : removeRow(spec)}
           onDuplicateRow={ro ? undefined : duplicateRow(spec)}
           readOnly={ro}

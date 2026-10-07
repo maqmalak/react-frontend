@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useFrappeGetCall } from "frappe-react-sdk";
 import toast from "react-hot-toast";
 import {
-  AlertTriangle, BookOpen, Boxes, Building2, CalendarCheck, ChevronRight, ClipboardList, FileText, Globe, HandCoins, Inbox, ListTodo, Receipt, RefreshCw,
+  AlertTriangle, BookOpen, Boxes, Building2, CalendarCheck, ChevronRight, ClipboardList, FileText, Globe, HandCoins, Hourglass, Inbox, ListTodo, Receipt, RefreshCw,
   ShoppingCart, Target, Truck, type LucideIcon,
 } from "lucide-react";
 import { APPS, APP_GROUPS, type AppTile } from "@/app/apps";
@@ -32,7 +32,8 @@ interface Approval { doctype: string; name: string; state: string; amount?: numb
 interface Activity { doctype: string; name: string; category: string; title: string; amount?: number | null; status: string; owner: string; owner_name: string; at: string }
 interface HomeData {
   company: string; alerts: Alert[]; approvals: Approval[]; activity: Activity[];
-  hours: number[]; days?: { date: string; count: number }[]; todos?: { open: number; overdue: number }; mix: Record<string, number>; stats: { entries_today: number; pending: number; posted_today: number };
+  hours: number[]; days?: { date: string; count: number }[]; todos?: { open: number; overdue: number };
+  cheques?: { count: number; amount: number; oldest?: string | null } | null; mix: Record<string, number>; stats: { entries_today: number; pending: number; posted_today: number };
   tiles: Record<string, { value: number; label: string }>;
 }
 
@@ -250,6 +251,26 @@ function CompanyProfileCard() {
   );
 }
 
+/** A small link tile in the activity panel header (to-dos, approvals, uncleared cheques). */
+function PanelTile({ to, icon: Icon, tone, title, label, count, sub, warn, warnTone }: {
+  to: string; icon: LucideIcon; tone: "violet" | "amber" | "sky"; title: string; label: string; count: number; sub: string;
+  warn: boolean; warnTone: "rose" | "amber" | "sky";
+}) {
+  const iconTone = { violet: "bg-violet-500/10 text-violet-600 dark:text-violet-400", amber: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    sky: "bg-sky-500/10 text-sky-600 dark:text-sky-400" }[tone];
+  const subTone = { rose: "text-rose-600 dark:text-rose-400", amber: "text-amber-600 dark:text-amber-400", sky: "text-sky-600 dark:text-sky-400" }[warnTone];
+  return (
+    <Link to={to} title={title}
+      className="group flex min-w-0 items-center gap-1.5 rounded-lg border border-border px-2 py-1.5 transition-colors hover:border-primary/40 hover:bg-muted/40">
+      <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-md", iconTone)}><Icon className="h-3.5 w-3.5" /></span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[11px] font-medium">{label} <span className="tabular-nums text-muted-foreground">{count}</span></span>
+        <span className={cn("block truncate text-[10px]", warn ? subTone : "text-muted-foreground")}>{sub}</span>
+      </span>
+    </Link>
+  );
+}
+
 /** Home page only: cards not shown here (still reachable from the menu), and cards shown in another section. */
 const HOME_HIDDEN = new Set(["account", "pos", "analytics"]);
 /** Cards per row for these sections ("all" = the whole section on one line); others wrap at 248px. */
@@ -400,28 +421,20 @@ function ActivityPanel({ home, loading, tab, setTab, onChanged }: { home?: HomeD
       <Card className="space-y-4 p-4">
         <div className="space-y-2.5">
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Recent activity</h2>
-          {/* To-dos + approvals: their own row of two equal tiles, so nothing overlaps in the narrow panel */}
-          <div className="grid grid-cols-2 gap-2">
-            <Link to={home.todos?.overdue ? "/todos?overdue=1" : "/todos"} title={home.todos?.overdue ? `${home.todos.overdue} overdue` : "Your open to-dos"}
-              className="group flex min-w-0 items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 transition-colors hover:border-primary/40 hover:bg-muted/40">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-violet-500/10 text-violet-600 dark:text-violet-400"><ListTodo className="h-3.5 w-3.5" /></span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-xs font-medium">To-dos <span className="tabular-nums text-muted-foreground">{home.todos?.open ?? 0}</span></span>
-                <span className={cn("block truncate text-[10px]", home.todos?.overdue ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground")}>
-                  {home.todos?.overdue ? `${home.todos.overdue} overdue` : "none overdue"}
-                </span>
-              </span>
-            </Link>
-            <Link to="/approvals/inbox" title="Workflow and HR requests waiting for you"
-              className="group flex min-w-0 items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 transition-colors hover:border-primary/40 hover:bg-muted/40">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400"><Inbox className="h-3.5 w-3.5" /></span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-xs font-medium">Approvals <span className="tabular-nums text-muted-foreground">{home.approvals.length}</span></span>
-                <span className={cn("block truncate text-[10px]", home.approvals.length ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground")}>
-                  {home.approvals.length ? "waiting for you" : "all clear"}
-                </span>
-              </span>
-            </Link>
+          {/* To-dos, approvals (and uncleared cheques): their own row of equal tiles, so nothing overlaps in the narrow panel */}
+          <div className={cn("grid gap-2", home.cheques ? "grid-cols-3" : "grid-cols-2")}>
+            <PanelTile to={home.todos?.overdue ? "/todos?overdue=1" : "/todos"} icon={ListTodo} tone="violet" title="Your open to-dos"
+              label="To-dos" count={home.todos?.open ?? 0}
+              sub={home.todos?.overdue ? `${home.todos.overdue} overdue` : "none overdue"} warn={Boolean(home.todos?.overdue)} warnTone="rose" />
+            <PanelTile to="/approvals/inbox" icon={Inbox} tone="amber" title="Workflow and HR requests waiting for you"
+              label="Approvals" count={home.approvals.length}
+              sub={home.approvals.length ? "waiting for you" : "all clear"} warn={home.approvals.length > 0} warnTone="amber" />
+            {home.cheques && (
+              <PanelTile to="/accounting/cheque-tracking?status=Issued" icon={Hourglass} tone="sky"
+                title={home.cheques.oldest ? `Issued, not yet paid by the bank — oldest ${home.cheques.oldest}` : "Issued, not yet paid by the bank"}
+                label="Uncleared" count={home.cheques.count}
+                sub={home.cheques.count ? money(home.cheques.amount) : "all cleared"} warn={home.cheques.count > 0} warnTone="sky" />
+            )}
           </div>
         </div>
 

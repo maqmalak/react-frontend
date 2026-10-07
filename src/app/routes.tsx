@@ -7,6 +7,9 @@ import { RequireRole } from "@/components/common/require-role";
 
 // Heavier / less-frequently visited modules are code-split.
 const HrSalaryLoansPage = lazy(() => import("@/pages/HR/SalaryLoansPage"));
+const BankingDoc = lazy(() => import("@/pages/Accounting/BankingDocPage"));
+const BankClearancePage = lazy(() => import("@/pages/Accounting/BankClearancePage"));
+const ChequeTrackingPage = lazy(() => import("@/pages/Accounting/ChequeTrackingPage"));
 // Loaded on demand (kept out of the main bundle).
 const DesktopPage = lazy(() => import("@/pages/Desktop/DesktopPage").then((m) => ({ default: m.DesktopPage })));
 const DashboardPage = lazy(() => import("@/pages/Dashboard/DashboardPage").then((m) => ({ default: m.DashboardPage })));
@@ -343,6 +346,15 @@ export function AppRoutes() {
         <Route path="analytics/:module" element={<Suspense fallback={<FullPageLoader />}><AnalyticsDashboardPage /></Suspense>} />
         {/* The old GL Overview page is retired — the Accounting app opens on the accounts dashboard, inside its own sidebar. */}
         <Route path="accounting" element={<Suspense fallback={<FullPageLoader />}><AnalyticsDashboardPage module="accounts" /></Suspense>} />
+        <Route path="accounting/banks" element={<Suspense fallback={<FullPageLoader />}><BankingDoc which="bank" /></Suspense>} />
+        <Route path="accounting/banks/:name" element={<Suspense fallback={<FullPageLoader />}><BankingDoc which="bank" form /></Suspense>} />
+        <Route path="accounting/bank-accounts" element={<Suspense fallback={<FullPageLoader />}><BankingDoc which="bankAccount" /></Suspense>} />
+        <Route path="accounting/bank-accounts/:name" element={<Suspense fallback={<FullPageLoader />}><BankingDoc which="bankAccount" form /></Suspense>} />
+        <Route path="accounting/cheque-books" element={<Suspense fallback={<FullPageLoader />}><BankingDoc which="chequeBook" /></Suspense>} />
+        <Route path="accounting/cheque-books/:name" element={<Suspense fallback={<FullPageLoader />}><BankingDoc which="chequeBook" form /></Suspense>} />
+        <Route path="accounting/plaid-settings" element={<Suspense fallback={<FullPageLoader />}><BankingDoc which="plaid" form /></Suspense>} />
+        <Route path="accounting/cheque-tracking" element={<Suspense fallback={<FullPageLoader />}><ChequeTrackingPage /></Suspense>} />
+        <Route path="accounting/bank-clearance" element={<Suspense fallback={<FullPageLoader />}><BankClearancePage /></Suspense>} />
         <Route path="accounting/getting-started" element={<Suspense fallback={<FullPageLoader />}><GettingStartedPage /></Suspense>} />
         <Route path="accounting/chart-of-accounts" element={<Suspense fallback={<FullPageLoader />}><ChartOfAccountsPage /></Suspense>} />
         <Route path="accounting/cost-centers" element={<Suspense fallback={<FullPageLoader />}><CostCentersPage /></Suspense>} />

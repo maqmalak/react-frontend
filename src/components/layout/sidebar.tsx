@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { X, LayoutGrid } from "lucide-react";
+import { ExternalLink, X, LayoutGrid } from "lucide-react";
 import { cn } from "@/utils/cn";
 import type { NavGroup } from "@/app/navigation";
 import { useAuth } from "@/hooks/useAuth";
@@ -70,10 +70,19 @@ function NavLinks({
           {group.items.map((item) => {
             const Icon = item.icon;
             return (
+              item.to.startsWith("/desk/") ? (
+                // ERPNext desk screens (no React page): a normal link, so the browser loads the desk
+                <a key={item.to} href={item.to} onClick={onNavigate} className={linkClass(item.to)({ isActive: false })} title="Opens in the ERPNext desk">
+                  {Icon && <Icon className="h-4 w-4 shrink-0" />}
+                  <span className="truncate">{item.label}</span>
+                  <ExternalLink className="ml-auto h-3 w-3 shrink-0 opacity-50" />
+                </a>
+              ) : (
               <NavLink key={item.to} to={item.to} end={isAppRoot(item.to)} onClick={onNavigate} className={linkClass(item.to)}>
                 {Icon && <Icon className="h-4 w-4 shrink-0" />}
                 <span className="truncate">{item.label}</span>
               </NavLink>
+              )
             );
           })}
         </div>

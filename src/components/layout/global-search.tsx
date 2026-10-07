@@ -193,7 +193,12 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
         recordHits.push({ kind: "record", doctype: g.doctype, name, label: title && title !== name ? `${title} (${name})` : name, route: u.href, external: u.external });
       });
     });
-    return [...pageHits, ...doctypeHits, ...reportHits, ...recordHits.slice(0, 15)];
+    // A number (4+ digits) may be a cheque: offer to track it across all cheque books.
+    const chequeHit: SearchHit[] = /^\d{4,}$/.test(debounced.trim())
+      ? [{ kind: "page", doctype: "Cheque Tracking", name: `chq-${debounced}`, label: `Track cheque ${debounced.trim()}`,
+          route: `/accounting/cheque-tracking?q=${encodeURIComponent(debounced.trim())}` }]
+      : [];
+    return [...chequeHit, ...pageHits, ...doctypeHits, ...reportHits, ...recordHits.slice(0, 15)];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, debounced, pages, meta, ...groups.map((g) => g.data)]);
 

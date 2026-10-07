@@ -53,12 +53,18 @@ function DocListPageInner({ config }: { config: DocConfig }) {
 
   const scoped = config.companyScoped ?? config.fields.some((f) => f.fieldname === "company");
 
+  // Company-dependent filters from the config (a hook; stable per config since the page is keyed by doctype).
+  const scopeFilters = config.useScopeFilters?.(company);
+  const scopeKey = JSON.stringify(scopeFilters ?? null);
+
   // Filters that define "this list" (also used for the status tab counts).
   const baseFilters = useMemo(() => {
     const f: unknown[][] = [...(scoped ? companyFilter(company) : []), ...(config.baseFilters ?? [])];
+    if (config.useScopeFilters) f.push(...(scopeFilters ?? [["name", "=", "__loading__"]]));
     if (config.submittable) f.push(["docstatus", "<", 2]);
     return f;
-  }, [scoped, company, config.baseFilters, config.submittable]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scoped, company, config.baseFilters, config.submittable, scopeKey]);
 
   // URL flags (config.urlFlags, e.g. ?expiring=1 from the home page) — each shows a removable chip.
   const [urlParams, setUrlParams] = useSearchParams();
@@ -135,10 +141,15 @@ function DocListPageInner({ config }: { config: DocConfig }) {
         subtitle={config.subtitle}
         icon={<Icon className="h-5 w-5" />}
         actions={
-          canWrite ? (
-            <Button variant="primary" onClick={() => navigate(`${config.base}/new`)}>
-              <Plus className="h-4 w-4" /> New {config.singular}
-            </Button>
+          canWrite || config.listActions ? (
+            <div className="flex gap-2">
+              {config.listActions}
+              {canWrite && (
+                <Button variant="primary" onClick={() => navigate(`${config.base}/new`)}>
+                  <Plus className="h-4 w-4" /> New {config.singular}
+                </Button>
+              )}
+            </div>
           ) : undefined
         }
       />

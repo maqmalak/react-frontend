@@ -54,6 +54,8 @@ export interface ChildTableSpec {
   derive?: (row: ChildRow) => ChildRow;
   /** Form tab (its label) this table belongs to — defaults to the first tab. */
   tab?: string;
+  /** Custom display for a cell (e.g. a voucher number as a link); return undefined for the normal cell. */
+  renderCell?: (row: ChildRow, col: FormFieldMeta) => ReactNode | undefined;
 }
 
 /** A patch to the form: header values, and/or whole child tables (keyed by the Table fieldname). */
@@ -120,6 +122,11 @@ export interface DocConfig {
   /** Company-scoped? Defaults to true when the form has a `company` field. */
   companyScoped?: boolean;
   /** Extra UI above the table (e.g. a view switcher). */
+  /** Extra buttons in the list page header, before New. */
+  /** Hook returning extra list filters that depend on the selected company (e.g. Banks the company holds accounts
+   *  with — Bank has no company field). Return undefined while loading; the list waits. */
+  useScopeFilters?: (company?: string) => unknown[][] | undefined;
+  listActions?: ReactNode;
   listHeaderExtra?: ReactNode;
 
   // ---- form ------------------------------------------------------------------------------------
