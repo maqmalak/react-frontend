@@ -56,8 +56,9 @@ server {
         proxy_set_header X-Use-X-Accel-Redirect True;
     }
 
-    # micromax: desk passthrough — /desk (Frappe v16 desk), /app (old desk URLs, redirect to /desk), /printview
-    location ~ ^/(app|desk|printview)(/|$) {
+    # micromax: desk passthrough — /desk (Frappe v16 desk), /app (old desk URLs, redirect to /desk), /printview,
+    # /hr/roster (HRMS roster app; the rest of /hr is the React app)
+    location ~ ^/(app|desk|printview|hr/roster)(/|$) {
         proxy_pass http://${up}_backend;
         proxy_set_header Host \$host;
         proxy_set_header X-Frappe-Site-Name ${SITE_NAME};

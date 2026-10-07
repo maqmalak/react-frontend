@@ -43,6 +43,7 @@ export default defineConfig(({ mode }) => {
         // Desk form and print view, opened from the React forms' Actions menu (same session cookie).
         "/app": proxyOpts,
         "/desk": proxyOpts,
+        "/hr/roster": proxyOpts,    // HRMS roster app (Frappe page) — the rest of /hr is React
         "/printview": proxyOpts,
       },
     },

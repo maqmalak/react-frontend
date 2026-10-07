@@ -677,6 +677,10 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
         { label: "Shift Types", to: "/hr/shift-types", icon: Timer },
         { label: "Shift Assignments", to: "/hr/shift-assignments", icon: CalendarClock },
         { label: "Shift Requests", to: "/hr/shift-requests", icon: Repeat },
+        { label: "Shift Locations", to: "/hr/shift-locations", icon: MapPin },
+        { label: "Shift Schedules", to: "/hr/shift-schedules", icon: CalendarRange },
+        { label: "Schedule Assignments", to: "/hr/shift-schedule-assignments", icon: CalendarClock },
+        { label: "Roster", to: "/hr/roster", icon: LayoutGrid },
         { label: "Attendance", to: "/hr/attendance", icon: CalendarCheck },
         { label: "Attendance Requests", to: "/hr/attendance-requests", icon: FileCheck2 },
         { label: "Checkins", to: "/hr/checkins", icon: LogIn },
@@ -705,6 +709,15 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
         { label: "Employee Advances", to: "/hr/advances", icon: Wallet },
         { label: "Salary Loans", to: "/hr/loans", icon: HandCoins },
         { label: "Gratuity", to: "/hr/gratuity", icon: Award },
+      ],
+    },
+    {
+      title: "Tools",
+      items: [
+        { label: "Employee Attendance Tool", to: "/desk/employee-attendance-tool", icon: CalendarCheck },
+        { label: "Shift Assignment Tool", to: "/desk/shift-assignment-tool", icon: CalendarClock },
+        { label: "Leave Control Panel", to: "/desk/leave-control-panel", icon: CalendarPlus2 },
+        { label: "Roster", to: "/hr/roster", icon: LayoutGrid },
       ],
     },
     {
@@ -748,6 +761,13 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
         { label: "Salary Structures", to: "/payroll/salary-structures", icon: FileSpreadsheet },
         { label: "Structure Assignments", to: "/payroll/salary-structure-assignments", icon: FileSignature },
         { label: "Gratuity Rules", to: "/payroll/gratuity-rules", icon: Award },
+      ],
+    },
+    {
+      title: "Tools",
+      items: [
+        { label: "Bulk Salary Structure Assignment", to: "/desk/bulk-salary-structure-assignment", icon: FileSignature },
+        { label: "Payroll Entry (desk)", to: "/desk/payroll-entry/new", icon: PlayCircle },
       ],
     },
     {

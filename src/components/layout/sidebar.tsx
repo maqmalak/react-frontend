@@ -70,9 +70,10 @@ function NavLinks({
           {group.items.map((item) => {
             const Icon = item.icon;
             return (
-              item.to.startsWith("/desk/") ? (
+              item.to.startsWith("/desk/") || item.to.startsWith("/hr/roster") ? (
                 // ERPNext desk screens (no React page): a normal link, so the browser loads the desk
-                <a key={item.to} href={item.to} onClick={onNavigate} className={linkClass(item.to)({ isActive: false })} title="Opens in the ERPNext desk">
+                <a key={item.to} href={item.to} target="_blank" rel="noopener" onClick={onNavigate} className={linkClass(item.to)({ isActive: false })}
+                  title="Opens in a new tab (ERPNext desk)">
                   {Icon && <Icon className="h-4 w-4 shrink-0" />}
                   <span className="truncate">{item.label}</span>
                   <ExternalLink className="ml-auto h-3 w-3 shrink-0 opacity-50" />

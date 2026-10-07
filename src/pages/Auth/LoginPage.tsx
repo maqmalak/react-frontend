@@ -56,13 +56,21 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   const from = (location.state as { from?: string } | null)?.from || "/home";
+  // Frappe sends unauthenticated desk / roster requests here as /login?redirect-to=/desk/... — after login go back
+  // there with a full page load (they're Frappe pages, not React routes).
+  const redirectTo = new URLSearchParams(location.search).get("redirect-to") ?? "";
+  const toFrappe = /^\/(desk|app|hr\/roster|printview)(\/|$|\?)/.test(redirectTo) ? redirectTo : "";
 
   // Already signed in (or just finished login) — leave the login screen.
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
+      if (toFrappe) {
+        window.location.replace(toFrappe);
+        return;
+      }
       navigate(from, { replace: true });
     }
-  }, [isAuthenticated, isLoading, navigate, from]);
+  }, [isAuthenticated, isLoading, navigate, from, toFrappe]);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();

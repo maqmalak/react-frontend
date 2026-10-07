@@ -1,6 +1,6 @@
 import toast from "react-hot-toast";
 import {
-  ArrowRightLeft, Award, BadgeCheck, Briefcase, CalendarClock, CalendarHeart, CalendarRange, Clock3, Coins, DoorOpen,
+  ArrowRightLeft, Award, BadgeCheck, MapPin, Briefcase, CalendarClock, CalendarHeart, CalendarRange, Clock3, Coins, DoorOpen,
   FileCheck2, Fingerprint, Hourglass, Layers, Settings2, ListChecks, Receipt, Repeat, ShieldCheck, TrendingUp, XCircle, CheckCircle2,
 } from "lucide-react";
 import type { DocConfig, ExtraContext, FormAction } from "@/components/doc/doc-config";
@@ -14,6 +14,7 @@ import { humanizeError, postCall } from "@/services/frappe";
 import { formatDate, todayISO } from "@/utils/dates";
 import { asNumber } from "@/utils/cn";
 import { LoanEligibilityPanel } from "./loan-eligibility";
+import { CheckinMap, ShiftLocationMap } from "./location-map";
 
 /* ============================================================================ shared helpers */
 
@@ -255,8 +256,10 @@ export const CHECKIN_CONFIG: DocConfig = {
   subtitle: "Every punch from the biometric devices and the mobile app",
   icon: Fingerprint,
   companyScoped: false,
-  listFields: ["name", "employee", "employee_name", "log_type", "time", "shift", "device_id", "attendance", "skip_auto_attendance", "modified"],
-  columns: [employeeCol, { key: "time", label: "Time", render: (r) => <span className="font-mono text-xs">{String(r.time ?? "").slice(0, 16)}</span> }, statusCol("log_type", "Type", "—"), textCol("shift", "Shift"), textCol("device_id", "Device"), textCol("attendance", "Attendance")],
+  listFields: ["name", "employee", "employee_name", "log_type", "time", "shift", "device_id", "attendance", "skip_auto_attendance", "latitude", "longitude", "modified"],
+  columns: [employeeCol, { key: "time", label: "Time", render: (r) => <span className="font-mono text-xs">{String(r.time ?? "").slice(0, 16)}</span> }, statusCol("log_type", "Type", "—"), textCol("shift", "Shift"), textCol("device_id", "Device"),
+    { key: "latitude", label: "Location", render: (r) => (r.latitude ? <a className="font-mono text-[11px] text-primary hover:underline" href={`https://www.google.com/maps?q=${r.latitude},${r.longitude}`} target="_blank" rel="noreferrer">{Number(r.latitude).toFixed(4)}, {Number(r.longitude).toFixed(4)}</a> : <span className="text-muted-foreground">—</span>) },
+    textCol("attendance", "Attendance")],
   searchFields: ["name", "employee", "employee_name", "device_id"],
   statusField: "log_type",
   statuses: ["IN", "OUT"],
@@ -281,11 +284,36 @@ export const CHECKIN_CONFIG: DocConfig = {
     ro(datetime("shift_actual_start", "Shift Actual Start")),
     ro(datetime("shift_actual_end", "Shift Actual End")),
     ro(link("attendance", "Attendance Marked", "Attendance")),
+    sec("Location"),
+    float("latitude", "Latitude"),
+    float("longitude", "Longitude"),
+    colBreak(),
+    data("geolocation", "Map Location (GeoJSON)", { description: "Use Actions → Fetch location to fill it from this device." }),
+  ],
+  actions: [
+    {
+      label: "Fetch location", icon: MapPin, show: (c) => !c.readOnly,
+      run: (c) => new Promise<void>((resolve) => {
+        if (!navigator.geolocation) { toast.error("This browser can't share its location"); resolve(); return; }
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const lat = Number(pos.coords.latitude.toFixed(6)), lng = Number(pos.coords.longitude.toFixed(6));
+            c.patch({ latitude: lat, longitude: lng, geolocation: JSON.stringify({ type: "FeatureCollection", features: [
+              { type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [lng, lat] } }] }) });
+            toast.success(`Location ${lat}, ${lng} (±${Math.round(pos.coords.accuracy)} m) — save to keep it`);
+            resolve();
+          },
+          (err) => { toast.error(err.code === 1 ? "Location permission denied — allow it in the browser" : "Couldn't get the location"); resolve(); },
+          { enableHighAccuracy: true, timeout: 15000 },
+        );
+      }),
+    },
   ],
   defaults: ({ params }) => ({ log_type: "IN", employee: params.get("employee") ?? undefined }),
   linkEffects: { employee: async (emp) => ({ employee_name: (await getLinkedValues("Employee", emp, ["employee_name"])).employee_name }) },
   titleOf: (v) => [v.employee_name, v.log_type, String(v.time ?? "").slice(0, 16)].filter(Boolean).join(" · "),
   connections: false,
+  extra: (c) => <CheckinMap values={c.values} />,
 };
 
 /* ============================================================================ Leave */
@@ -1272,4 +1300,97 @@ export const EMPLOYEE_ADVANCE_CONFIG: DocConfig = {
       } },
   ],
   extra: (c) => <LoanEligibilityPanel values={c.values} name={c.name} />,
+};
+
+
+/* ============================================================================ Shift Location / Schedule / Schedule Assignment */
+export const SHIFT_LOCATION_CONFIG: DocConfig = {
+  doctype: "Shift Location",
+  base: "/hr/shift-locations",
+  singular: "Shift Location",
+  plural: "Shift Locations",
+  subtitle: "Where a shift is worked — check-ins are allowed within the radius of these coordinates",
+  icon: MapPin,
+  companyScoped: false,
+  listFields: ["name", "location_name", "latitude", "longitude", "checkin_radius", "modified"],
+  columns: [nameCol("Location"), { key: "latitude", label: "Coordinates", render: (r) => (r.latitude ? <a className="font-mono text-xs text-primary hover:underline" href={`https://www.google.com/maps?q=${r.latitude},${r.longitude}`} target="_blank" rel="noreferrer">{Number(r.latitude).toFixed(5)}, {Number(r.longitude).toFixed(5)}</a> : "—") },
+    textCol("checkin_radius", "Radius (m)", { align: "right" })],
+  searchFields: ["name", "location_name"],
+  sort: { key: "location_name", dir: "asc" },
+  fields: [
+    sec("Location"),
+    req(data("location_name", "Location Name")),
+    int("checkin_radius", "Check-in Radius (metres)"),
+    colBreak(),
+    float("latitude", "Latitude"),
+    float("longitude", "Longitude"),
+  ],
+  actions: [
+    {
+      label: "Use this device's location", icon: MapPin, show: (c) => !c.readOnly,
+      run: (c) => new Promise<void>((resolve) => {
+        if (!navigator.geolocation) { toast.error("This browser can't share its location"); resolve(); return; }
+        navigator.geolocation.getCurrentPosition(
+          (pos) => { c.patch({ latitude: Number(pos.coords.latitude.toFixed(6)), longitude: Number(pos.coords.longitude.toFixed(6)) }); toast.success("Coordinates filled — save to keep them"); resolve(); },
+          () => { toast.error("Couldn't get the location"); resolve(); }, { enableHighAccuracy: true, timeout: 15000 });
+      }),
+    },
+  ],
+  defaults: () => ({ checkin_radius: 150 }),
+  extra: (c) => <ShiftLocationMap values={c.values} />,
+};
+
+export const SHIFT_SCHEDULE_CONFIG: DocConfig = {
+  doctype: "Shift Schedule",
+  base: "/hr/shift-schedules",
+  singular: "Shift Schedule",
+  plural: "Shift Schedules",
+  subtitle: "A shift on chosen weekdays, repeating every week(s) — assign it to employees to generate their shifts",
+  icon: CalendarRange,
+  companyScoped: false,
+  submittable: true,
+  listFields: ["name", "shift_type", "frequency", "docstatus", "modified"],
+  columns: [nameCol("Schedule", (r) => r.shift_type), textCol("shift_type", "Shift"), textCol("frequency", "Repeats"), docstatusCol()],
+  searchFields: ["name", "shift_type"],
+  sort: { key: "modified", dir: "desc" },
+  fields: [
+    sec("Schedule"),
+    req(link("shift_type", "Shift Type", "Shift Type")),
+    colBreak(),
+    req(select("frequency", "Frequency", ["Every Week", "Every 2 Weeks", "Every 3 Weeks", "Every 4 Weeks"])),
+  ],
+  children: [
+    { key: "repeat_on_days", label: "Repeat On Days", doctype: "Assignment Rule Day", minRows: 1,
+      columns: [req(select("day", "Day", ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]))] },
+  ],
+  defaults: () => ({ frequency: "Every Week" }),
+};
+
+export const SHIFT_SCHEDULE_ASSIGNMENT_CONFIG: DocConfig = {
+  doctype: "Shift Schedule Assignment",
+  base: "/hr/shift-schedule-assignments",
+  singular: "Shift Schedule Assignment",
+  plural: "Shift Schedule Assignments",
+  subtitle: "An employee on a repeating shift schedule — shift assignments are created ahead automatically",
+  icon: CalendarClock,
+  listFields: ["name", "employee", "employee_name", "shift_schedule", "shift_location", "shift_status", "enabled", "create_shifts_after", "modified"],
+  columns: [employeeCol, textCol("shift_schedule", "Schedule"), textCol("shift_location", "Location"), statusCol("shift_status", "Status", "Active"), yesNoCol("enabled", "Enabled")],
+  searchFields: ["name", "employee", "employee_name", "shift_schedule"],
+  statusField: "shift_status",
+  statuses: ["Active", "Inactive"],
+  sort: { key: "modified", dir: "desc" },
+  fields: [
+    sec("Assignment"),
+    req(link("employee", "Employee", "Employee")),
+    ro(data("employee_name", "Employee Name")),
+    req(link("company", "Company", "Company")),
+    colBreak(),
+    req(link("shift_schedule", "Shift Schedule", "Shift Schedule")),
+    link("shift_location", "Shift Location", "Shift Location"),
+    select("shift_status", "Shift Status", ["Active", "Inactive"]),
+    date("create_shifts_after", "Create Shifts After"),
+    check("enabled", "Enabled"),
+  ],
+  defaults: ({ company }) => ({ company, enabled: 1, shift_status: "Active", create_shifts_after: todayISO() }),
+  linkEffects: { employee: (emp) => employeeInfo(emp) },
 };
