@@ -10,6 +10,7 @@ const HrSalaryLoansPage = lazy(() => import("@/pages/HR/SalaryLoansPage"));
 const BankingDoc = lazy(() => import("@/pages/Accounting/BankingDocPage"));
 const BankClearancePage = lazy(() => import("@/pages/Accounting/BankClearancePage"));
 const ChequeTrackingPage = lazy(() => import("@/pages/Accounting/ChequeTrackingPage"));
+const HrRosterPage = lazy(() => import("@/pages/HR/RosterPage"));
 // Loaded on demand (kept out of the main bundle).
 const DesktopPage = lazy(() => import("@/pages/Desktop/DesktopPage").then((m) => ({ default: m.DesktopPage })));
 const DashboardPage = lazy(() => import("@/pages/Dashboard/DashboardPage").then((m) => ({ default: m.DashboardPage })));
@@ -495,6 +496,7 @@ export function AppRoutes() {
         <Route path="hr/designations" element={<Suspense fallback={<FullPageLoader />}><HrDesignationsPage /></Suspense>} />
         <Route path="hr/branches" element={<Suspense fallback={<FullPageLoader />}><HrBranchesPage /></Suspense>} />
         <Route path="hr/attendance" element={<Suspense fallback={<FullPageLoader />}><HrAttendancePage /></Suspense>} />
+        <Route path="hr/roster" element={<Suspense fallback={<FullPageLoader />}><HrRosterPage /></Suspense>} />
         <Route path="hr/leave-applications" element={<Suspense fallback={<FullPageLoader />}><HrLeaveApplicationsPage /></Suspense>} />
         <Route path="hr/leave-applications/:name" element={<Suspense fallback={<FullPageLoader />}><HrDocPage which="leaveApplication" form /></Suspense>} />
         <Route path="hr/leave-allocations" element={<Suspense fallback={<FullPageLoader />}><HrLeaveAllocationsPage /></Suspense>} />

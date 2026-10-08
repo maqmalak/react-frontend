@@ -169,7 +169,9 @@ export const SHIFT_ASSIGNMENT_CONFIG: DocConfig = {
     select("status", "Status", ["Active", "Inactive"]),
     ro(link("shift_request", "Shift Request", "Shift Request")),
   ],
-  defaults: ({ company, params }) => ({ company, start_date: todayISO(), status: "Active", employee: params.get("employee") ?? undefined }),
+  // From the Roster's empty cells: ?employee=…&start_date=…&end_date=…
+  defaults: ({ company, params }) => ({ company, start_date: params.get("start_date") ?? todayISO(), end_date: params.get("end_date") ?? undefined,
+    status: "Active", employee: params.get("employee") ?? undefined }),
   linkEffects: { employee: (emp) => employeeInfo(emp) },
   titleOf: (v) => [v.employee_name, v.shift_type].filter(Boolean).join(" · "),
 };
