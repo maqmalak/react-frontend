@@ -1,3 +1,4 @@
+import { GlossyIcon } from "@/components/ui/app-icon";
 import { useEffect, useRef, useState } from "react";
 import { useFrappeGetCall } from "frappe-react-sdk";
 import { Activity, Clock, Database, Gauge, Layers, Lightbulb, MemoryStick, RefreshCw, Rows3, Server, Snail, Table2, Zap } from "lucide-react";
@@ -173,23 +174,15 @@ export function SystemStatusCard() {
   const h = healthOf(s.status);
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)}
-        className="group relative flex h-[76px] w-full items-center gap-3 overflow-hidden rounded-xl border border-border bg-gradient-to-br from-sky-500/[0.07] via-card to-indigo-500/[0.07] p-3 text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400">
-          <Database className="h-4 w-4" />
+      <button type="button" onClick={() => setOpen(true)} title="System status"
+        className="group flex w-full flex-col items-center gap-1.5 rounded-2xl p-2 text-center outline-none focus-visible:ring-2 focus-visible:ring-primary">
+        <GlossyIcon icon={Database} hue="sky" badge={h ? (
+          <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-background px-1 text-[10px] font-bold tabular-nums shadow ring-2" style={{ color: h.color, ["--tw-ring-color" as string]: h.color }}>{h.score}</span>
+        ) : undefined} />
+        <span className="w-full truncate text-[13px] font-semibold leading-tight">Database</span>
+        <span className="-mt-1 w-full truncate text-[10px] text-muted-foreground">
+          {db?.size ? <><span className="font-semibold text-foreground">{bytes(db.size)}</span> · {db.tables?.toLocaleString()} tables</> : s.isLoading ? "Checking…" : "System Status"}
         </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium">Database</span>
-          <span className="block truncate text-[10px] leading-tight text-muted-foreground">System Status</span>
-          <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
-            {db?.size ? <><span className="font-semibold text-foreground">{bytes(db.size)}</span> · {db.tables?.toLocaleString()} tables</> : s.isLoading ? "Checking…" : "—"}
-          </span>
-        </span>
-        {h && (
-          <Ring pct={h.score} size={44} stroke={5} c={h.color}>
-            <span className="text-[11px] font-bold tabular-nums" style={{ color: h.color }}>{h.score}</span>
-          </Ring>
-        )}
       </button>
       <SystemStatusDialog open={open} onClose={() => setOpen(false)} s={s} />
     </>

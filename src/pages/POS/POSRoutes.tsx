@@ -1,7 +1,17 @@
+import { lazy, Suspense } from "react";
+import { Route } from "react-router-dom";
 import { ConfigRoutes } from "@/components/doc/config-routes";
+import { FullPageLoader } from "@/pages/common/ComingSoonPage";
 import { POS_CONFIGS } from "./pos-configs";
 
-/** /pos/* — list and form for every POS DocType. */
+const POSDashboardPage = lazy(() => import("./POSDashboardPage"));
+const POSTerminalPage = lazy(() => import("./POSTerminalPage"));
+
+/** /pos/* — dashboard, the terminal, and list / form for every POS DocType (invoices, shifts, profiles, coupons, loyalty). */
 export function POSRoutes() {
-  return <ConfigRoutes prefix="pos" configs={POS_CONFIGS} />;
+  return (
+    <ConfigRoutes prefix="pos" configs={POS_CONFIGS}
+      index={<Suspense fallback={<FullPageLoader />}><POSDashboardPage /></Suspense>}
+      extra={<Route path="terminal" element={<Suspense fallback={<FullPageLoader />}><POSTerminalPage /></Suspense>} />} />
+  );
 }

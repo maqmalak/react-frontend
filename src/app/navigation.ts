@@ -1,4 +1,6 @@
 import {
+  Store,
+  Ticket,
   Briefcase,
   ArrowRightLeft,
   CalendarClock,
@@ -414,9 +416,20 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
     {
       title: "Point of Sale",
       items: [
+        { label: "Dashboard", to: "/pos", icon: LayoutDashboard },
+        { label: "POS Terminal", to: "/pos/terminal", icon: Store },
         { label: "POS Invoices", to: "/pos/invoices", icon: ShoppingCart },
         { label: "Shift Openings", to: "/pos/openings", icon: DoorOpen },
         { label: "Shift Closings", to: "/pos/closings", icon: DoorClosed },
+      ],
+    },
+    {
+      title: "Setup",
+      items: [
+        { label: "POS Profiles", to: "/pos/profiles", icon: SlidersHorizontal },
+        { label: "Offers (Pricing Rules)", to: "/selling/pricing-rules", icon: Percent },
+        { label: "Coupons", to: "/pos/coupons", icon: Ticket },
+        { label: "Loyalty Programs", to: "/pos/loyalty", icon: Award },
       ],
     },
   ],
@@ -826,6 +839,10 @@ export const APP_LABELS: Record<string, string> = {
   quotations: "Quotations",
   "blanket-orders": "Blanket Orders",
   "pricing-rules": "Pricing Rules",
+  terminal: "Terminal",
+  profiles: "POS Profiles",
+  coupons: "Coupons",
+  loyalty: "Loyalty Programs",
   "product-bundles": "Product Bundles",
   "price-lists": "Price Lists",
   "tax-templates": "Sales Taxes Templates",

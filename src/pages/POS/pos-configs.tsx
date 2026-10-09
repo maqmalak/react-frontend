@@ -1,4 +1,5 @@
-import { Banknote, CalendarClock, ClipboardList, Coins, DoorClosed, DoorOpen, ReceiptText, ShoppingCart, SlidersHorizontal, Undo2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Award, Banknote, CalendarClock, ClipboardList, Coins, DoorClosed, DoorOpen, ReceiptText, ShoppingCart, SlidersHorizontal, Store, Ticket, Undo2, Users } from "lucide-react";
 import type { ChildTableSpec, DocConfig } from "@/components/doc/doc-config";
 import {
   sec, colBreak, tab, data, date, datetime, float, currency, check, text, link, select, ro, req,
@@ -50,10 +51,10 @@ export const POS_INVOICE_CONFIG: DocConfig = {
   subtitle: "Counter sales — consolidated into sales invoices when the shift closes",
   icon: ShoppingCart,
   listHeaderExtra: (
-    <a href="/desk/posapp" target="_blank" rel="noreferrer"
+    <Link to="/pos/terminal"
       className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90">
       <ShoppingCart className="h-4 w-4" /> Open POS terminal
-    </a>
+    </Link>
   ),
   submittable: true,
   listFields: ["name", "customer", "customer_name", "posting_date", "pos_profile", "grand_total", "paid_amount", "is_return", "status", "consolidated_invoice", "docstatus", "modified"],
@@ -231,4 +232,137 @@ export const POS_CLOSING_CONFIG: DocConfig = {
   titleOf: (v) => (v.name ? `${v.name} · ${v.user ?? ""}` : "New Shift Closing"),
 };
 
-export const POS_CONFIGS = [POS_INVOICE_CONFIG, POS_OPENING_CONFIG, POS_CLOSING_CONFIG];
+/* ============================================================================ Counter setup: profiles, coupons, loyalty */
+
+export const POS_PROFILE_CONFIG: DocConfig = {
+  doctype: "POS Profile",
+  base: "/pos/profiles",
+  singular: "POS Profile",
+  plural: "POS Profiles",
+  subtitle: "A counter: warehouse, price list, payment modes, cashiers and what they may change",
+  icon: Store,
+  listFields: ["name", "company", "warehouse", "selling_price_list", "customer", "disabled", "modified"],
+  columns: [nameCol("Counter", (r) => r.warehouse), textCol("selling_price_list", "Price List"), textCol("customer", "Default Customer"), yesNoCol("disabled", "Status", "Disabled", "Active")],
+  searchFields: ["name", "warehouse"],
+  fields: [
+    tab("Counter"),
+    sec("Counter"),
+    req(link("company", "Company", "Company")),
+    req(link("warehouse", "Warehouse", "Warehouse")),
+    link("customer", "Default (walk-in) Customer", "Customer"),
+    colBreak(),
+    req(link("selling_price_list", "Price List", "Price List")),
+    req(link("currency", "Currency", "Currency")),
+    check("disabled", "Disabled"),
+    sec("Accounts"),
+    req(link("write_off_account", "Write Off Account", "Account")),
+    req(link("write_off_cost_center", "Write Off Cost Center", "Cost Center")),
+    link("account_for_change_amount", "Account for Change", "Account"),
+    colBreak(),
+    link("income_account", "Income Account", "Account"),
+    link("cost_center", "Cost Center", "Cost Center"),
+    link("taxes_and_charges", "Tax Template", "Sales Taxes and Charges Template"),
+    tab("Payments"),
+    tab("Cashiers"),
+    tab("Behaviour"),
+    sec("What the cashier may do"),
+    check("allow_rate_change", "Allow rate change"),
+    check("allow_discount_change", "Allow discount change"),
+    check("allow_partial_payment", "Allow credit / partial payment"),
+    currency("write_off_limit", "Write-off limit (small shortfall)"),
+    colBreak(),
+    check("ignore_pricing_rule", "Ignore pricing rules / offers"),
+    check("update_stock", "Update stock"),
+    check("validate_stock_on_save", "Validate stock on save"),
+    check("disable_rounded_total", "Disable rounded total"),
+    sec("Terminal"),
+    check("hide_unavailable_items", "Hide out-of-stock items"),
+    check("hide_images", "Hide item images"),
+    check("auto_add_item_to_cart", "Auto-add scanned item"),
+    colBreak(),
+    check("print_receipt_on_order_complete", "Print receipt on completion"),
+    check("set_grand_total_to_default_mop", "Fill the total in the default payment mode"),
+    link("print_format", "Receipt Print Format", "Print Format"),
+    link("letter_head", "Letter Head", "Letter Head"),
+  ],
+  children: [
+    { tab: "Payments", key: "payments", label: "Payment Modes", description: "Tenders the counter accepts; one is the default.", doctype: "POS Payment Method", minRows: 1,
+      columns: [req(link("mode_of_payment", "Mode of Payment", "Mode of Payment")), check("default", "Default"), check("allow_in_returns", "Allow in Returns")] },
+    { tab: "Cashiers", key: "applicable_for_users", label: "Cashiers", description: "Users who may sell from this counter.", doctype: "POS Profile User",
+      columns: [req(link("user", "User", "User")), check("default", "Default")] },
+    { tab: "Behaviour", key: "item_groups", label: "Item Groups", description: "Only these groups show on the terminal (empty = all).", doctype: "POS Item Group",
+      columns: [req(link("item_group", "Item Group", "Item Group"))] },
+    { tab: "Behaviour", key: "customer_groups", label: "Customer Groups", doctype: "POS Customer Group",
+      columns: [req(link("customer_group", "Customer Group", "Customer Group"))] },
+  ],
+  tabIcons: { Counter: Store, Payments: Banknote, Cashiers: Users, Behaviour: SlidersHorizontal },
+  defaults: ({ company }) => ({ company, currency: "PKR", update_stock: 1, selling_price_list: "Standard Selling" }),
+  titleOf: (v) => v.name || "New POS Profile",
+};
+
+export const COUPON_CODE_CONFIG: DocConfig = {
+  doctype: "Coupon Code",
+  base: "/pos/coupons",
+  singular: "Coupon Code",
+  plural: "Coupons",
+  subtitle: "Codes customers redeem at the counter — each one unlocks a coupon-based pricing rule",
+  icon: Ticket,
+  listFields: ["name", "coupon_code", "coupon_type", "pricing_rule", "valid_from", "valid_upto", "maximum_use", "used", "modified"],
+  columns: [nameCol("Coupon", (r) => r.coupon_code), textCol("coupon_type", "Type"), textCol("pricing_rule", "Pricing Rule"), dateCol("valid_upto", "Valid Until"),
+    numCol("used", "Used", 0), numCol("maximum_use", "Max", 0)],
+  searchFields: ["name", "coupon_code", "pricing_rule"],
+  dateField: "valid_upto",
+  fields: [
+    sec("Coupon"),
+    req(data("coupon_name", "Coupon Name")),
+    data("coupon_code", "Code (blank = generated)"),
+    req(select("coupon_type", "Type", ["Promotional", "Gift Card"])),
+    link("customer", "Customer (gift card)", "Customer"),
+    colBreak(),
+    req(link("pricing_rule", "Pricing Rule", "Pricing Rule")),
+    date("valid_from", "Valid From"),
+    date("valid_upto", "Valid Until"),
+    float("maximum_use", "Maximum Use"),
+    ro(float("used", "Used")),
+  ],
+  defaults: () => ({ coupon_type: "Promotional", valid_from: todayISO() }),
+  titleOf: (v) => v.coupon_code || v.name || "New Coupon",
+};
+
+export const LOYALTY_PROGRAM_CONFIG: DocConfig = {
+  doctype: "Loyalty Program",
+  base: "/pos/loyalty",
+  singular: "Loyalty Program",
+  plural: "Loyalty Programs",
+  subtitle: "Points customers collect on purchases and redeem at the counter",
+  icon: Award,
+  listFields: ["name", "loyalty_program_type", "company", "conversion_factor", "from_date", "to_date", "auto_opt_in", "modified"],
+  columns: [nameCol("Program", (r) => r.loyalty_program_type), numCol("conversion_factor", "1 point =", 2), dateCol("from_date", "From"), yesNoCol("auto_opt_in", "Auto opt-in", "Yes", "No")],
+  searchFields: ["name"],
+  fields: [
+    sec("Program"),
+    req(data("loyalty_program_name", "Program Name")),
+    req(select("loyalty_program_type", "Type", ["Single Tier Program", "Multiple Tier Program"])),
+    req(link("company", "Company", "Company")),
+    check("auto_opt_in", "Auto opt-in customers"),
+    colBreak(),
+    req(date("from_date", "From")),
+    date("to_date", "To"),
+    link("customer_group", "Customer Group", "Customer Group"),
+    link("customer_territory", "Territory", "Territory"),
+    sec("Redemption"),
+    req(float("conversion_factor", "1 point is worth (currency)")),
+    float("expiry_duration", "Points expire after (days)"),
+    colBreak(),
+    req(link("expense_account", "Expense Account", "Account")),
+    req(link("cost_center", "Cost Center", "Cost Center")),
+  ],
+  children: [{
+    key: "collection_rules", label: "Collection Tiers", description: "Collection factor = amount spent per point.", doctype: "Loyalty Program Collection", minRows: 1,
+    columns: [req(data("tier_name", "Tier")), currency("min_spent", "Min Spent"), req(currency("collection_factor", "Spend per Point"))],
+  }],
+  defaults: ({ company }) => ({ company, loyalty_program_type: "Single Tier Program", from_date: todayISO(), conversion_factor: 1, auto_opt_in: 1 }),
+  titleOf: (v) => v.name || "New Loyalty Program",
+};
+
+export const POS_CONFIGS = [POS_INVOICE_CONFIG, POS_OPENING_CONFIG, POS_CLOSING_CONFIG, POS_PROFILE_CONFIG, COUPON_CODE_CONFIG, LOYALTY_PROGRAM_CONFIG];
