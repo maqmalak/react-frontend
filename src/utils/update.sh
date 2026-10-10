@@ -84,6 +84,7 @@
 # default micromax. Code is shared by the whole bench, so after pulling new
 # shared code (mm_core, frappe apps) migrate every tenant: TENANT=all.
 #   sudo TENANT=wise bash update.sh            # the school site only
+#   sudo TENANT=muzzamal bash update.sh        # the restaurant POS site only
 #   sudo TENANT=all bash update.sh             # every tenants/*.env in turn
 #
 # Idempotency: safe to re-run — already-applied steps (app already removed,
@@ -155,12 +156,15 @@ declare -A EXTRA_APP_REPO=(
   [education]="${EDUCATION_REPO:-https://github.com/maqmalak/education.git}"
   # Junior-School (installs as nl_school): our fork of navariltd/Junior-School with the v16 fixes.
   [nl_school]="${NL_SCHOOL_REPO:-https://github.com/maqmalak/Junior-School.git}"
+  # Restaurant POS setup (company, payment modes, counter, menu with photos).
+  [restaurant]="${RESTAURANT_REPO:-https://github.com/maqmalak/restaurant.git}"
 )
 declare -A EXTRA_APP_BRANCH=(
   [mm_core]="$MM_CORE_BRANCH"
   [posawesome]="$POSAWESOME_BRANCH"
   [education]="${EDUCATION_BRANCH:-main}"
   [nl_school]="${NL_SCHOOL_BRANCH:-main}"
+  [restaurant]="${RESTAURANT_BRANCH:-main}"
 )
 # Which of these this tenant pulls + installs (tenant file's EXTRA_APPS_LIST).
 read -ra EXTRA_APPS <<<"$EXTRA_APPS_LIST"
