@@ -221,6 +221,56 @@ export function usePosSync(): SyncState {
   };
 }
 
+// ------------------------------------------------------------------ installable app (PWA)
+type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
+let deferredInstall: InstallPrompt | null = null;
+const installListeners = new Set<() => void>();
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferredInstall = e as InstallPrompt; installListeners.forEach((f) => f()); });
+  window.addEventListener("appinstalled", () => { deferredInstall = null; installListeners.forEach((f) => f()); });
+}
+/** True when the POS runs as the installed app (its own window). */
+export const isInstalledApp = () => typeof window !== "undefined" && (window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true);
+
+/** "Install app": available when the browser offered installation (Chrome / Edge, HTTPS or localhost). */
+export function usePwaInstall() {
+  const [, tick] = useState(0);
+  useEffect(() => { const f = () => tick((n) => n + 1); installListeners.add(f); return () => { installListeners.delete(f); }; }, []);
+  return {
+    canInstall: !!deferredInstall && !isInstalledApp(),
+    installed: isInstalledApp(),
+    install: async () => {
+      if (!deferredInstall) return false;
+      await deferredInstall.prompt();
+      const { outcome } = await deferredInstall.userChoice;
+      deferredInstall = null;
+      installListeners.forEach((f) => f());
+      return outcome === "accepted";
+    },
+  };
+}
+
+/** While a /pos page is open: link the POS app manifest, theme colour and icons (removed again when leaving the POS). */
+export function usePosManifest() {
+  useEffect(() => {
+    const added: HTMLElement[] = [];
+    const add = (tag: string, attrs: Record<string, string>) => {
+      if (document.head.querySelector(`${tag}[data-pos-app="${attrs.rel ?? attrs.name}"]`)) return;
+      const el = document.createElement(tag);
+      Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+      el.setAttribute("data-pos-app", attrs.rel ?? attrs.name);
+      document.head.appendChild(el); added.push(el);
+    };
+    add("link", { rel: "manifest", href: "/pos/manifest.webmanifest" });
+    add("link", { rel: "apple-touch-icon", href: "/pos/apple-touch-icon.png" });
+    add("meta", { name: "theme-color", content: "#0d9488" });
+    add("meta", { name: "apple-mobile-web-app-capable", content: "yes" });
+    add("meta", { name: "apple-mobile-web-app-title", content: "MicroMax POS" });
+    registerPosServiceWorker();
+    return () => { added.forEach((el) => el.remove()); };
+  }, []);
+}
+
 /** Service worker so the terminal itself opens without the network (production builds only, scoped to /pos/). */
 export function registerPosServiceWorker() {
   if (!import.meta.env.PROD || !("serviceWorker" in navigator)) return;

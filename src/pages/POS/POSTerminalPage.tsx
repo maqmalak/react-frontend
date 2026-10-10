@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 import {
   Award, Banknote, CalendarClock, ChevronDown, CreditCard, Gift, History, Keyboard, LayoutDashboard, LayoutGrid, List, LogOut, MessageSquare,
   Minus, PauseCircle, Percent, Phone, Plus, Printer, ScanBarcode, ShoppingBag, Store, Tag, Ticket, Trash2, User,
-  UserPlus, Wallet, X, ReceiptText, PackagePlus, Bell, BellRing, CheckCheck, AlertTriangle, PackageX, PackageMinus, Eye, Undo2, Lock, Clock, CheckCircle2, Search, Landmark, Smartphone, SplitSquareHorizontal, CloudOff, Wifi, RefreshCw, HandCoins, FileText, Calculator,
+  UserPlus, Wallet, X, ReceiptText, PackagePlus, MonitorDown, Bell, BellRing, CheckCheck, AlertTriangle, PackageX, PackageMinus, Eye, Undo2, Lock, Clock, CheckCircle2, Search, Landmark, Smartphone, SplitSquareHorizontal, CloudOff, Wifi, RefreshCw, HandCoins, FileText, Calculator,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -20,8 +20,8 @@ import { useNotificationLog } from "@/hooks/useNotificationLog";
 import { docUrl } from "@/app/doc-routes";
 import { formatMoney } from "@/utils/currency";
 import {
-  consumeBundleStock, isNetworkError, kvGet, kvSet, loadBundle, localDate, localTime, localTotals, refreshBundle, registerPosServiceWorker,
-  searchBundle, usePosSync, uuid, type OfflineBundle, type QueuedSale, type ReceiptData, type SyncState,
+  consumeBundleStock, isNetworkError, kvGet, kvSet, loadBundle, localDate, localTime, localTotals, refreshBundle,
+  searchBundle, usePosSync, usePwaInstall, uuid, type OfflineBundle, type QueuedSale, type ReceiptData, type SyncState,
 } from "./pos-offline";
 import { loadPrinter, printHtml, printReceipt, PrinterSettingsDialog, receiptHtml, ReceiptPreview, shiftReportHtml, type ShiftReport } from "./pos-receipt";
 import { InvoicesDialog, printUrl, ReceiveDuesDialog, SyncDialog } from "./pos-panels";
@@ -87,7 +87,7 @@ export default function POSTerminalPage() {
   const { data: ctxData, mutate: reloadCtx, isLoading, error: ctxError } = useFrappeGetCall<{ message: Ctx }>("mm_core.pos.get_context", undefined, "mm_core.pos.ctx",
     { shouldRetryOnError: false });
   const [cachedCtx, setCachedCtx] = useState<Ctx>();
-  useEffect(() => { registerPosServiceWorker(); void kvGet<Ctx>("ctx").then(setCachedCtx); }, []);
+  useEffect(() => { void kvGet<Ctx>("ctx").then(setCachedCtx); }, []);
   const liveCtx = unwrap<Ctx>(ctxData);
   useEffect(() => { if (liveCtx) void kvSet("ctx", liveCtx); }, [liveCtx]);
   useEffect(() => { if (ctxError && isNetworkError(ctxError)) sync.markOffline(); }, [ctxError, sync.markOffline]);
@@ -291,6 +291,7 @@ export default function POSTerminalPage() {
           <ToolBtn icon={Wallet} label="Cash" tone="emerald" to="/pos/cash" />
           <ToolBtn icon={PackagePlus} label="Stock" tone="teal" to="/pos/stock" />
           <ToolBtn icon={LayoutDashboard} label="Dashboard" tone="indigo" to="/pos" />
+          <InstallAppBtn />
           <span className="mx-1 h-6 w-px bg-border" />
           <PosBell profile={profile?.name ?? ""} sync={sync} onAction={(a) => {
             if (a === "credit") { setInvoiceTab("credit"); setPanel("orders"); } else if (a === "held" || a === "close" || a === "offers" || a === "sync") setPanel(a);
@@ -594,6 +595,19 @@ function GroupTabs({ groups, active, onPick, counts, total }: { groups: string[]
         })}
       </div>
     </div>
+  );
+}
+
+/** "Install app" in the toolbar — only when the browser can install the POS (hidden once installed). */
+function InstallAppBtn() {
+  const { canInstall, install } = usePwaInstall();
+  if (!canInstall) return null;
+  return (
+    <button type="button" onClick={() => void install().then((ok) => ok && toast.success("MicroMax POS installed — open it from your desktop or taskbar"))}
+      className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-gradient-to-r from-teal-500 to-violet-600 px-3 text-xs font-bold text-white shadow-md shadow-teal-500/30 hover:brightness-110"
+      title="Install MicroMax POS as a desktop app">
+      <MonitorDown className="h-4 w-4" /><span className="hidden lg:inline">Install app</span>
+    </button>
   );
 }
 
