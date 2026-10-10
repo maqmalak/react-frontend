@@ -23,7 +23,7 @@ import {
   consumeBundleStock, isNetworkError, kvGet, kvSet, loadBundle, localDate, localTime, localTotals, refreshBundle,
   searchBundle, usePosSync, usePwaInstall, uuid, type OfflineBundle, type QueuedSale, type ReceiptData, type SyncState,
 } from "./pos-offline";
-import { loadPrinter, printHtml, printReceipt, PrinterSettingsDialog, receiptHtml, ReceiptPreview, shiftReportHtml, type ShiftReport } from "./pos-receipt";
+import { desktop, loadPrinter, printHtml, printReceipt, PrinterSettingsDialog, receiptHtml, ReceiptPreview, shiftReportHtml, type ShiftReport } from "./pos-receipt";
 import { InvoicesDialog, printUrl, ReceiveDuesDialog, SyncDialog } from "./pos-panels";
 
 interface Profile {
@@ -663,6 +663,7 @@ function CashierMenu({ cashier, counter, offline, onPanel, onLock, onShift }: {
     { label: "Cash in / out", icon: Wallet, tone: "text-emerald-500", onClick: go(() => navigate("/pos/cash")) },
     { label: "Printer settings", icon: Printer, tone: "text-slate-500", onClick: go(() => onPanel("printer")) },
     { label: "Switch to desk", icon: LayoutDashboard, tone: "text-indigo-500", onClick: go(() => navigate("/desk")) },
+    ...(desktop()?.isDesktop ? [{ label: "App settings (MMX POS)", icon: MonitorDown, tone: "text-teal-500", onClick: go(() => void desktop()?.openSettings()) }] : []),
     "sep",
     { label: "Lock screen", icon: Lock, tone: "text-amber-500", onClick: go(onLock) },
     "sep",

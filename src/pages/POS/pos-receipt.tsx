@@ -3,7 +3,7 @@
  * shift reports. Rendered as a small HTML document in a hidden iframe and sent to the browser's print dialog — pick the
  * receipt printer once (Chrome remembers it; kiosk mode `--kiosk-printing` prints silently).
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -155,8 +155,24 @@ export function paymentReceiptHtml(p: { name: string; customer: string; amount: 
     <div class="hr"></div><div class="c">${esc(s.footer)}</div>`, s, p.name);
 }
 
-/** Print an HTML document through a hidden iframe (copies = repeated pages). */
+/** The MMX POS desktop app (Electron) bridge, when the POS runs inside it. */
+export interface MmxDesktop {
+  isDesktop: true; platform: string;
+  print: (html: string, opts?: { printer?: string; silent?: boolean; copies?: number }) => Promise<{ ok: boolean; silent: boolean; printer: string | null }>;
+  listPrinters: () => Promise<{ name: string; displayName: string; isDefault: boolean }[]>;
+  getConfig: () => Promise<{ receiptPrinter?: string; silentPrint?: boolean; copies?: number; serverUrl?: string; kiosk?: boolean }>;
+  saveConfig: (patch: Record<string, unknown>) => Promise<unknown>;
+  openSettings: () => Promise<boolean>;
+}
+export const desktop = (): MmxDesktop | undefined => (typeof window !== "undefined" ? (window as unknown as { mmxDesktop?: MmxDesktop }).mmxDesktop : undefined);
+
+/** Print an HTML document: silently via the desktop app when inside MMX POS, else through a hidden iframe (copies = repeated pages). */
 export function printHtml(html: string, copies = 1) {
+  const app = desktop();
+  if (app?.isDesktop) {
+    void app.print(html, { copies }).catch(() => undefined);
+    return;
+  }
   const frame = document.createElement("iframe");
   frame.setAttribute("aria-hidden", "true");
   Object.assign(frame.style, { position: "fixed", right: "0", bottom: "0", width: "0", height: "0", border: "0" });
@@ -182,6 +198,14 @@ export function ReceiptPreview({ html, className }: { html: string; className?: 
 
 export function PrinterSettingsDialog({ onClose }: { onClose: () => void }) {
   const [s, setS] = useState<PrinterSettings>(loadPrinter);
+  const app = desktop();
+  const [printers, setPrinters] = useState<{ name: string; displayName: string; isDefault: boolean }[]>([]);
+  const [dcfg, setDcfg] = useState<{ receiptPrinter?: string; silentPrint?: boolean }>({});
+  useEffect(() => {
+    if (!app) return;
+    void app.listPrinters().then(setPrinters).catch(() => undefined);
+    void app.getConfig().then((c) => setDcfg({ receiptPrinter: c.receiptPrinter, silentPrint: c.silentPrint })).catch(() => undefined);
+  }, [app]);
   const set = <K extends keyof PrinterSettings>(k: K, v: PrinterSettings[K]) => setS((x) => ({ ...x, [k]: v }));
   const sample: ReceiptData = {
     name: "ACC-PSINV-SAMPLE", posting_date: new Date().toISOString().slice(0, 10), posting_time: new Date().toTimeString().slice(0, 8), customer: "Walk-in Customer",
@@ -202,12 +226,23 @@ export function PrinterSettingsDialog({ onClose }: { onClose: () => void }) {
           <label className="block space-y-1"><span className="text-muted-foreground">Header line (under the company)</span><Input value={s.header} onChange={(e) => set("header", e.target.value)} placeholder="e.g. Factory Outlet — Open 9 to 9" /></label>
           <label className="block space-y-1"><span className="text-muted-foreground">Footer</span><Input value={s.footer} onChange={(e) => set("footer", e.target.value)} /></label>
           <label className="block space-y-1"><span className="text-muted-foreground">Policy line (small print)</span><Input value={s.policy ?? ""} onChange={(e) => set("policy", e.target.value)} placeholder="e.g. Exchange within 7 days with this receipt" /></label>
+          {app && (
+            <div className="space-y-2 rounded-xl border border-teal-500/30 bg-teal-500/[0.06] p-3">
+              <div className="text-xs font-bold uppercase tracking-wide text-teal-700 dark:text-teal-300">MMX POS desktop app</div>
+              <label className="block space-y-1"><span className="text-muted-foreground">Receipt printer</span>
+                <Select value={dcfg.receiptPrinter ?? ""} onChange={(e) => setDcfg((d) => ({ ...d, receiptPrinter: e.target.value }))}>
+                  <option value="">Ask every time (print dialog)</option>
+                  {printers.map((p) => <option key={p.name} value={p.name}>{p.displayName}{p.isDefault ? " (default)" : ""}</option>)}
+                </Select></label>
+              <label className="flex items-center gap-2"><input type="checkbox" checked={!!dcfg.silentPrint} onChange={(e) => setDcfg((d) => ({ ...d, silentPrint: e.target.checked }))} /> Print silently — no dialog</label>
+            </div>
+          )}
           <label className="flex items-center gap-2"><input type="checkbox" checked={s.autoPrint} onChange={(e) => set("autoPrint", e.target.checked)} /> Print the receipt automatically when a sale completes</label>
           <label className="flex items-center gap-2"><input type="checkbox" checked={s.showItemCode} onChange={(e) => set("showItemCode", e.target.checked)} /> Show item codes</label>
           <label className="flex items-center gap-2"><input type="checkbox" checked={s.printZOnClose} onChange={(e) => set("printZOnClose", e.target.checked)} /> Print the Z report when the shift closes</label>
           <div className="flex gap-2 pt-2">
             <Button variant="outline" onClick={() => printReceipt(sample, s)}><Printer className="h-4 w-4" /> Test print</Button>
-            <Button onClick={() => { savePrinter(s); onClose(); }}>Save</Button>
+            <Button onClick={() => { savePrinter(s); if (app) void app.saveConfig({ receiptPrinter: dcfg.receiptPrinter ?? "", silentPrint: !!dcfg.silentPrint, copies: s.copies }); onClose(); }}>Save</Button>
           </div>
         </div>
         <ReceiptPreview html={receiptHtml(sample, s)} className="h-[460px] w-full rounded-lg border border-border bg-white" />
