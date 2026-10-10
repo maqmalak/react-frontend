@@ -34,27 +34,27 @@
   .dark {
     /* Deep-navy / teal enterprise theme */
     --background: 221 66% 6%;
-    --foreground: 220 13% 91%;
-    --card: 216 67% 9%;
-    --card-foreground: 220 13% 91%;
-    --popover: 216 67% 9%;
-    --popover-foreground: 220 13% 91%;
+    --foreground: 220 20% 96%;
+    --card: 218 48% 11%;
+    --card-foreground: 220 20% 96%;
+    --popover: 218 48% 12%;
+    --popover-foreground: 220 20% 96%;
     --primary: 173 80% 40%;
     --primary-foreground: 0 0% 100%;
     --secondary: 220 66% 14%;
     --secondary-foreground: 220 13% 91%;
-    --muted: 217 62% 7%;
-    --muted-foreground: 220 25% 68%;
+    --muted: 218 40% 17%;
+    --muted-foreground: 218 22% 77%;
     --accent: 220 66% 14%;
     --accent-foreground: 220 13% 91%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 40% 20%;
+    --border: 218 32% 26%;
     --input: 217 32% 31%;
     --ring: 173 80% 40%;
     --sidebar: 221 67% 5%;
     --sidebar-foreground: 220 13% 91%;
-    --sidebar-muted: 220 25% 68%;
+    --sidebar-muted: 218 22% 77%;
 
     color-scheme: dark;
   }
@@ -234,15 +234,14 @@
     color: hsl(var(--popover-foreground));
   }
 
-  /* Frosted-glass inputs inside the elegant Dialog card — scoped to dialogs
+  /* Solid inputs inside the Dialog card (were frosted glass; unreadable over a busy page in dark mode) — scoped to dialogs
      only, so ordinary page inputs (tables, filters, ...) keep their look. */
   [role="dialog"] input:not([type="checkbox"]):not([type="radio"]),
   [role="dialog"] select,
   [role="dialog"] textarea,
   [role="dialog"] .rich-text-editor .ql-toolbar.ql-snow,
   [role="dialog"] .rich-text-editor .ql-container.ql-snow {
-    background-color: hsl(var(--background) / 0.55);
-    backdrop-filter: blur(6px);
+    background-color: hsl(var(--background));
   }
   /* A dialog's Quill body defaults to Quill's own ~100px min-height, cramped
      for composing an actual email/template body — give every in-dialog

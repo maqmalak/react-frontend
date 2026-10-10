@@ -81,18 +81,18 @@ function HeroMetric({ label, kpi, currency, sub, onClick }: { label: string; kpi
         }
       }}
       className={cn(
-        "flex min-w-0 flex-col gap-1.5 rounded-xl bg-white/10 p-4 ring-1 ring-white/15 backdrop-blur",
-        kpi && onClick && "cursor-pointer transition hover:bg-white/15 hover:ring-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
+        "flex min-w-0 flex-col gap-1.5 rounded-xl bg-white/[0.16] p-4 shadow-lg shadow-black/20 ring-1 ring-white/30 backdrop-blur",
+        kpi && onClick && "cursor-pointer transition hover:bg-white/[0.24] hover:ring-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="truncate text-xs font-medium uppercase tracking-wide text-white/70">{label}</span>
-        {kpi && <DeltaPill delta={kpi.delta} invert={kpi.invert} className="bg-white/15 text-white" />}
+        <span className="truncate text-xs font-bold uppercase tracking-wide text-white/90">{label}</span>
+        {kpi && <DeltaPill delta={kpi.delta} invert={kpi.invert} className="bg-white/25 font-bold text-white ring-1 ring-white/30" />}
       </div>
       {kpi ? (
         <>
-          <p className="truncate text-3xl font-bold tabular-nums text-white">{formatKpi(kpi.value, kpi.format, currency)}</p>
-          <p className="truncate text-xs text-white/70">{sub ?? (kpi.avg != null ? `Avg ${formatKpi(kpi.avg, kpi.format, currency)} per month` : " ")}</p>
+          <p className="truncate text-3xl font-extrabold tabular-nums text-white drop-shadow-sm">{formatKpi(kpi.value, kpi.format, currency)}</p>
+          <p className="truncate text-xs font-medium text-white/85">{sub ?? (kpi.avg != null ? `Avg ${formatKpi(kpi.avg, kpi.format, currency)} per month` : " ")}</p>
           <div className="-mx-4 -mb-4">
             <Sparkline values={kpi.spark} color="rgba(255,255,255,0.9)" height={44} />
           </div>
@@ -285,7 +285,7 @@ export function DashboardPage() {
       <PeriodBar period={period} company={company} page="executive" />
 
       {/* Hero */}
-      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-900 to-teal-800 p-5 text-white shadow-lg sm:p-6">
+      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-700 via-violet-700 to-teal-600 p-5 text-white shadow-xl ring-1 ring-white/15 sm:p-6 dark:from-indigo-600 dark:via-violet-700 dark:to-teal-600">
         <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-teal-400/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 left-1/3 h-64 w-64 rounded-full bg-indigo-400/20 blur-3xl" />
         <div className="relative mb-4 flex flex-wrap items-end justify-between gap-3">
@@ -302,14 +302,14 @@ export function DashboardPage() {
                   key={lvl}
                   type="button"
                   onClick={() => setLevelFilter((f) => (f === lvl ? "all" : lvl))}
-                  className={cn("flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 ring-1 ring-white/15 transition hover:bg-white/20", levelFilter === lvl && "bg-white/25")}
+                  className={cn("flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 font-medium ring-1 ring-white/30 transition hover:bg-white/25", levelFilter === lvl && "bg-white/30")}
                 >
                   <Icon className="h-3.5 w-3.5" />
                   <span className="font-semibold tabular-nums">{counts[lvl]}</span> {st.label}
                 </button>
               );
             })}
-            <span className="flex items-center rounded-full bg-white/10 px-3 py-1 text-white/70 ring-1 ring-white/15">
+            <span className="flex items-center rounded-full bg-white/15 px-3 py-1 text-white/90 ring-1 ring-white/30">
               {loaded}/{shownModules.length} modules loaded
             </span>
           </div>

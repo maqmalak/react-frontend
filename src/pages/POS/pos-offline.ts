@@ -47,7 +47,7 @@ export const kvSet = (key: string, value: unknown) => run("kv", "readwrite", (s)
 export interface BundleItem { item_code: string; item_name: string; price_list_rate: number; actual_qty: number; uom: string; stock_uom?: string;
   item_image?: string; is_stock_item?: number; barcodes: string[]; item_group?: string }
 export interface BundleTax { charge_type: string; description: string; rate: number; included_in_print_rate?: number }
-export interface CompanyHeader { company_name?: string; tax_id?: string; phone_no?: string; email?: string; website?: string; address?: string }
+export interface CompanyHeader { company_name?: string; tax_id?: string; phone_no?: string; email?: string; website?: string; address?: string; company_logo?: string }
 export interface OfflineBundle {
   profile: Record<string, any> & { name: string; disable_rounded_total?: number };
   taxes: BundleTax[]; items: BundleItem[]; customers: { name: string; customer_name: string; mobile_no?: string }[];
@@ -112,16 +112,18 @@ export function searchBundle(b: OfflineBundle | undefined, term: string, group: 
 }
 
 // ------------------------------------------------------------------ local totals (when the server can't price the cart)
-export interface LocalLine { item_code: string; item_name: string; qty: number; uom: string; price_list_rate: number; rate?: number; discount_percentage?: number }
-export function localTotals(lines: LocalLine[], billDiscount: number, taxes: BundleTax[], disableRounding?: number) {
+export interface LocalLine { item_code: string; item_name: string; qty: number; uom: string; price_list_rate: number; rate?: number; discount_percentage?: number;
+  /** Rs off per unit (instead of a percentage). */ discount_amount?: number }
+export function localTotals(lines: LocalLine[], billDiscount: number, taxes: BundleTax[], disableRounding?: number, billAmount = 0) {
   const items = lines.map((l) => {
     const base = l.rate ?? l.price_list_rate;
-    const rate = Math.round(base * (1 - (l.discount_percentage ?? 0) / 100) * 100) / 100;
+    const rate = l.discount_amount ? Math.round(Math.max(0, base - l.discount_amount) * 100) / 100
+      : Math.round(base * (1 - (l.discount_percentage ?? 0) / 100) * 100) / 100;
     return { item_code: l.item_code, item_name: l.item_name, qty: l.qty, uom: l.uom, rate, amount: Math.round(rate * l.qty * 100) / 100,
       price_list_rate: l.price_list_rate, discount_percentage: l.discount_percentage ?? 0 };
   });
   const total = items.reduce((s, i) => s + i.amount, 0);
-  const discount = Math.round(total * (billDiscount || 0)) / 100;
+  const discount = billAmount > 0 ? Math.min(billAmount, total) : Math.round(total * (billDiscount || 0)) / 100;
   const net = total - discount;
   let taxAdded = 0;
   const taxRows = taxes.filter((t) => t.charge_type === "On Net Total").map((t) => {

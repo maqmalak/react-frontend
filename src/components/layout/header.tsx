@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { AtSign, Award, Bell, BellRing, ChevronRight, LogOut, ListTodo, Menu, MessageSquare, Search, Settings as SettingsIcon, Share2, User as UserIcon, UserCheck, UserCircle, CheckCheck } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, AtSign, Award, Bell, BellRing, ChevronRight, LogOut, ListTodo, Menu, MessageSquare, Search, Settings as SettingsIcon, Share2, User as UserIcon, UserCheck, UserCircle, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -209,9 +209,14 @@ export function Header({
   onOpenSidebar,
   onOpenSearch,
   brand = false,
+  sidebarCollapsed = false,
+  onToggleSidebar,
 }: {
   /** Omitted on routes with no sidebar (the Desktop launcher) — hides the toggle. */
   onOpenSidebar?: () => void;
+  /** Desktop show / hide of the sidebar. */
+  sidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
   onOpenSearch: () => void;
   /** Show the logo — used on the Desktop launcher, which has no sidebar to carry it. */
   brand?: boolean;
@@ -227,6 +232,12 @@ export function Header({
       {onOpenSidebar && (
         <Button variant="ghost" size="icon" className="lg:hidden" onClick={onOpenSidebar} aria-label="Open menu">
           <Menu className="h-5 w-5" />
+        </Button>
+      )}
+      {onToggleSidebar && (
+        <Button variant="ghost" size="icon" className="hidden lg:inline-flex" onClick={onToggleSidebar}
+          aria-label={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"} title={`${sidebarCollapsed ? "Show" : "Hide"} sidebar (Ctrl+B)`}>
+          {sidebarCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
         </Button>
       )}
 

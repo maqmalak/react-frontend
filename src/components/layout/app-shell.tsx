@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Sidebar } from "./sidebar";
 import { Header } from "./header";
@@ -7,6 +7,7 @@ import { RealtimeWatcher } from "./realtime-watcher";
 import { APP_NAVIGATION, APP_LABELS, appSegmentForPath } from "@/app/navigation";
 import { useInstalledApps, tileForPath, appsForPath } from "@/hooks/useInstalledApps";
 import { EmptyState } from "@/components/common/empty-state";
+import { cn } from "@/utils/cn";
 
 /**
  * Authenticated application shell: header + routed content, with a sidebar
@@ -17,6 +18,14 @@ import { EmptyState } from "@/components/common/empty-state";
  */
 export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  // Desktop: hide / show the sidebar (remembered per device; Ctrl+B toggles).
+  const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem("sidebar.collapsed") === "1"; } catch { return false; } });
+  useEffect(() => { try { localStorage.setItem("sidebar.collapsed", collapsed ? "1" : "0"); } catch { /* private mode */ } }, [collapsed]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") { e.preventDefault(); setCollapsed((c) => !c); } };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const { open: searchOpen, setOpen: setSearchOpen } = useGlobalSearchShortcut();
   const location = useLocation();
 
@@ -52,17 +61,21 @@ export function AppShell() {
           appLabel={APP_LABELS[segment]}
           mobileOpen={mobileOpen}
           onCloseMobile={() => setMobileOpen(false)}
+          collapsed={collapsed}
         />
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Header
           onOpenSidebar={showSidebar ? () => setMobileOpen(true) : undefined}
+          sidebarCollapsed={collapsed}
+          onToggleSidebar={showSidebar ? () => setCollapsed((c) => !c) : undefined}
           onOpenSearch={() => setSearchOpen(true)}
           brand={!showSidebar}
         />
         <main className="flex-1 overflow-x-clip px-3 py-5 sm:px-5 lg:px-6">
-          <div className="mx-auto w-full max-w-[1400px]">
+          {/* sidebar hidden → use the whole screen (the POS terminal gets more item columns) */}
+          <div className={cn("mx-auto w-full transition-[max-width] duration-300", collapsed && showSidebar ? "max-w-[2400px]" : "max-w-[1400px]")}>
             {unavailable ? (
               <EmptyState
                 icon={tile?.icon}

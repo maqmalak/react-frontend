@@ -111,22 +111,28 @@ export function Sidebar({
   appLabel,
   mobileOpen,
   onCloseMobile,
+  collapsed = false,
 }: {
   groups: NavGroup[];
   appLabel?: string;
   mobileOpen: boolean;
   onCloseMobile: () => void;
+  /** Desktop: slid away (header toggle / Ctrl+B). */
+  collapsed?: boolean;
 }) {
   return (
     <>
       {/* Desktop */}
       {/* Pinned to the viewport: the page scrolls, the sidebar stays; its own nav scrolls inside it when long. */}
-      <aside className="sticky top-0 hidden h-screen max-h-screen w-60 shrink-0 flex-col self-start overflow-hidden bg-sidebar lg:flex">
+      <aside aria-hidden={collapsed} {...(collapsed ? { inert: "" } : {})} className={cn("sticky top-0 hidden h-screen max-h-screen shrink-0 flex-col self-start overflow-hidden bg-sidebar transition-[width,opacity] duration-300 ease-in-out lg:flex",
+        collapsed ? "w-0 opacity-0" : "w-60 opacity-100")}>
+        <div className="flex h-full w-60 flex-col">
         <Brand />
         <BackToDesktop />
         <NavLinks groups={groups} appLabel={appLabel} />
         <div className="border-t border-white/10 px-4 py-3">
           <p className="text-[10px] text-sidebar-muted">Powered by ERPNext / Frappe</p>
+        </div>
         </div>
       </aside>
 

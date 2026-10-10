@@ -1,4 +1,5 @@
 import {
+  PackagePlus,
   Store,
   Ticket,
   Briefcase,
@@ -418,6 +419,8 @@ export const APP_NAVIGATION: Record<string, NavGroup[]> = {
       items: [
         { label: "Dashboard", to: "/pos", icon: LayoutDashboard },
         { label: "POS Terminal", to: "/pos/terminal", icon: Store },
+        { label: "Cash In / Out", to: "/pos/cash", icon: Wallet },
+        { label: "Receive Stock", to: "/pos/stock", icon: PackagePlus },
         { label: "POS Invoices", to: "/pos/invoices", icon: ShoppingCart },
         { label: "Shift Openings", to: "/pos/openings", icon: DoorOpen },
         { label: "Shift Closings", to: "/pos/closings", icon: DoorClosed },
@@ -840,6 +843,7 @@ export const APP_LABELS: Record<string, string> = {
   "blanket-orders": "Blanket Orders",
   "pricing-rules": "Pricing Rules",
   terminal: "Terminal",
+  cash: "Cash In / Out",
   profiles: "POS Profiles",
   coupons: "Coupons",
   loyalty: "Loyalty Programs",

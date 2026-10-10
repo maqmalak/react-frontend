@@ -14,6 +14,8 @@ import type { CompanyHeader, ReceiptData } from "./pos-offline";
 export interface PrinterSettings {
   paper: "80" | "58" | "a4"; autoPrint: boolean; copies: number; fontSize: number; showItemCode: boolean;
   header: string; footer: string; printZOnClose: boolean;
+  /** Small print at the very bottom, e.g. the exchange / return policy. */
+  policy?: string;
 }
 const KEY = "pos.printer";
 export const DEFAULT_PRINTER: PrinterSettings = {
@@ -29,56 +31,87 @@ const num = (v?: number) => (Number(v) || 0).toLocaleString("en-PK", { minimumFr
 const qty = (v?: number) => (Number(v) || 0).toLocaleString("en-PK", { maximumFractionDigits: 3 });
 
 function page(body: string, s: PrinterSettings, title: string) {
-  const width = s.paper === "58" ? "48mm" : s.paper === "80" ? "72mm" : "190mm";
+  const width = s.paper === "58" ? "48mm" : s.paper === "80" ? "72mm" : "150mm";
   const size = s.paper === "a4" ? "A4" : `${s.paper}mm auto`;
   return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>
-    @page { size: ${size}; margin: ${s.paper === "a4" ? "12mm" : "2mm 3mm"}; }
-    * { box-sizing: border-box; }
-    body { margin: 0; color: #000; background: #fff; font: ${s.fontSize}px/1.35 "Courier New", ui-monospace, monospace; }
-    .r { width: ${width}; margin: 0 auto; }
-    .c { text-align: center; } .b { font-weight: 700; } .big { font-size: 1.35em; } .sm { font-size: .85em; }
-    .hr { border-top: 1px dashed #000; margin: 4px 0; }
-    .row { display: flex; justify-content: space-between; gap: 6px; } .row > span:last-child { text-align: right; white-space: nowrap; }
-    .it { margin: 2px 0; } .muted { color: #333; }
-    .box { border: 1px solid #000; padding: 3px; margin: 4px 0; text-align: center; }
-    table { width: 100%; border-collapse: collapse; } td { padding: 1px 0; vertical-align: top; } td.n { text-align: right; white-space: nowrap; }
+    @page { size: ${size}; margin: ${s.paper === "a4" ? "14mm" : "2mm 2.5mm"}; }
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { margin: 0; color: #000; background: #fff; font: ${s.fontSize}px/1.4 "Inter", "Segoe UI", Roboto, Arial, sans-serif; font-variant-numeric: tabular-nums; }
+    .r { width: ${width}; margin: 0 auto; padding: 2mm 0 4mm; }
+    .c { text-align: center; } .b { font-weight: 700; } .big { font-size: 1.3em; } .sm { font-size: .82em; } .xs { font-size: .72em; }
+    .muted { color: #444; } .mono { font-family: "Courier New", ui-monospace, monospace; letter-spacing: .02em; }
+    .brand { text-align: center; margin-bottom: 2mm; }
+    .logo { display: inline-flex; align-items: center; justify-content: center; width: 12mm; height: 12mm; border-radius: 50%; border: 2px solid #000; color: #000;
+            font-weight: 800; font-size: 1.15em; letter-spacing: .04em; margin-bottom: 1.2mm; }
+    .logo-img { max-height: 14mm; max-width: 40mm; object-fit: contain; margin-bottom: 1.2mm; }
+    .name { font-size: 1.28em; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; line-height: 1.15; }
+    .title { margin: 2.5mm 0 2mm; padding: 1.2mm 0; border-top: 2px solid #000; border-bottom: 2px solid #000; text-align: center; font-weight: 800; letter-spacing: .22em; font-size: .9em; }
+    .tag { display: inline-block; border: 1px solid #000; border-radius: 1mm; padding: 0 1.5mm; font-weight: 700; font-size: .78em; letter-spacing: .1em; }
+    .hr { border-top: 1px dashed #000; margin: 2mm 0; } .hr2 { border-top: 3px double #000; margin: 2mm 0; } .hr0 { border-top: 1px solid #000; margin: 1.5mm 0; }
+    .row { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; } .row > span:last-child { text-align: right; white-space: nowrap; }
+    .meta .row { padding: .3mm 0; } .meta .row > span:first-child { color: #444; }
+    .it { padding: 1.2mm 0; border-bottom: 1px dotted #999; } .it:last-child { border-bottom: 0; }
+    .it .nm { font-weight: 700; } .it .ln { display: flex; justify-content: space-between; margin-top: .4mm; } .it .amt { font-weight: 700; }
+    .grand { display: flex; justify-content: space-between; align-items: center; border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 1.8mm 0; margin: 2mm 0; }
+    .grand .l { font-weight: 800; letter-spacing: .12em; font-size: .9em; } .grand .v { font-weight: 800; font-size: 1.35em; }
+    .box { border: 1px solid #000; border-radius: 1.5mm; padding: 1.5mm 2mm; margin: 2mm 0; }
+    .thanks { text-align: center; font-weight: 800; letter-spacing: .25em; font-size: 1.05em; margin-top: 3mm; }
+    .stars { text-align: center; letter-spacing: .6em; margin: 1mm 0; }
+    table { width: 100%; border-collapse: collapse; } td { padding: .5mm 0; vertical-align: top; } td.n { text-align: right; white-space: nowrap; }
   </style></head><body><div class="r">${body}</div></body></html>`;
 }
 
+const initialsOf = (name?: string) => (name ?? "").split(/\s+/).filter((w) => /^[A-Za-z]/.test(w) && !/^(pvt|ltd|private|limited|co)\.?$/i.test(w)).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "POS";
+
 function header(c: CompanyHeader, s: PrinterSettings) {
-  return `<div class="c b big">${esc(c.company_name)}</div>
-    ${c.address ? `<div class="c sm">${esc(c.address)}</div>` : ""}
-    ${c.phone_no ? `<div class="c sm">Tel: ${esc(c.phone_no)}</div>` : ""}
-    ${c.tax_id ? `<div class="c sm">NTN: ${esc(c.tax_id)}</div>` : ""}
-    ${s.header ? `<div class="c sm">${esc(s.header)}</div>` : ""}<div class="hr"></div>`;
+  const logo = c.company_logo
+    ? `<img class="logo-img" src="${esc(c.company_logo.startsWith("http") ? c.company_logo : `${location.origin}${c.company_logo}`)}" alt="">`
+    : `<div class="logo">${esc(initialsOf(c.company_name))}</div>`;
+  return `<div class="brand">${logo}<div class="name">${esc(c.company_name)}</div>
+    ${c.address ? `<div class="sm muted">${esc(c.address)}</div>` : ""}
+    ${c.phone_no || c.email ? `<div class="xs muted">${[c.phone_no && `Tel ${esc(c.phone_no)}`, c.email && esc(c.email)].filter(Boolean).join(" · ")}</div>` : ""}
+    ${c.tax_id ? `<div class="xs muted">NTN ${esc(c.tax_id)}</div>` : ""}
+    ${s.header ? `<div class="sm" style="margin-top:1mm">${esc(s.header)}</div>` : ""}</div>`;
 }
 
 export function receiptHtml(r: ReceiptData, s: PrinterSettings, opts: { duplicate?: boolean } = {}) {
   const title = r.is_return ? "RETURN / REFUND" : (r.outstanding_amount ?? 0) > 0.01 ? "CREDIT SALE" : "SALES RECEIPT";
-  const lines = r.items.map((i) => `<div class="it"><div>${esc(i.item_name)}${s.showItemCode ? ` <span class="sm muted">(${esc(i.item_code)})</span>` : ""}${i.is_free_item ? " <b>[FREE]</b>" : ""}</div>
-      <div class="row"><span class="muted">${qty(i.qty)} ${esc(i.uom)} × ${num(i.rate)}${i.discount_percentage ? ` (−${i.discount_percentage}%)` : ""}</span><span>${num(i.amount)}</span></div>
-      ${i.batch_no ? `<div class="sm muted">Batch ${esc(i.batch_no)}</div>` : ""}${i.serial_no ? `<div class="sm muted">S/N ${esc(String(i.serial_no).split("\n").join(", "))}</div>` : ""}</div>`).join("");
   const row = (k: string, v: string, cls = "") => `<div class="row ${cls}"><span>${k}</span><span>${v}</span></div>`;
+  const cur = esc(r.currency);
+  const lines = r.items.map((i) => `<div class="it"><div class="nm">${esc(i.item_name)}${i.is_free_item ? ` <span class="tag">FREE</span>` : ""}</div>
+      ${s.showItemCode ? `<div class="xs muted">${esc(i.item_code)}</div>` : ""}
+      <div class="ln"><span class="muted">${qty(i.qty)} ${esc(i.uom)} × ${num(i.rate)}${i.discount_percentage ? ` <span class="xs">(−${Math.round(i.discount_percentage * 100) / 100}%)</span>` : ""}</span><span class="amt">${num(i.amount)}</span></div>
+      ${i.batch_no ? `<div class="xs muted">Batch ${esc(i.batch_no)}</div>` : ""}${i.serial_no ? `<div class="xs muted">S/N ${esc(String(i.serial_no).split("\n").join(", "))}</div>` : ""}</div>`).join("");
+  const count = r.total_qty ?? r.items.reduce((a, i) => a + i.qty, 0);
   const body = `${header(r.company, s)}
-    <div class="c b">${title}</div>${opts.duplicate ? `<div class="c b">*** DUPLICATE ***</div>` : ""}
-    ${r.pending_sync ? `<div class="box sm">OFFLINE SALE — pending sync<br>${esc(r.offline_id?.slice(0, 8))}</div>` : ""}
-    ${row("Invoice", esc(r.name))}${r.return_against ? row("Against", esc(r.return_against)) : ""}
-    ${row("Date", `${esc(r.posting_date)} ${esc(String(r.posting_time).slice(0, 5))}`)}
-    ${row("Cashier", esc(r.cashier))}${row("Customer", esc(r.customer_name))}${r.contact_mobile ? row("Mobile", esc(r.contact_mobile)) : ""}
-    <div class="hr"></div>${lines}<div class="hr"></div>
-    ${row(`Items ${qty(r.total_qty ?? r.items.reduce((a, i) => a + i.qty, 0))}`, num(r.total ?? r.net_total))}
-    ${r.discount_amount ? row(`Discount${r.additional_discount_percentage ? ` ${r.additional_discount_percentage}%` : ""}${r.coupon_code ? ` (${esc(r.coupon_code)})` : ""}`, `−${num(r.discount_amount)}`) : ""}
-    ${r.taxes.map((t) => row(esc(t.description), num(t.tax_amount))).join("")}
-    <div class="hr"></div>${row("TOTAL", `${esc(r.currency)} ${num(r.rounded_total || r.grand_total)}`, "b big")}
-    ${r.in_words ? `<div class="sm muted">${esc(r.in_words)}</div>` : ""}<div class="hr"></div>
-    ${r.payments.map((p) => row(`${esc(p.mode_of_payment)}${p.reference_no ? ` #${esc(p.reference_no)}` : ""}`, num(p.amount))).join("")}
-    ${r.loyalty_amount ? row(`Loyalty (${r.loyalty_points} pts)`, num(r.loyalty_amount)) : ""}
-    ${r.change_amount ? row("Change", num(r.change_amount), "b") : ""}
+    <div class="title">${title}</div>
+    ${opts.duplicate ? `<div class="c" style="margin-bottom:1.5mm"><span class="tag">DUPLICATE COPY</span></div>` : ""}
+    ${r.pending_sync ? `<div class="box c sm"><b>OFFLINE SALE</b> — pending sync<br><span class="mono xs">${esc(r.offline_id?.slice(0, 8))}</span></div>` : ""}
+    <div class="meta">
+      ${row("Invoice", `<span class="mono b">${esc(r.name)}</span>`)}${r.return_against ? row("Against", `<span class="mono">${esc(r.return_against)}</span>`) : ""}
+      ${row("Date", `${esc(new Date(`${r.posting_date}T00:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }))} · ${esc(String(r.posting_time).slice(0, 5))}`)}
+      ${row("Customer", esc(r.customer_name))}${r.contact_mobile ? row("Mobile", esc(r.contact_mobile)) : ""}
+      ${row("Counter", esc(r.pos_profile))}
+    </div>
+    <div class="hr0"></div>${lines}<div class="hr"></div>
+    ${row(`Subtotal <span class="xs muted">(${qty(count)} item${count === 1 ? "" : "s"})</span>`, num(r.total ?? r.net_total))}
+    ${r.discount_amount ? row(`Discount${r.additional_discount_percentage ? ` ${r.additional_discount_percentage}%` : ""}${r.coupon_code ? ` · ${esc(r.coupon_code)}` : ""}`, `−${num(r.discount_amount)}`) : ""}
+    ${r.taxes.map((t) => row(`${esc(t.description)}${t.rate ? ` <span class="xs muted">${t.rate}%</span>` : ""}`, num(t.tax_amount))).join("")}
+    <div class="grand"><span class="l">GRAND TOTAL</span><span class="v">${cur} ${num(r.rounded_total || r.grand_total)}</span></div>
+    ${r.in_words ? `<div class="xs muted c">${esc(r.in_words)}</div>` : ""}
+    <div class="hr"></div>
+    ${r.payments.map((p) => row(`${esc(p.mode_of_payment)}${p.reference_no ? ` <span class="xs muted mono">#${esc(p.reference_no)}</span>` : ""}`, num(p.amount))).join("")}
+    ${r.loyalty_amount ? row(`Loyalty <span class="xs muted">${r.loyalty_points} pts</span>`, num(r.loyalty_amount)) : ""}
+    ${r.change_amount ? row("Change", num(r.change_amount), "b big") : ""}
     ${r.write_off_amount ? row("Written off", num(r.write_off_amount)) : ""}
-    ${(r.outstanding_amount ?? 0) > 0.01 ? row("BALANCE DUE", num(r.outstanding_amount), "b") : ""}
-    ${r.remarks && !/^Held by/.test(r.remarks) ? `<div class="hr"></div><div class="sm">${esc(r.remarks)}</div>` : ""}
-    <div class="hr"></div>${s.footer ? `<div class="c">${esc(s.footer)}</div>` : ""}
-    <div class="c sm muted">${esc(r.pos_profile)}</div>`;
+    ${(r.outstanding_amount ?? 0) > 0.01 ? `<div class="box">${row("BALANCE DUE", `${cur} ${num(r.outstanding_amount)}`, "b")}</div>` : ""}
+    ${r.remarks && !/^Held by/.test(r.remarks) ? `<div class="box sm">${esc(r.remarks)}</div>` : ""}
+    <div class="hr2"></div>
+    <div class="sm">${row("Served by", `<b>${esc(r.cashier)}</b>`)}</div>
+    <div class="thanks">THANK YOU!</div>
+    ${s.footer ? `<div class="c sm muted">${esc(s.footer)}</div>` : ""}
+    <div class="stars">✦ ✦ ✦ ✦ ✦</div>
+    ${s.policy ? `<div class="c xs muted">${esc(s.policy)}</div>` : ""}`;
   return page(body, s, r.name);
 }
 
@@ -168,6 +201,7 @@ export function PrinterSettingsDialog({ onClose }: { onClose: () => void }) {
           </div>
           <label className="block space-y-1"><span className="text-muted-foreground">Header line (under the company)</span><Input value={s.header} onChange={(e) => set("header", e.target.value)} placeholder="e.g. Factory Outlet — Open 9 to 9" /></label>
           <label className="block space-y-1"><span className="text-muted-foreground">Footer</span><Input value={s.footer} onChange={(e) => set("footer", e.target.value)} /></label>
+          <label className="block space-y-1"><span className="text-muted-foreground">Policy line (small print)</span><Input value={s.policy ?? ""} onChange={(e) => set("policy", e.target.value)} placeholder="e.g. Exchange within 7 days with this receipt" /></label>
           <label className="flex items-center gap-2"><input type="checkbox" checked={s.autoPrint} onChange={(e) => set("autoPrint", e.target.checked)} /> Print the receipt automatically when a sale completes</label>
           <label className="flex items-center gap-2"><input type="checkbox" checked={s.showItemCode} onChange={(e) => set("showItemCode", e.target.checked)} /> Show item codes</label>
           <label className="flex items-center gap-2"><input type="checkbox" checked={s.printZOnClose} onChange={(e) => set("printZOnClose", e.target.checked)} /> Print the Z report when the shift closes</label>

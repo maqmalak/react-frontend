@@ -58,7 +58,7 @@ export function Dialog({ open, onClose, title, description, children, className,
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:p-6">
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/65 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -67,8 +67,8 @@ export function Dialog({ open, onClose, title, description, children, className,
         aria-modal="true"
         aria-label={title}
         className={cn(
-          "relative z-10 mt-10 w-full animate-fade-in overflow-hidden rounded-xl border border-border/60 bg-card/80 shadow-2xl backdrop-blur-xl sm:mt-16",
-          "dark:border-white/10 dark:bg-white/5 dark:shadow-[0_18px_60px_rgb(2_6_23_/_0.45)]",
+          "relative z-10 mt-10 w-full animate-fade-in overflow-hidden rounded-xl border border-border bg-card shadow-2xl ring-1 ring-black/5 dark:ring-white/10 sm:mt-16",
+          "dark:border-white/10 dark:bg-card dark:shadow-[0_24px_80px_rgb(0_0_0_/_0.6)]",
           sizeClasses[size],
           className,
         )}
