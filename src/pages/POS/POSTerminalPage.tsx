@@ -41,13 +41,41 @@ interface Line {
   disc_mode?: "pct" | "amt"; discount_line_amt?: number;   // default "amt" (Rs) — see lineMode()
   /** Half portion: each counted unit is 0.5 qty (qty stays the number of portions on screen). */
   half?: boolean;
+  /** Menu portion (Plate / non-stock Kg items): see PORTIONS. qty = number of such portions. */
+  portion?: string;
+  /** Rs portion: the amount for one portion (qty becomes amount ÷ price). */
+  rs?: number;
+  stockItem?: boolean;
 }
+
+/** Menu portions by unit: Plate → Single / Full / Rs; Kg (non-stock dishes) → ½ / ¾ / 1 / 1½ Kg / Rs. Nos → plain quantity. */
+const PORTIONS: Record<string, { key: string; label: string; factor?: number }[]> = {
+  Plate: [{ key: "single", label: "Single", factor: 0.5 }, { key: "full", label: "Full", factor: 1 }, { key: "rs", label: "Rs" }],
+  Kg: [{ key: "half", label: "½ Half", factor: 0.5 }, { key: "qtr", label: "¾ Qtr", factor: 0.75 }, { key: "full", label: "Kg Full", factor: 1 },
+    { key: "one_half", label: "1½ Kgs", factor: 1.5 }, { key: "rs", label: "Rs" }],
+};
+const portionsFor = (l: Pick<Line, "uom" | "stockItem">) => (l.uom === "Plate" ? PORTIONS.Plate : l.uom === "Kg" && !l.stockItem ? PORTIONS.Kg : null);
+/** Plate → Single; Kg dishes → ½ Half, except fish which is sold by the full Kg. */
+const defaultPortion = (uom: string, stockItem?: boolean, isFish?: boolean) =>
+  uom === "Plate" ? "single" : uom === "Kg" && !stockItem ? (isFish ? "full" : "half") : undefined;
+/** One Rs portion → (qty per portion rounded to 3 places, rate that makes the amount exact). */
+const rsPortion = (amount: number, price: number) => {
+  const q = Math.max(0.001, Math.round((amount / Math.max(price, 0.01)) * 1000) / 1000);
+  return { q, rate: Math.round((amount / q) * 100) / 100 };
+};
 /** Per-item POS quantity presets (Item.mm_pos_default_qty / mm_pos_qty_options). */
 type QtyPresets = Record<string, { default: number; options: number[] }>;
 /** A line's discount mode — Rs unless the cashier switched it to %. */
 const lineMode = (l: Pick<Line, "disc_mode">) => l.disc_mode ?? "amt";
 /** Quantity actually sold for a line (portions × 0.5 when half). */
-const soldQty = (l: Pick<Line, "qty" | "half">) => (l.half ? l.qty * 0.5 : l.qty);
+const soldQty = (l: Pick<Line, "qty" | "half" | "portion" | "rs" | "price_list_rate">) => {
+  if (l.portion === "rs") return l.rs ? Math.round(rsPortion(l.rs, l.price_list_rate).q * l.qty * 1000) / 1000 : 0;
+  const f = l.portion ? [...PORTIONS.Plate, ...PORTIONS.Kg].find((p) => p.key === l.portion)?.factor : undefined;
+  if (f) return Math.round(f * l.qty * 1000) / 1000;
+  return l.half ? l.qty * 0.5 : l.qty;
+};
+/** Short label for the portion badge on the cart line. */
+const portionLabel = (l: Line) => (l.portion === "rs" ? (l.rs ? `Rs ${l.rs}` : "Rs") : portionsFor(l)?.find((p) => p.key === l.portion)?.label);
 interface PreviewRow { item_code: string; item_name: string; qty: number; uom: string; rate: number; amount: number; price_list_rate: number; discount_percentage: number; pricing_rules?: string; is_free_item?: number }
 interface Preview {
   net_total: number; total: number; discount_amount: number; total_taxes_and_charges: number; grand_total: number; rounded_total: number;
@@ -165,7 +193,9 @@ export default function POSTerminalPage() {
       return;
     }
     const key = `${it.item_code}-${Date.now()}`;
-    setLines((ls) => [...ls, { key, item_code: it.item_code, item_name: it.item_name, qty: presets[it.item_code]?.default ?? 1, uom: it.uom || it.stock_uom || "Nos", price_list_rate: it.price_list_rate,
+    setLines((ls) => [...ls, { key, item_code: it.item_code, item_name: it.item_name, qty: presets[it.item_code]?.default ?? 1,
+      portion: defaultPortion(it.uom || it.stock_uom || "Nos", !!it.is_stock_item,
+        /fish/i.test(it.item_name) || bundle?.items.find((b) => b.item_code === it.item_code)?.item_group === "Fish"), stockItem: !!it.is_stock_item, uom: it.uom || it.stock_uom || "Nos", price_list_rate: it.price_list_rate,
       stock: it.actual_qty, batch_no: batch, serial_no: serial }]);
     if (needsSerial) { setOpen(key); toast("Pick the serial number(s)", { icon: "🔢" }); }
   };
@@ -176,6 +206,7 @@ export default function POSTerminalPage() {
     pos_profile: profile?.name, customer, coupon_code: coupon?.name, remarks: remarks || undefined,
     ...(billMode === "amt" ? { discount_amount: discount || undefined, discount_percentage: 0 } : { discount_percentage: discount }),
     items: lines.map((l) => ({ item_code: l.item_code, qty: soldQty(l), uom: l.uom, batch_no: l.batch_no, serial_no: l.serial_no,
+      ...(l.portion === "rs" && l.rs ? { rate: rsPortion(l.rs, l.price_list_rate).rate, price_list_rate: l.price_list_rate } : {}),
       ...(lineMode(l) === "amt" && l.discount_line_amt !== undefined ? { discount_amount: soldQty(l) ? l.discount_line_amt / soldQty(l) : 0 }
         : l.discount_percentage !== undefined ? { discount_percentage: l.discount_percentage } : {}),
       ...(l.rate !== undefined ? { rate: l.rate, price_list_rate: l.price_list_rate } : {}) })),
@@ -232,7 +263,14 @@ export default function POSTerminalPage() {
       const r = await getCall<{ name: string; customer: string; discount_percentage: number; coupon_code?: string; remarks?: string; items: (Line & { name: string })[] }>(
         "mm_core.pos.load_invoice", { name });
       setLines(r.items.map((i) => ({ key: i.name, item_code: i.item_code, item_name: i.item_name, uom: i.uom, price_list_rate: i.price_list_rate,
-        ...(i.qty % 1 !== 0 && (i.qty * 2) % 1 === 0 ? { qty: i.qty * 2, half: true } : { qty: i.qty }),
+        ...((() => {
+          const menu = i.uom === "Plate" || i.uom === "Kg";
+          const hit = menu ? (i.uom === "Plate" ? PORTIONS.Plate : PORTIONS.Kg).find((p) => p.factor === i.qty) : undefined;
+          if (hit) return { qty: 1, portion: hit.key };
+          const r = i.rate ?? i.price_list_rate;
+          if (menu && Math.abs(i.qty * r - Math.round(i.qty * r)) < 0.05 && r !== i.price_list_rate) return { qty: 1, portion: "rs", rs: Math.round(i.qty * r) };
+          return i.qty % 1 !== 0 && (i.qty * 2) % 1 === 0 && !menu ? { qty: i.qty * 2, half: true } : { qty: i.qty, portion: menu ? "full" : undefined };
+        })()),
         rate: i.rate !== i.price_list_rate && !i.discount_percentage ? i.rate : undefined, discount_percentage: i.discount_percentage || undefined, disc_mode: i.discount_percentage ? "pct" as const : undefined, stock: 0,
         batch_no: i.batch_no || undefined, serial_no: i.serial_no || undefined })));
       setCustomer(r.customer); setDiscount(r.discount_percentage || 0); setBillMode(r.discount_percentage ? "pct" : "amt"); setRemarks(r.remarks || ""); setDraft(r.name); setPanel(null);
@@ -944,6 +982,7 @@ function CartLine({ line: l, row, offer, profile, money, open, onToggle, onChang
         <button type="button" className="min-w-0 text-left" onClick={onToggle}>
           <div className="flex items-center gap-1.5 truncate text-sm font-medium">{l.item_name}
             {l.half && <span className="rounded bg-violet-500/15 px-1 text-[10px] font-bold text-violet-700 dark:text-violet-300">HALF</span>}
+            {portionLabel(l) && <span className={cn("rounded px-1 text-[10px] font-bold", l.portion === "rs" ? "bg-amber-500/15 text-amber-700 dark:text-amber-300" : "bg-primary/10 text-primary")}>{portionLabel(l)}</span>}
             {offer && <span className="inline-flex items-center gap-0.5 rounded bg-emerald-500/15 px-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400"><Tag className="h-2.5 w-2.5" />{row!.discount_percentage}% offer</span>}
             <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition", open && "rotate-180")} /></div>
           <div className="text-[11px] text-muted-foreground">
@@ -960,32 +999,41 @@ function CartLine({ line: l, row, offer, profile, money, open, onToggle, onChang
             className="w-11 border-x border-border bg-transparent py-1 text-center text-sm tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" aria-label="Quantity" />
           <button type="button" className="px-1.5 py-1 hover:bg-muted" onClick={() => onChange({ qty: l.qty + 1 })} aria-label="More"><Plus className="h-3.5 w-3.5" /></button>
         </div>
-        {/* Full / Half portion */}
-        <span className="inline-flex shrink-0 overflow-hidden rounded-lg border border-border text-[11px] font-bold" role="group" aria-label="Portion">
-          {([["full", "Full"], ["half", "Half"]] as const).map(([k, label]) => {
-            const on = k === "half" ? !!l.half : !l.half;
-            return (
-              <button key={k} type="button" aria-pressed={on} onClick={() => onChange({ half: k === "half" })}
-                className={cn("px-2 py-1 transition-colors", on ? (k === "half" ? "bg-violet-600 text-white" : "bg-primary text-primary-foreground") : "text-muted-foreground hover:bg-muted")}>{label}</button>
-            );
-          })}
-        </span>
-        {profile.allow_discount_change ? (
-          <div className="flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground">Disc
-            <DiscMode mode={lineMode(l)} onChange={(m) => onChange({ disc_mode: m, discount_percentage: undefined, discount_line_amt: undefined })} />
-            {lineMode(l) === "pct" ? (
-              <input type="number" value={l.discount_percentage ?? ""} placeholder={row?.discount_percentage ? String(Math.round(row.discount_percentage * 100) / 100) : "0"} min={0} max={100}
-                onChange={(e) => onChange({ discount_percentage: e.target.value === "" ? undefined : Number(e.target.value) })} aria-label="Line discount %"
-                className="w-12 rounded-md border border-border bg-transparent px-1.5 py-0.5 text-xs tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" />
-            ) : (
-              <input type="number" value={l.discount_line_amt ?? ""} placeholder="0" min={0} aria-label="Line discount amount"
-                onChange={(e) => onChange({ discount_line_amt: e.target.value === "" ? undefined : Number(e.target.value) })}
-                className="w-14 rounded-md border border-border bg-transparent px-1.5 py-0.5 text-xs tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" />
-            )}
-          </div>
-        ) : null}
         <button type="button" className="ml-auto shrink-0 rounded p-1 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-600" onClick={() => onChange({ qty: 0 })} aria-label="Remove"><Trash2 className="h-4 w-4" /></button>
       </div>
+      {portionsFor(l) && (() => {
+        // menu portions (Plate / Kg dishes); Rs = a portion worth that amount
+        const opts = portionsFor(l)!;
+        const price = l.price_list_rate;
+        const step = price <= 500 ? 50 : price <= 1500 ? 100 : 250;
+        const amounts: number[] = [];
+        for (let v = 50; v < price; v += v < step ? 50 : step) amounts.push(v);
+        if (price > 0) amounts.push(price);
+        return (
+          <div className="space-y-1.5 pt-0.5">
+            <div className="flex flex-wrap gap-1" role="group" aria-label="Portion">
+              {opts.map((o) => (
+                <button key={o.key} type="button" aria-pressed={l.portion === o.key}
+                  onClick={() => onChange(o.key === "rs" ? { portion: "rs", rs: l.rs ?? Math.min(100, price) } : { portion: o.key, rs: undefined })}
+                  className={cn("rounded-lg border px-2.5 py-1 text-[11px] font-bold transition-colors",
+                    l.portion === o.key ? (o.key === "rs" ? "border-amber-500 bg-amber-500 text-white" : "border-primary bg-primary text-primary-foreground") : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground")}>
+                  {o.label}</button>
+              ))}
+            </div>
+            {l.portion === "rs" && (
+              <div className="flex flex-wrap items-center gap-1">
+                {amounts.map((v) => (
+                  <button key={v} type="button" onClick={() => onChange({ rs: v })} aria-pressed={l.rs === v}
+                    className={cn("rounded-full border px-2 py-0.5 text-[11px] font-semibold tabular-nums", l.rs === v ? "border-amber-500 bg-amber-500/15 text-amber-700 dark:text-amber-300" : "border-border hover:border-amber-500/50")}>
+                    {v === price ? `Rs ${v} (full)` : `Rs ${v}`}</button>
+                ))}
+                <input type="number" min={1} max={price || undefined} value={l.rs ?? ""} placeholder="Rs" onChange={(e) => onChange({ rs: Number(e.target.value) || undefined })}
+                  aria-label="Amount for this portion" className="w-16 rounded-md border border-border bg-transparent px-1.5 py-0.5 text-xs tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" />
+              </div>
+            )}
+          </div>
+        );
+      })()}
       {quick && quick.length > 0 && (() => {
         // second row (items with POS Quick Quantities, e.g. Roti): 1 … the largest quick quantity
         const max = Math.max(...quick, l.qty);
@@ -1218,6 +1266,7 @@ function PayDialog({ profile, total, payload, draft, money, customer, isWalkIn, 
   const canWriteOff = short > 0 && short <= (profile.write_off_limit ?? 0);
   const canCredit = !!profile.allow_partial_payment && !isWalkIn;
   const printer = loadPrinter();
+  const whole = (v?: number) => formatMoney(Math.round(v ?? 0), profile.currency ?? "PKR", { decimals: 0 });   // the counter counts whole rupees
   const autoPrint = printer.autoPrint;   // only when this device's Printer settings ask for it (the profile flag is ignored)
   const paymentsOut = () => Object.entries(amounts).filter(([, a]) => Number(a)).map(([mode_of_payment, amount]) => ({ mode_of_payment, amount, reference_no: refs[mode_of_payment] || undefined }));
 
@@ -1286,7 +1335,7 @@ function PayDialog({ profile, total, payload, draft, money, customer, isWalkIn, 
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 ring-1 ring-inset ring-white/30"><Printer className="h-5 w-5" /></span>
             <div className="min-w-0 flex-1">
               <div className="text-base font-bold leading-tight">Print receipt</div>
-              <div className="truncate text-[11px] text-white/85">{done.name} · {money(total)}{receipt?.pending_sync ? " · saved offline" : ""}</div>
+              <div className="truncate text-[11px] text-white/85">{done.name} · {whole(total)}{receipt?.pending_sync ? " · saved offline" : ""}</div>
             </div>
             <button type="button" onClick={onDone} className="rounded-lg bg-white/15 p-1.5 hover:bg-white/25" aria-label="Close"><X className="h-4 w-4" /></button>
           </div>
@@ -1294,15 +1343,15 @@ function PayDialog({ profile, total, payload, draft, money, customer, isWalkIn, 
           <div className="grid grid-cols-3 overflow-hidden rounded-2xl border border-border">
             <div className="bg-card p-3 text-center">
               <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total</div>
-              <div className="text-lg font-extrabold tabular-nums">{money(total)}</div>
+              <div className="text-lg font-extrabold tabular-nums">{whole(total)}</div>
             </div>
             <div className="border-x border-border bg-card p-3 text-center">
               <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Received</div>
-              <div className="text-lg font-extrabold tabular-nums text-sky-600 dark:text-sky-400">{money(paid)}</div>
+              <div className="text-lg font-extrabold tabular-nums text-sky-600 dark:text-sky-400">{whole(paid)}</div>
             </div>
             <div className={cn("p-3 text-center", (done.change_amount ?? 0) > 0 ? "bg-gradient-to-br from-amber-500/20 to-orange-500/10" : "bg-card")}>
               <div className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">Give change</div>
-              <div className={cn("font-extrabold tabular-nums", (done.change_amount ?? 0) > 0 ? "text-2xl text-amber-600 dark:text-amber-400" : "text-lg text-muted-foreground")}>{money(done.change_amount ?? 0)}</div>
+              <div className={cn("font-extrabold tabular-nums", (done.change_amount ?? 0) > 0 ? "text-2xl text-amber-600 dark:text-amber-400" : "text-lg text-muted-foreground")}>{whole(done.change_amount ?? 0)}</div>
             </div>
           </div>
           {(credit && done.outstanding_amount) || done.loyalty_amount || done.write_off_amount || receipt?.pending_sync ? (

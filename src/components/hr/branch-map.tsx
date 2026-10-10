@@ -11,7 +11,15 @@ export interface MapPoint {
   subtitle?: string;
   /** Bigger pins for bigger branches (e.g. headcount). */
   weight?: number;
+  /** Branch Type (Restaurant, Factory…) — coloured pin with its emoji. */
+  kind?: string;
 }
+
+/** Pin colour + emoji per Branch Type (kept here so the map has no page dependency). */
+const KIND_PIN: Record<string, { color: string; emoji: string }> = {
+  "Head Office": { color: "#6366f1", emoji: "🏢" }, Factory: { color: "#d97706", emoji: "🏭" }, Warehouse: { color: "#0284c7", emoji: "📦" },
+  Restaurant: { color: "#ea580c", emoji: "🍽️" }, "Shop / Outlet": { color: "#db2777", emoji: "🏬" }, Office: { color: "#7c3aed", emoji: "💼" },
+};
 
 /** Default view when nothing is pinned yet: Pakistan. */
 const DEFAULT_CENTER: L.LatLngTuple = [30.3753, 69.3451];
@@ -19,9 +27,11 @@ const DEFAULT_ZOOM = 5;
 
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
-/** A CSS pin (no image assets, so it survives bundling), teal by default and amber when selected. */
-function pin(selected: boolean, label?: string) {
-  const color = selected ? "#f59e0b" : "#14b8a6";
+/** A CSS pin (no image assets, so it survives bundling): the branch type's colour + emoji, else teal with the headcount; amber when selected. */
+function pin(selected: boolean, label?: string, kind?: string) {
+  const k = kind ? KIND_PIN[kind] : undefined;
+  const color = selected ? "#f59e0b" : k?.color ?? "#14b8a6";
+  if (k) label = `<span style="font-size:13px;line-height:17px">${k.emoji}</span>`;
   return L.divIcon({
     className: "",
     iconSize: [30, 40],
@@ -90,7 +100,7 @@ export function BranchMap({
     markers.current.clear();
     const maxW = Math.max(1, ...points.map((p) => p.weight ?? 0));
     points.forEach((p) => {
-      const marker = L.marker([p.lat, p.lng], { icon: pin(p.id === selectedId, p.weight ? String(p.weight) : undefined), riseOnHover: true })
+      const marker = L.marker([p.lat, p.lng], { icon: pin(p.id === selectedId, p.weight ? String(p.weight) : undefined, p.kind), riseOnHover: true })
         .bindPopup(
           `<div style="min-width:140px"><strong>${escapeHtml(p.title)}</strong>${p.subtitle ? `<br/><span style="color:#64748b">${escapeHtml(p.subtitle)}</span>` : ""}</div>`,
         )
@@ -108,7 +118,7 @@ export function BranchMap({
   useEffect(() => {
     markers.current.forEach((marker, id) => {
       const p = points.find((x) => x.id === id);
-      marker.setIcon(pin(id === selectedId, p?.weight ? String(p.weight) : undefined));
+      marker.setIcon(pin(id === selectedId, p?.weight ? String(p.weight) : undefined, p?.kind));
     });
     const sel = selectedId ? markers.current.get(selectedId) : undefined;
     if (sel && map.current) {

@@ -29,6 +29,8 @@ export function savePrinter(s: PrinterSettings) { try { localStorage.setItem(KEY
 const esc = (v: unknown) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 const num = (v?: number) => (Number(v) || 0).toLocaleString("en-PK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const qty = (v?: number) => (Number(v) || 0).toLocaleString("en-PK", { maximumFractionDigits: 3 });
+/** Whole rupees for the money people count at the counter (total, received, change, balance due). */
+const whole = (v?: number) => Math.round(Number(v) || 0).toLocaleString("en-PK", { maximumFractionDigits: 0 });
 
 function page(body: string, s: PrinterSettings, title: string) {
   const width = s.paper === "58" ? "48mm" : s.paper === "80" ? "72mm" : "150mm";
@@ -97,14 +99,14 @@ export function receiptHtml(r: ReceiptData, s: PrinterSettings, opts: { duplicat
     ${row(`Subtotal <span class="xs muted">(${qty(count)} item${count === 1 ? "" : "s"})</span>`, num(r.total ?? r.net_total))}
     ${r.discount_amount ? row(`Discount${r.additional_discount_percentage ? ` ${r.additional_discount_percentage}%` : ""}${r.coupon_code ? ` · ${esc(r.coupon_code)}` : ""}`, `−${num(r.discount_amount)}`) : ""}
     ${r.taxes.map((t) => row(`${esc(t.description)}${t.rate ? ` <span class="xs muted">${t.rate}%</span>` : ""}`, num(t.tax_amount))).join("")}
-    <div class="grand"><span class="l">GRAND TOTAL</span><span class="v">${cur} ${num(r.rounded_total || r.grand_total)}</span></div>
+    <div class="grand"><span class="l">GRAND TOTAL</span><span class="v">${cur} ${whole(r.rounded_total || r.grand_total)}</span></div>
     ${r.in_words ? `<div class="xs muted c">${esc(r.in_words)}</div>` : ""}
     <div class="hr"></div>
-    ${r.payments.map((p) => row(`${esc(p.mode_of_payment)}${p.reference_no ? ` <span class="xs muted mono">#${esc(p.reference_no)}</span>` : ""}`, num(p.amount))).join("")}
-    ${r.loyalty_amount ? row(`Loyalty <span class="xs muted">${r.loyalty_points} pts</span>`, num(r.loyalty_amount)) : ""}
-    ${r.change_amount ? row("Change", num(r.change_amount), "b big") : ""}
-    ${r.write_off_amount ? row("Written off", num(r.write_off_amount)) : ""}
-    ${(r.outstanding_amount ?? 0) > 0.01 ? `<div class="box">${row("BALANCE DUE", `${cur} ${num(r.outstanding_amount)}`, "b")}</div>` : ""}
+    ${r.payments.map((p) => row(`${esc(p.mode_of_payment)}${p.reference_no ? ` <span class="xs muted mono">#${esc(p.reference_no)}</span>` : ""}`, whole(p.amount))).join("")}
+    ${r.loyalty_amount ? row(`Loyalty <span class="xs muted">${r.loyalty_points} pts</span>`, whole(r.loyalty_amount)) : ""}
+    ${r.change_amount ? row("Change", whole(r.change_amount), "b big") : ""}
+    ${r.write_off_amount ? row("Written off", whole(r.write_off_amount)) : ""}
+    ${(r.outstanding_amount ?? 0) > 0.01 ? `<div class="box">${row("BALANCE DUE", `${cur} ${whole(r.outstanding_amount)}`, "b")}</div>` : ""}
     ${r.remarks && !/^Held by/.test(r.remarks) ? `<div class="box sm">${esc(r.remarks)}</div>` : ""}
     <div class="hr2"></div>
     <div class="sm">${row("Served by", `<b>${esc(r.cashier)}</b>`)}</div>

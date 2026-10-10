@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Crosshair, GitBranch, Loader2, MapPin, MapPinOff, Pencil, Plus, Search, Trash2, Users2, Building } from "lucide-react";
+import { Briefcase, Building2, Crosshair, Factory, GitBranch, Loader2, MapPin, MapPinOff, Pencil, Plus, Search, Store, Trash2, Users2, Building, UtensilsCrossed, Warehouse, type LucideIcon } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
 import { KpiGrid } from "@/components/doc/dashboard-kit";
 import { Card } from "@/components/ui/card";
@@ -26,10 +26,21 @@ interface BranchRow {
   city?: string;
   latitude?: number;
   longitude?: number;
+  mm_branch_type?: string;
 }
 
-type Draft = { branch: string; branch_address: string; city: string; latitude: string; longitude: string };
-const EMPTY: Draft = { branch: "", branch_address: "", city: "", latitude: "", longitude: "" };
+/** Branch Type (custom field Branch.mm_branch_type): icon, colours and map-pin emoji. */
+export const BRANCH_TYPES: Record<string, { icon: LucideIcon; soft: string; pin: string; emoji: string }> = {
+  "Head Office": { icon: Building2, soft: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400", pin: "#6366f1", emoji: "🏢" },
+  Factory: { icon: Factory, soft: "bg-amber-500/15 text-amber-600 dark:text-amber-400", pin: "#d97706", emoji: "🏭" },
+  Warehouse: { icon: Warehouse, soft: "bg-sky-500/15 text-sky-600 dark:text-sky-400", pin: "#0284c7", emoji: "📦" },
+  Restaurant: { icon: UtensilsCrossed, soft: "bg-orange-500/15 text-orange-600 dark:text-orange-400", pin: "#ea580c", emoji: "🍽️" },
+  "Shop / Outlet": { icon: Store, soft: "bg-pink-500/15 text-pink-600 dark:text-pink-400", pin: "#db2777", emoji: "🏬" },
+  Office: { icon: Briefcase, soft: "bg-violet-500/15 text-violet-600 dark:text-violet-400", pin: "#7c3aed", emoji: "💼" },
+};
+
+type Draft = { branch: string; branch_address: string; city: string; latitude: string; longitude: string; mm_branch_type: string };
+const EMPTY: Draft = { branch: "", branch_address: "", city: "", latitude: "", longitude: "", mm_branch_type: "" };
 
 const hasCoords = (b: { latitude?: unknown; longitude?: unknown }) =>
   b.latitude !== undefined && b.latitude !== null && b.latitude !== "" && b.longitude !== undefined && b.longitude !== null && b.longitude !== "" &&
@@ -64,6 +75,7 @@ function BranchDialog({
             city: editing.city ?? "",
             latitude: hasCoords(editing) ? String(editing.latitude) : "",
             longitude: hasCoords(editing) ? String(editing.longitude) : "",
+            mm_branch_type: editing.mm_branch_type ?? "",
           }
         : EMPTY,
     );
@@ -72,7 +84,7 @@ function BranchDialog({
   const set = (k: keyof Draft, v: string) => setDraft((d) => ({ ...d, [k]: v }));
   const setPoint = (lat: number, lng: number) => setDraft((d) => ({ ...d, latitude: lat.toFixed(6), longitude: lng.toFixed(6) }));
   const point: MapPoint[] = hasCoords(draft)
-    ? [{ id: "draft", lat: Number(draft.latitude), lng: Number(draft.longitude), title: draft.branch || "New branch", subtitle: draft.city }]
+    ? [{ id: "draft", lat: Number(draft.latitude), lng: Number(draft.longitude), title: draft.branch || "New branch", subtitle: draft.city, kind: draft.mm_branch_type }]
     : [];
 
   const useMyLocation = () => {
@@ -117,7 +129,7 @@ function BranchDialog({
     if ((lat !== null && (Number.isNaN(lat) || Math.abs(lat) > 90)) || (lng !== null && (Number.isNaN(lng) || Math.abs(lng) > 180))) {
       return toast.error("Latitude must be between -90 and 90, longitude between -180 and 180.");
     }
-    const values = { branch_address: draft.branch_address, city: draft.city, latitude: lat ?? 0, longitude: lng ?? 0 };
+    const values = { branch_address: draft.branch_address, city: draft.city, latitude: lat ?? 0, longitude: lng ?? 0, mm_branch_type: draft.mm_branch_type };
     setSaving(true);
     try {
       if (editing) await updateDoc(editing.name, values);
@@ -141,6 +153,18 @@ function BranchDialog({
             <Label required>Branch</Label>
             <Input value={draft.branch} onChange={(e) => set("branch", e.target.value)} disabled={!!editing} placeholder="e.g. Faisalabad Mill" />
             {editing && <p className="mt-1 text-xs text-muted-foreground">The name is the branch ID and can't be changed here.</p>}
+          </div>
+          <div>
+            <Label>Branch type</Label>
+            <div className="mt-1 grid grid-cols-3 gap-1.5">
+              {Object.entries(BRANCH_TYPES).map(([t, cfg]) => (
+                <button key={t} type="button" onClick={() => set("mm_branch_type", draft.mm_branch_type === t ? "" : t)} aria-pressed={draft.mm_branch_type === t}
+                  className={cn("flex flex-col items-center gap-1 rounded-xl border p-2 text-[11px] font-semibold transition-colors",
+                    draft.mm_branch_type === t ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/20" : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground")}>
+                  <span className={cn("flex h-8 w-8 items-center justify-center rounded-lg", cfg.soft)}><cfg.icon className="h-4 w-4" /></span>{t}
+                </button>
+              ))}
+            </div>
           </div>
           <div>
             <Label>Address</Label>
@@ -195,7 +219,7 @@ export default function BranchesPage() {
   const { deleteDoc, loading: deleting } = useDocMutations("Branch");
 
   const { data, isLoading, error, mutate } = useDocList<BranchRow>("Branch", {
-    fields: ["name", "branch", "branch_address", "city", "latitude", "longitude"],
+    fields: ["name", "branch", "branch_address", "city", "latitude", "longitude", "mm_branch_type"],
     orderBy: { field: "name", order: "asc" },
     limit: 1000,
   });
@@ -216,6 +240,7 @@ export default function BranchesPage() {
     title: b.branch || b.name,
     subtitle: [b.city, `${headcount[b.name] ?? 0} employees`].filter(Boolean).join(" · "),
     weight: headcount[b.name] ?? 0,
+    kind: b.mm_branch_type,
   }));
   const totalStaff = branches.reduce((s, b) => s + (headcount[b.name] ?? 0), 0);
   const unassigned = headcount[""] ?? 0;
@@ -293,12 +318,21 @@ export default function BranchesPage() {
                   onClick={() => pinned && setSelected(b.name)}
                   className={cn("group flex gap-3 p-4 transition-colors", pinned && "cursor-pointer hover:bg-accent/50", selected === b.name && "bg-primary/5")}
                 >
-                  <span className={cn("mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", pinned ? "bg-teal-500/10 text-teal-600 dark:text-teal-400" : "bg-muted text-muted-foreground")}>
-                    {pinned ? <MapPin className="h-4 w-4" /> : <MapPinOff className="h-4 w-4" />}
-                  </span>
+                  {(() => {
+                    const t = b.mm_branch_type ? BRANCH_TYPES[b.mm_branch_type] : undefined;
+                    const Icon = t?.icon ?? (pinned ? MapPin : MapPinOff);
+                    return (
+                      <span title={b.mm_branch_type || undefined}
+                        className={cn("relative mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", t ? t.soft : pinned ? "bg-teal-500/10 text-teal-600 dark:text-teal-400" : "bg-muted text-muted-foreground")}>
+                        <Icon className="h-5 w-5" />
+                        {t && !pinned && <MapPinOff className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-card p-0.5 text-amber-500" />}
+                      </span>
+                    );
+                  })()}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <p className="truncate text-sm font-semibold">{b.branch || b.name}</p>
+                      {b.mm_branch_type && <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-semibold", BRANCH_TYPES[b.mm_branch_type]?.soft)}>{b.mm_branch_type}</span>}
                       {!pinned && <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">no location</span>}
                     </div>
                     <p className="truncate text-xs text-muted-foreground">{[b.branch_address, b.city].filter(Boolean).join(", ") || "No address"}</p>
