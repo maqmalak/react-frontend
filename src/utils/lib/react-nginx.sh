@@ -46,7 +46,22 @@ server {
         try_files \$uri @backend;
     }
 
-    location ~ ^/(api|files|private)/ {
+    # Public uploads (item photos, logos, attachments) straight off the site's disk — gunicorn doesn't serve
+    # /files in production; anything not on disk falls back to the bench.
+    location /files/ {
+        root ${BENCH_DIR}/sites/${SITE_NAME}/public;
+        try_files \$uri @backend;
+        expires 7d;
+        add_header Cache-Control "public";
+    }
+
+    # Private files: the bench checks permission, then hands the file back with X-Accel-Redirect /protected/<path>.
+    location /protected/ {
+        internal;
+        alias ${BENCH_DIR}/sites/${SITE_NAME}/;
+    }
+
+    location ~ ^/(api|private)/ {
         proxy_pass http://${up}_backend;
         proxy_set_header Host \$host;
         proxy_set_header X-Frappe-Site-Name ${SITE_NAME};
