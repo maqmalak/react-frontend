@@ -2,8 +2,9 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import { useFrappeGetDocList } from "frappe-react-sdk";
 import { Link as LinkIcon, Plus, Search, X } from "lucide-react";
-import { LinkQuickCreateDialog, canQuickCreate, quickCreateLabel } from "./link-quick-create";
+import { LinkQuickCreateDialog, useQuickCreate } from "./link-quick-create";
 import { useSelectedCompany } from "@/hooks/useCompanyContext";
+import { StatusBadge } from "@/components/common/status-badge";
 
 /** Masters that belong to one company: link pickers list only the selected company's records. */
 const COMPANY_SCOPED: Record<string, string> = {
@@ -109,6 +110,15 @@ const LINK_TITLE_FIELDS: Record<string, string> = {
   "CRM Organization": "organization_name",
 };
 
+/** Extra columns shown (and searched) under each option for some Link targets — e.g. a plot's status, block and price. */
+const LINK_DETAILS: Record<string, { fields: string[]; search?: string[]; status?: string; describe: (d: Record<string, any>) => string }> = {
+  "RE Plot": {
+    fields: ["status", "block", "plot_size", "list_price", "street", "is_corner"], search: ["block", "plot_size", "street"], status: "status",
+    describe: (d) => [d.block, d.plot_size, d.list_price ? `Rs ${(Number(d.list_price) / 1e5).toFixed(1)} Lac` : "", d.street, d.is_corner ? "Corner" : ""].filter(Boolean).join(" · "),
+  },
+  Customer: { fields: ["mobile_no", "re_cnic"], search: ["mobile_no"], describe: (d) => [d.mobile_no, d.re_cnic].filter(Boolean).join(" · ") },
+};
+
 /** Title/search field for a Link doctype — exported so callers needing the
  * actual display value (not just the id) for a Dynamic Link selection, e.g.
  * to pre-populate a "full name" field a controller would otherwise guess
@@ -140,7 +150,8 @@ export function FrappeLinkField({
 }) {
   const doctype = String(meta.options ?? "");
   const titleField = linkTitleField(doctype);
-  const creatable = allowCreate && !disabled && canQuickCreate(doctype);
+  const quick = useQuickCreate(doctype, allowCreate && !disabled);
+  const creatable = allowCreate && !disabled && Boolean(quick);
   const [createOpen, setCreateOpen] = React.useState(false);
   // Text typed into the search box, remembered past the blur that clicking "+" causes (blur clears `query`).
   const [createSeed, setCreateSeed] = React.useState("");
@@ -221,15 +232,16 @@ export function FrappeLinkField({
     filters.push(["is_group", "=", 0]);
   }
 
+  const details = LINK_DETAILS[doctype];
   const orFilters: unknown[][] | undefined = q
     ? [
         ["name", "like", `%${q}%`],
         ...(titleField !== "name" ? [[titleField, "like", `%${q}%`] as unknown[]] : []),
+        ...(details?.search ?? []).map((f) => [f, "like", `%${q}%`] as unknown[]),
       ]
     : undefined;
 
-  const fields =
-    titleField !== "name" ? (["name", titleField] as string[]) : (["name"] as string[]);
+  const fields = [...new Set(["name", ...(titleField !== "name" ? [titleField] : []), ...(details?.fields ?? [])])];
 
   const { data, error, isLoading } = useFrappeGetDocList<Record<string, any>>(
     doctype,
@@ -251,7 +263,7 @@ export function FrappeLinkField({
   const results = (data ?? []).map((d) => {
     const title = titleField !== "name" ? d[titleField] : undefined;
     const label = title && title !== d.name ? `${title} (${d.name})` : String(d.name ?? "");
-    return { value: String(d.name ?? ""), label };
+    return { value: String(d.name ?? ""), label, sub: details?.describe(d) ?? "", status: details?.status ? String(d[details.status] ?? "") : "" };
   });
 
   const startCreate = (seed: string) => {
@@ -267,13 +279,23 @@ export function FrappeLinkField({
         <div className="relative">
           <LinkIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
-            className="h-9 w-full rounded-md border border-input bg-transparent pl-9 pr-8 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-9 w-full rounded-md border border-input bg-transparent pl-9 pr-8 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-100 disabled:bg-muted/50 disabled:text-foreground dark:disabled:bg-white/[0.04]"
             value={focused ? query : value ?? ""}
             placeholder={meta.placeholder ?? `Search ${meta.label ?? doctype}…`}
             disabled={disabled || !doctype}
             onChange={(e) => {
+              setFocused(true);
               setQuery(e.target.value);
               setCreateSeed(e.target.value);
+              setOpen(true);
+            }}
+            // After picking an option the input keeps focus, so a second click fires no focus event — reopen here
+            // so a wrong pick can be corrected straight away.
+            onMouseDown={() => {
+              if (open) return;
+              setFocused(true);
+              setQuery("");
+              setCreateSeed("");
               setOpen(true);
             }}
             onFocus={() => {
@@ -297,6 +319,11 @@ export function FrappeLinkField({
               if (e.key === "Escape") {
                 setOpen(false);
                 setFocused(false);
+              }
+              if ((e.key === "ArrowDown" || e.key === "Enter") && !open && !query) {
+                e.preventDefault();
+                setFocused(true);
+                setOpen(true);
               }
             }}
           />
@@ -345,7 +372,7 @@ export function FrappeLinkField({
                     }}
                   >
                     <Plus className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{`Create ${quickCreateLabel(doctype)} “${q}”`}</span>
+                    <span className="truncate">{`Create ${(quick?.label ?? doctype)} “${q}”`}</span>
                   </button>
                 </li>
               )}
@@ -363,7 +390,13 @@ export function FrappeLinkField({
                     }}
                   >
                     <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    <span className="truncate">{r.label}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2">
+                        <span className="truncate font-medium">{r.label}</span>
+                        {r.status && <StatusBadge status={r.status} className="ml-auto shrink-0 px-2 py-0 text-[10px]" />}
+                      </span>
+                      {r.sub && <span className="block truncate text-[11px] text-muted-foreground">{r.sub}</span>}
+                    </span>
                   </button>
                 </li>
               ))}
@@ -375,8 +408,8 @@ export function FrappeLinkField({
         <button
           type="button"
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-input text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          title={`New ${quickCreateLabel(doctype)}`}
-          aria-label={`Create new ${quickCreateLabel(doctype)}`}
+          title={`New ${(quick?.label ?? doctype)}`}
+          aria-label={`Create new ${(quick?.label ?? doctype)}`}
           // mousedown keeps the search input from blurring first, so its typed text is still available to seed the dialog
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => startCreate(createSeed)}
@@ -387,6 +420,7 @@ export function FrappeLinkField({
       {creatable && (
         <LinkQuickCreateDialog
           doctype={doctype}
+          spec={quick}
           open={createOpen}
           initialValue={createSeed}
           onClose={() => setCreateOpen(false)}

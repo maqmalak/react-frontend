@@ -22,6 +22,10 @@ const TONES: Record<string, StatusTone> = {
   rose: { badge: "bg-rose-500/10 text-rose-600 dark:text-rose-400", dot: "bg-rose-500" },
   teal: { badge: "bg-teal-500/10 text-teal-600 dark:text-teal-400", dot: "bg-teal-500" },
   slate: { badge: "bg-slate-500/10 text-slate-600 dark:text-slate-400", dot: "bg-slate-500" },
+  blue: { badge: "bg-blue-500/10 text-blue-600 dark:text-blue-400", dot: "bg-blue-500" },
+  violet: { badge: "bg-violet-500/10 text-violet-600 dark:text-violet-400", dot: "bg-violet-500" },
+  orange: { badge: "bg-orange-500/10 text-orange-600 dark:text-orange-400", dot: "bg-orange-500" },
+  cyan: { badge: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400", dot: "bg-cyan-500" },
   primary: { badge: "bg-primary/10 text-primary", dot: "bg-primary" },
 };
 
@@ -56,9 +60,38 @@ const STATUS_TONE: Record<string, string> = {
   "work from home": "indigo",
   approved: "emerald",
   "in progress": "teal",
+  // Real estate: plots, bookings, bills, invoices, approvals
+  available: "emerald",
+  hold: "amber",
+  reserved: "violet",
+  booked: "blue",
+  sold: "indigo",
+  "possession given": "teal",
+  blocked: "slate",
+  active: "blue",
+  transferred: "violet",
+  "re-allotted": "cyan",
+  merged: "cyan",
+  paid: "emerald",
+  "partly paid": "amber",
+  unpaid: "orange",
+  overdue: "rose",
+  due: "amber",
+  draft: "slate",
+  submitted: "blue",
+  "pending approval": "amber",
+  "return": "violet",
+  "credit note issued": "violet",
+  working: "teal",
+  "pending review": "amber",
+  resolved: "emerald",
+  scheduled: "sky",
+  "no show": "rose",
+  disabled: "slate",
+  enabled: "emerald",
 };
 
-const FALLBACK_ORDER = ["sky", "indigo", "amber", "emerald", "rose", "teal", "slate"];
+const FALLBACK_ORDER = ["sky", "indigo", "amber", "emerald", "rose", "teal", "violet", "cyan"];
 
 function hash(s: string): number {
   let h = 0;
@@ -73,10 +106,19 @@ export function statusTone(status?: string): StatusTone {
   // substring of this status (e.g. "Proposal/Quotation" -> "proposal"). The
   // result of either is always a *tone name* (a TONES key), never a raw status
   // key — STATUS_TONE values are the color keywords TONES is keyed by.
-  const matched = Object.keys(STATUS_TONE).find((k) => s.includes(k));
+  // longest contained key wins ("Unpaid and Discounted" -> "unpaid", not "paid")
+  const matched = Object.keys(STATUS_TONE)
+    .filter((k) => s.includes(k))
+    .sort((a, b) => b.length - a.length)[0];
   const tone = STATUS_TONE[s] ?? (matched ? STATUS_TONE[matched] : undefined);
   if (!tone) return TONES[FALLBACK_ORDER[hash(s) % FALLBACK_ORDER.length]];
   return TONES[tone];
+}
+
+/** The tone name (sky, emerald, …) for a status — handy for gradients and accent rings. */
+export function statusHue(status?: string): string {
+  const t = statusTone(status);
+  return Object.keys(TONES).find((k) => TONES[k] === t) ?? "primary";
 }
 
 /** Pill badge classes for <StatusBadge/>. */

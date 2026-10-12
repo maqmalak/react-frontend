@@ -38,8 +38,8 @@ export function BarList({
             <span className="min-w-0 truncate font-medium">{r.label}</span>
             <span className="shrink-0 tabular-nums text-muted-foreground">{format(r.value)}</span>
           </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-            <div className={cn("h-full rounded-full transition-all duration-500", tone)} style={{ width: `${Math.max(2, (r.value / max) * 100)}%` }} />
+          <div className="h-2 overflow-hidden rounded-full bg-muted">
+            <div className={cn("h-full rounded-full bg-gradient-to-r from-white/25 to-transparent transition-all duration-500", tone)} style={{ width: `${Math.max(2, (r.value / max) * 100)}%` }} />
           </div>
           {r.hint && <div className="text-xs text-muted-foreground">{r.hint}</div>}
         </li>

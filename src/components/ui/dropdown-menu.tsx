@@ -9,6 +9,10 @@ export interface DropdownItem {
   destructive?: boolean;
   disabled?: boolean;
   separator?: boolean;
+  /** A small section title (not clickable). */
+  heading?: boolean;
+  /** Icon tile colour (Tailwind classes, e.g. "bg-emerald-500/12 text-emerald-600"). */
+  tone?: string;
 }
 
 export interface DropdownMenuProps {
@@ -99,7 +103,7 @@ export function DropdownMenu({ trigger, items, align = "end", width = "w-48" }: 
           <div
             ref={menuRef}
             className={cn(
-              "fixed z-40 animate-fade-in rounded-md border border-border bg-popover p-1 shadow-lg",
+              "fixed z-40 max-h-[70vh] animate-fade-in overflow-y-auto rounded-xl border border-border bg-popover p-1.5 shadow-xl scrollbar-thin",
               // Floating over arbitrary content (not sitting in normal page
               // flow like a Card), so it needs to stay legible regardless of
               // what's behind it — a near-opaque panel instead of the 5%
@@ -113,6 +117,8 @@ export function DropdownMenu({ trigger, items, align = "end", width = "w-48" }: 
             {items.map((item, i) =>
               item.separator ? (
                 <div key={i} className="my-1 h-px bg-border" />
+              ) : item.heading ? (
+                <p key={i} className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground first:pt-1">{item.label}</p>
               ) : (
                 <button
                   key={i}
@@ -124,12 +130,14 @@ export function DropdownMenu({ trigger, items, align = "end", width = "w-48" }: 
                     setOpen(false);
                   }}
                   className={cn(
-                    "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50",
+                    "group/item flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50",
                     item.destructive && "text-destructive hover:bg-destructive/10",
                   )}
                 >
-                  {item.icon}
-                  {item.label}
+                  {item.icon && (item.tone
+                    ? <span className={cn("grid size-6 shrink-0 place-items-center rounded-md [&_svg]:size-3.5", item.tone)}>{item.icon}</span>
+                    : item.icon)}
+                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
                 </button>
               ),
             )}

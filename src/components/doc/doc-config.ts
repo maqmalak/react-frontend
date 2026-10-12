@@ -115,6 +115,10 @@ export interface DocConfig {
   dateLabel?: string;
   /** Extra dropdown filters — fixed `options`, or `optionsFrom` a DocType whose names are listed. */
   filters?: { field: string; label: string; options?: string[]; optionsFrom?: string }[];
+  /** Form sections (by title) shown side by side as compact cards, one array per row. */
+  sectionRows?: string[][];
+  /** A filter bar at the top of the list: a search box plus chip groups (with live counts) for these fields and the status. */
+  topFilters?: { searchLabel?: string; fields: { field: string; label: string }[]; status?: boolean };
   /** Always applied (e.g. hide template tasks). */
   baseFilters?: unknown[][];
   /** Filters switched on by a URL flag (`?<param>=1`), e.g. from the home page's "Needs attention" cards. */

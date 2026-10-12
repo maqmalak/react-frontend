@@ -281,6 +281,8 @@ export interface FrappeFormProps {
     ctx: { values: FormValues; onChange: (fieldname: string, value: any) => void },
   ) => React.ReactNode | undefined;
   children?: React.ReactNode;
+  /** Sections (by title) to lay out side by side as compact cards, one array per row — e.g. short related sections. */
+  sectionRows?: string[][];
 }
 
 /**
@@ -296,8 +298,10 @@ export function FrappeForm({
   links,
   renderField,
   children,
+  sectionRows,
 }: FrappeFormProps) {
-  const groups = transformLayout(fields);
+  // sections with nothing to show (e.g. only a desk HTML field) are dropped
+  const groups = transformLayout(fields).filter((sec) => sec.columns.some((col) => col.some((m) => !m.hidden && !m.depends_on)));
 
   // Picking a Terms Template (tc_name) fills the form's Terms editor with that template's text, rendered against
   // this document (placeholders like {{ customer_name }}), as ERPNext's desk does on Sales / Purchase documents.
@@ -327,25 +331,17 @@ export function FrappeForm({
     },
     [onChange, hasTerms, fields],
   );
-  return (
-    <div className="space-y-6">
-      {groups.map((section, si) => (
-        <section key={si} className="space-y-3">
+  const renderSection = (section: LayoutSection, si: number, inRow = false) => (
+        <section key={si} className="form-card">
           {section.title && (
-            <h3 className="flex items-center gap-2 text-sm font-semibold">
-              <span className="h-4 w-1 rounded-full bg-primary" />
+            <h3 className="form-card-head">
+              <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
               {section.title}
             </h3>
           )}
-          {section.columns.map((col, ci) => (
-            <div
-              key={ci}
-              className={cn(
-                "grid gap-x-6 gap-y-4",
-                section.columns.length > 1 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1",
-              )}
-            >
-              {col.flatMap((meta) => {
+          {/* one dense grid per section: 1 / 2 / 3 columns by width; long-form fields span the row */}
+            <div className={cn("form-card-body grid gap-x-5 gap-y-3", inRow ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3")}>
+              {section.columns.flat().flatMap((meta) => {
                 if (meta.hidden || meta.depends_on) return [];
                 const custom = renderField?.(meta, { values, onChange: change });
                 if (custom !== undefined) {
@@ -373,7 +369,7 @@ export function FrappeForm({
                           "rounded-md border border-dashed border-border bg-muted/40 px-3 text-sm font-medium text-foreground/80 dark:border-slate-600/70 dark:bg-white/[0.035] dark:text-slate-200",
                           longForm
                             ? "whitespace-pre-wrap py-2 leading-relaxed"
-                            : "flex h-9 items-center truncate",
+                            : "flex h-8 items-center truncate text-[13px]",
                         )}
                       >
                         {formatReadonly(meta, values[meta.fieldname])}
@@ -392,11 +388,34 @@ export function FrappeForm({
                     fetchValues={links}
                   />,
                 ];
+              }).map((el, k) => {
+                const meta = section.columns.flat().filter((m) => !m.hidden && !m.depends_on)[k];
+                return meta && WIDE.has(meta.fieldtype as string) && !inRow ? <div key={`w-${meta.fieldname}`} className="col-span-full">{el}</div> : el;
               })}
             </div>
-          ))}
         </section>
-      ))}
+  );
+  // walk the sections; a section named in sectionRows pulls its whole row in at its first appearance
+  const placed = new Set<number>();
+  const layout: React.ReactNode[] = [];
+  groups.forEach((section, si) => {
+    if (placed.has(si)) return;
+    const row = sectionRows?.find((r) => section.title && r.includes(section.title));
+    if (!row) {
+      layout.push(renderSection(section, si));
+      return;
+    }
+    const members = groups.map((g, i) => [g, i] as const).filter(([g]) => g.title && row.includes(g.title));
+    members.forEach(([, i]) => placed.add(i));
+    layout.push(
+      <div key={`row-${si}`} className={cn("grid gap-4 md:grid-cols-2", members.length >= 3 && "xl:grid-cols-3")}>
+        {members.map(([g, i]) => renderSection(g, i, true))}
+      </div>,
+    );
+  });
+  return (
+    <div className="frappe-form space-y-4">
+      {layout}
       {children}
     </div>
   );
@@ -410,6 +429,9 @@ export function formatReadonly(meta: FormFieldMeta, value: unknown): string {
 }
 
 type LayoutColumn = FormFieldMeta[];
+/** Field types that take a whole row in the 3-column grid. */
+const WIDE = new Set(["Text", "Text Editor", "Small Text", "Long Text", "Code", "JSON", "Markdown Editor", "Table", "Attach Image", "HTML"]);
+
 type LayoutSection = { title?: string; columns: LayoutColumn[] };
 
 /** Convert linear ERPNext field_order (Section/Column breaks) into layout groups. */

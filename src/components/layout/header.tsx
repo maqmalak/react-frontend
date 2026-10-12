@@ -6,7 +6,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
-import { ThemeToggle } from "./theme-provider";
+import { ThemeCustomizer } from "./theme-provider";
 import { Logo } from "@/components/common/logo";
 import { useAuth } from "@/hooks/useAuth";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
@@ -275,7 +275,7 @@ export function Header({
         )}
 
         <NotificationsBell />
-        <ThemeToggle />
+        <ThemeCustomizer />
 
         <DropdownMenu
           align="end"

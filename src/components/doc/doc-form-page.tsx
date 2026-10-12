@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { ArrowLeft, Ban, ChevronDown, CircleDot, History, Copy, ExternalLink, Link as LinkIcon, Link2, PlusCircle, Printer, RefreshCw, Save, Send, Trash2 } from "lucide-react";
+import { ArrowLeft, Ban, ChevronDown, CircleDot, History, Copy, ExternalLink, Link as LinkIcon, Link2, PlusCircle, Printer, RefreshCw, Save, Send, Trash2, X, Zap } from "lucide-react";
 import { DropdownMenu, type DropdownItem } from "@/components/ui/dropdown-menu";
 import { deskUrl, docUrl } from "@/app/doc-routes";
 import { PrintDialog } from "./print-dialog";
@@ -363,9 +363,11 @@ function DocFormPageInner({ config }: { config: DocConfig }) {
   const extraCtx: ExtraContext = { name: routeName, isNew, docstatus, readOnly: Boolean(readOnly), values, rows, reload: () => void mutate(), patch: applyPatch };
   const connectionsOn = config.connections !== false && !isNew && !config.single;
   const activityOn = !isNew && !config.single;
-  const sidebarOn = activityOn && !!routeName;
   const showTabBar = tabs.length > 1 || connectionsOn || activityOn;
   const currentTab = tabs.some((t) => t.label === activeTab) || (activeTab === "Connections" && connectionsOn) || (activeTab === "Activity" && activityOn) ? activeTab : tabs[0]?.label ?? "";
+  // Assigned to / attachments / tags / shared-with sit beside the Activity tab only — the other tabs get the full width
+  // forms without a tab bar keep the panel as a sidebar; with tabs it lives inside the Activity tab
+  const sidebarOn = activityOn && !!routeName && !showTabBar;
 
   // ---- Actions menu ----------------------------------------------------------------------------
   const openDoc = (r: { doctype: string; name: string }) => {
@@ -408,15 +410,27 @@ function DocFormPageInner({ config }: { config: DocConfig }) {
           ? void runServer(a.label, () => postCall("mm_core.form_actions.make_mapped", { method: a.make, source_name: routeName, args: a.makeArgs ? JSON.stringify(a.makeArgs(extraCtx)) : undefined }))
           : void Promise.resolve(a.run?.(extraCtx)).catch((e) => toast.error(humanizeError(e))),
     });
-    actionItems.push(...create.map(toItem));
-    if (create.length && other.length) actionItems.push({ label: "", separator: true });
-    actionItems.push(...other.map(toItem));
-    if (custom.length) actionItems.push({ label: "", separator: true });
+    // grouped like the desk: Create · Documents · Messages · Actions, each with tinted icon tiles
+    const docs = other.filter((a) => /^Generate /.test(a.label));
+    const msgs = other.filter((a) => /^Send /.test(a.label));
+    const rest = other.filter((a) => !docs.includes(a) && !msgs.includes(a));
+    const section = (title: string, list: typeof custom, tone: string) => {
+      if (!list.length) return;
+      // under "Documents" / "Messages" the verb is implied — "Allotment Letter" rather than "Generate Allotment Letter"
+      const short = (l: string) => (title === "Documents" ? l.replace(/^Generate /, "") : title === "Messages" ? l.replace(/^Send /, "") : l);
+      actionItems.push({ label: title, heading: true }, ...list.map((a) => ({ ...toItem(a), label: short(a.label), tone })));
+    };
+    section("Create", create, "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400");
+    section("Actions", rest, "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400");
+    section("Documents", docs, "bg-amber-500/15 text-amber-600 dark:text-amber-400");
+    section("Messages", msgs, "bg-sky-500/15 text-sky-600 dark:text-sky-400");
     // The desk's "Status" menu: Close / Hold / Stop / Re-open.
     const current = { ...values, name: routeName, docstatus };
     const statuses = (DOC_STATUS_ACTIONS[config.doctype] ?? []).filter((a) => a.show(current));
+    if (statuses.length) actionItems.push({ label: "Status", heading: true });
     actionItems.push(...statuses.map((a): DropdownItem => ({
       label: a.label,
+      tone: "bg-violet-500/15 text-violet-600 dark:text-violet-400",
       icon: <CircleDot className="h-4 w-4" />,
       onClick: () => void (async () => {
         setBusy(true);
@@ -424,8 +438,8 @@ function DocFormPageInner({ config }: { config: DocConfig }) {
         setBusy(false);
       })(),
     })));
-    if (statuses.length) actionItems.push({ label: "", separator: true });
     actionItems.push(
+      { label: "More", heading: true },
       { label: "Refresh", icon: <RefreshCw className="h-4 w-4" />, onClick: () => { loadedFor.current = null; void mutate(); } },
       ...(!config.single && canWrite
         ? [{ label: "Duplicate", icon: <Copy className="h-4 w-4" />, onClick: () => void runServer("Duplicate", () => postCall("mm_core.form_actions.duplicate", { doctype: config.doctype, name: routeName })) }]
@@ -439,7 +453,7 @@ function DocFormPageInner({ config }: { config: DocConfig }) {
     const list = rows[spec.key] ?? [];
     const ro = readOnly || spec.readOnly;
     return (
-      <Card key={spec.key} className="p-5">
+      <Card key={spec.key} className="rounded-2xl p-5 sm:p-6">
         {errors[spec.key] && <p className="mb-2 text-sm text-destructive">{errors[spec.key]}</p>}
         <EditableChildTable
           toolbarStart={
@@ -465,6 +479,8 @@ function DocFormPageInner({ config }: { config: DocConfig }) {
           editableInDialog={Boolean(spec.dialogColumns?.length)}
           extraDialogColumns={spec.dialogColumns}
           columnPicker={spec.wide}
+          // ERPNext "Configure Columns" (fields + widths), saved per user and shared with the desk grid
+          gridSettings={spec.doctype ? { parent: config.doctype, child: spec.doctype } : undefined}
           fitColumns
           emptyMessage={ro ? "Nothing here." : "No rows yet. Click Add Row to begin."}
         />
@@ -474,63 +490,64 @@ function DocFormPageInner({ config }: { config: DocConfig }) {
 
   return (
     <div className="space-y-6">
+      <div className="relative overflow-hidden rounded-2xl border bg-card p-4 shadow-sm sm:p-5">
+        <div aria-hidden className="pointer-events-none absolute -right-16 -top-24 h-56 w-56 rounded-full bg-primary/10 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-primary/60 to-transparent" />
       <PageHeader
+        className="relative mb-0"
         title={title}
         subtitle={isNew ? config.subtitle : config.singular}
         icon={<Icon className="h-5 w-5" />}
+        badge={statusLabel && <StatusBadge status={statusLabel} className="px-3 py-1" />}
         actions={
           <>
-            <Button variant="outline" onClick={() => navigate(config.base)} disabled={busyAny}>
-              <ArrowLeft className="h-4 w-4" /> {readOnly ? "Back" : "Cancel"}
+            <Button variant="neutral" onClick={() => navigate(config.base)} disabled={busyAny} title={readOnly ? "Back to the list" : "Discard changes and go back"}>
+              {readOnly ? <ArrowLeft className="h-4 w-4" /> : <X className="h-4 w-4" />} {readOnly ? "Back" : "Cancel"}
             </Button>
             {(transitions ?? []).slice(0, 3).map((t) => (
-              <Button key={t.action} variant="default" onClick={() => void applyWorkflow(t.action)} disabled={busyAny || Boolean(wfBusy)} title={`→ ${t.next_state}`}>
+              <Button key={t.action} variant={/approve|accept|confirm/i.test(t.action) ? "submit" : /reject|cancel|decline/i.test(t.action) ? "danger" : "workflow"}
+                onClick={() => void applyWorkflow(t.action)} disabled={busyAny || Boolean(wfBusy)} title={`→ ${t.next_state}`}>
                 <GitBranch className="h-4 w-4" /> {wfBusy === t.action ? "Working…" : t.action}
               </Button>
             ))}
             {actionItems.length > 0 && (
               <DropdownMenu
-                width="w-64"
+                width="w-72"
                 items={actionItems}
                 trigger={
-                  <Button variant="outline" disabled={busyAny}>
-                    Actions <ChevronDown className="h-4 w-4" />
+                  <Button variant="menu" disabled={busyAny}>
+                    <Zap className="h-4 w-4" /> Actions <ChevronDown className="h-4 w-4 opacity-70" />
                   </Button>
                 }
               />
             )}
             {!isNew && !config.single && canWrite && (!config.submittable || docstatus === 0) && (
-              <Button variant="outline" onClick={() => setConfirm("delete")} disabled={busyAny}>
+              <Button variant="danger" onClick={() => setConfirm("delete")} disabled={busyAny}>
                 <Trash2 className="h-4 w-4" /> Delete
               </Button>
             )}
             {!readOnly && (
-              <Button onClick={() => void save()} disabled={busyAny}>
+              <Button variant="save" onClick={() => void save()} disabled={busyAny}>
                 <Save className="h-4 w-4" /> {isNew ? "Save" : "Update"}
               </Button>
             )}
             {!isNew && config.submittable && docstatus === 0 && canWrite && !(transitions ?? []).length && (
-              <Button variant="default" onClick={() => setConfirm("submit")} disabled={busyAny}>
+              <Button variant="submit" onClick={() => setConfirm("submit")} disabled={busyAny}>
                 <Send className="h-4 w-4" /> Submit
               </Button>
             )}
             {!isNew && config.submittable && docstatus === 1 && canWrite && (
-              <Button variant="outline" onClick={() => setConfirm("cancel")} disabled={busyAny}>
+              <Button variant="danger" onClick={() => setConfirm("cancel")} disabled={busyAny}>
                 <Ban className="h-4 w-4" /> Cancel document
               </Button>
             )}
           </>
         }
       />
+      </div>
 
-      {(statusLabel || summary.length > 0) && (
+      {summary.length > 0 && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
-          {statusLabel && (
-            <Card className="flex min-w-0 flex-col justify-between gap-1.5 px-3 py-2.5">
-              <span className="text-xs font-medium text-muted-foreground">Status</span>
-              <StatusBadge status={statusLabel} className="w-fit" />
-            </Card>
-          )}
           {summary.map((s) => (
             <StatCard key={s.label} label={s.label} value={s.value} tone={s.tone ?? "primary"} icon={<Icon className="h-4 w-4" />} size="sm" />
           ))}
@@ -569,10 +586,11 @@ function DocFormPageInner({ config }: { config: DocConfig }) {
             </div>
           </div>
           {currentTab === "Connections" && routeName ? (
-            <ConnectionsPanel doctype={config.doctype} name={routeName} />
+            <ConnectionsPanel key={config.doctype} doctype={config.doctype} name={routeName} />
           ) : currentTab === "Activity" && routeName ? (
             // Comments, field changes and emails — with "New Email" (Quill composer), like the desk's timeline.
-            <ActivityTimeline doctype={config.doctype} docname={routeName} />
+            // activity chain on the left; comments, assignments, attachments, tags and sharing in a right-hand panel
+            <ActivityTimeline doctype={config.doctype} docname={routeName} aside={<DocActionsPanel doctype={config.doctype} docname={routeName} title={title} caption={`${config.singular} · assignments, files & sharing`} />} />
           ) : (
             (() => {
               const t = tabs.find((x) => x.label === currentTab) ?? tabs[0];
@@ -582,9 +600,9 @@ function DocFormPageInner({ config }: { config: DocConfig }) {
                 <div key={t.label} className="space-y-6">
                   {panel?.before?.(extraCtx)}
                   {hasFields && (
-                    <Card className="p-5">
-                      <FrappeForm fields={t.fields} values={values} errors={errors} readOnly={readOnly} onChange={onChange} />
-                    </Card>
+                    <div>
+                      <FrappeForm sectionRows={config.sectionRows} fields={t.fields} values={values} errors={errors} readOnly={readOnly} onChange={onChange} />
+                    </div>
                   )}
                   {specsOf(t.label).map(renderSpec)}
                   {panel?.after?.(extraCtx)}
@@ -595,12 +613,27 @@ function DocFormPageInner({ config }: { config: DocConfig }) {
         </>
       ) : (
         <>
-          <FrappeForm fields={visibleFields} values={values} errors={errors} readOnly={readOnly} onChange={onChange} />
+          <FrappeForm sectionRows={config.sectionRows} fields={visibleFields} values={values} errors={errors} readOnly={readOnly} onChange={onChange} />
           {shownSpecs.map(renderSpec)}
         </>
       )}
 
       {config.extra?.(extraCtx)}
+
+      {!readOnly && (
+        // Save stays in reach on long forms — the header buttons scroll away.
+        <div className="sticky bottom-3 z-20 flex items-center justify-between gap-3 rounded-2xl border bg-card/90 px-4 py-2.5 shadow-lg backdrop-blur">
+          <p className="min-w-0 truncate text-xs text-muted-foreground">
+            {isNew ? `New ${config.singular.toLowerCase()}` : <>Editing <span className="font-medium text-foreground">{title}</span></>}
+          </p>
+          <div className="flex shrink-0 gap-2">
+            <Button variant="neutral" size="sm" onClick={() => navigate(config.base)} disabled={busyAny}><X className="h-3.5 w-3.5" />Cancel</Button>
+            <Button variant="save" size="sm" onClick={() => void save()} disabled={busyAny}>
+              <Save className="h-4 w-4" /> {isNew ? "Save" : "Update"}
+            </Button>
+          </div>
+        </div>
+      )}
       </div>
       {sidebarOn && (
         // Frappe's form sidebar: assignments, attachments, tags and sharing for this record.

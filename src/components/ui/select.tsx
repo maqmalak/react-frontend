@@ -12,7 +12,7 @@ export const Select = React.forwardRef<
           ref={ref}
           {...props}
           className={cn(
-            "h-9 w-full appearance-none rounded-md border border-input bg-popover px-3 pr-9 text-sm text-popover-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+            "h-9 w-full appearance-none rounded-md border border-input bg-popover px-3 pr-9 text-sm text-popover-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-100 disabled:bg-muted/50 disabled:text-foreground dark:disabled:bg-white/[0.04]",
             error && "border-destructive",
             className,
           )}

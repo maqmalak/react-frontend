@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useFrappeDeleteDoc, useFrappeGetCall, useFrappeGetDocList } from "frappe-react-sdk";
-import { Mail, Monitor, Paperclip, Plus, Share2, Tag as TagIcon, UserPlus, X } from "lucide-react";
+import { Mail, Monitor, Paperclip, Plus, Share2, Tag as TagIcon, UserPlus, Users, X } from "lucide-react";
 import { SectionCard } from "@/components/common/section-card";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/common/empty-state";
@@ -15,45 +15,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog } from "@/components/ui/dialog";
 import { FrappeLinkField } from "@/components/forms/field-primitives";
-import { postCall, uploadFile, stripHtml, humanizeError, type FrappeFile } from "@/services/frappe";
+import { postCall, uploadFile, humanizeError, type FrappeFile } from "@/services/frappe";
 import { useAuth } from "@/hooks/useAuth";
-import { formatDateTime } from "@/utils/dates";
 import { cn } from "@/utils/cn";
-import type { FrappeComment, FrappeToDo, FrappeVersion } from "@/types/frappe";
+import type { FrappeComment, FrappeToDo } from "@/types/frappe";
 import { RichTextEditor } from "@/components/forms/rich-text-editor";
+import { ActivityChain } from "@/components/common/activity-chain";
 
 function formatBytes(n?: number): string {
   if (!n) return "";
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function summarizeVersion(v: FrappeVersion): string {
-  try {
-    const parsed = JSON.parse(v.data) as { changed?: any[]; added?: any[]; removed?: any[] };
-    const changed = parsed.changed ?? [];
-    const docstatusChange = changed.find((c) => c[0] === "docstatus");
-    if (docstatusChange) {
-      if (docstatusChange[2] === 1) return "submitted this document";
-      if (docstatusChange[2] === 2) return "cancelled this document";
-      if (docstatusChange[2] === 0) return "reverted this document to draft";
-    }
-    const addedCount = (parsed.added ?? []).reduce(
-      (s, entry) => s + (Array.isArray(entry?.[1]) ? entry[1].length : 0),
-      0,
-    );
-    const removedCount = (parsed.removed ?? []).reduce(
-      (s, entry) => s + (Array.isArray(entry?.[1]) ? entry[1].length : 0),
-      0,
-    );
-    if (addedCount) return `added ${addedCount} row${addedCount === 1 ? "" : "s"}`;
-    if (removedCount) return `removed ${removedCount} row${removedCount === 1 ? "" : "s"}`;
-    const n = changed.length;
-    return n ? `updated ${n} field${n === 1 ? "" : "s"}` : "updated this document";
-  } catch {
-    return "updated this document";
-  }
 }
 
 /** "Add to ToDo" dialog — mirrors the Frappe desk assignment form (assign to me, users, priority, complete by, comment). */
@@ -903,11 +876,14 @@ function EmailDialog({
  * (comments and emails render as cards, version-log changes render as plain
  * entries, merged and sorted newest-first on one connector line).
  */
-export function ActivityTimeline({ doctype, docname }: { doctype: string; docname?: string }) {
+export function ActivityTimeline({ doctype, docname, aside }: { doctype: string; docname?: string;
+  /** When given, the tab is split: activity chain on the left, comments + this panel in a sticky right column. */
+  aside?: React.ReactNode }) {
   const { currentUser, user } = useAuth();
   const [commentText, setCommentText] = useState("");
   const [posting, setPosting] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
+  const [chainKey, setChainKey] = useState(0);
 
   const enabled = Boolean(docname);
 
@@ -926,21 +902,7 @@ export function ActivityTimeline({ doctype, docname }: { doctype: string; docnam
     enabled ? `activity.comments.${doctype}.${docname}` : null,
   );
 
-  const { data: versions } = useFrappeGetDocList<FrappeVersion>(
-    "Version",
-    {
-      fields: ["name", "owner", "creation", "data"] as any,
-      filters: [
-        ["ref_doctype", "=", doctype],
-        ["docname", "=", docname ?? ""],
-      ] as any,
-      orderBy: { field: "creation", order: "desc" },
-      limit: 20,
-    },
-    enabled ? `activity.versions.${doctype}.${docname}` : null,
-  );
-
-  const { data: emails, mutate: mutateEmails } = useFrappeGetDocList<FrappeCommunication>(
+  const { mutate: mutateEmails } = useFrappeGetDocList<FrappeCommunication>(
     "Communication",
     {
       fields: ["name", "subject", "sender", "recipients", "content", "communication_date"] as any,
@@ -981,6 +943,7 @@ export function ActivityTimeline({ doctype, docname }: { doctype: string; docnam
       });
       setCommentText("");
       void mutateComments();
+      setChainKey((k) => k + 1);
     } catch (err) {
       toast.error(humanizeError(err));
     } finally {
@@ -988,21 +951,7 @@ export function ActivityTimeline({ doctype, docname }: { doctype: string; docnam
     }
   };
 
-  type Entry =
-    | { kind: "comment"; key: string; creation: string; comment: FrappeComment }
-    | { kind: "version"; key: string; creation: string; version: FrappeVersion }
-    | { kind: "email"; key: string; creation: string; email: FrappeCommunication };
-
-  const entries: Entry[] = [
-    ...(comments ?? []).map((c): Entry => ({ kind: "comment", key: `c-${c.name}`, creation: c.creation, comment: c })),
-    ...(versions ?? []).map((v): Entry => ({ kind: "version", key: `v-${v.name}`, creation: v.creation, version: v })),
-    ...(emails ?? []).map(
-      (e): Entry => ({ kind: "email", key: `e-${e.name}`, creation: e.communication_date ?? "", email: e }),
-    ),
-  ].sort((a, b) => (a.creation < b.creation ? 1 : -1));
-
-  return (
-    <div className="space-y-4">
+  const commentsCard = (
       <SectionCard
         title={`Comments${comments?.length ? ` (${comments.length})` : ""}`}
         actions={
@@ -1030,70 +979,40 @@ export function ActivityTimeline({ doctype, docname }: { doctype: string; docnam
           </div>
         </div>
       </SectionCard>
-
-      {docname && (
+  );
+  const emailDialog = docname && (
         <EmailDialog
           doctype={doctype}
           docname={docname}
           defaultSubject={`${doctype} - ${docname}`}
           open={emailOpen}
           onClose={() => setEmailOpen(false)}
-          onSent={() => void mutateEmails()}
+          onSent={() => { void mutateEmails(); setChainKey((k) => k + 1); }}
         />
-      )}
+  );
+  const chain = docname && <ActivityChain doctype={doctype} docname={docname} refreshKey={chainKey} />;
 
-      <SectionCard title="Activity">
-        {entries.length === 0 ? (
-          <EmptyState title="No activity yet" />
-        ) : (
-          <ul>
-            {entries.map((e, i) => {
-              const last = i === entries.length - 1;
-              const name =
-                e.kind === "comment"
-                  ? e.comment.comment_by || e.comment.comment_email
-                  : e.kind === "email"
-                    ? e.email.sender
-                    : e.version.owner;
-              return (
-                <li key={e.key} className="relative flex gap-3 pb-5 last:pb-0">
-                  {!last && (
-                    <span
-                      aria-hidden
-                      className="absolute left-[13px] top-7 h-[calc(100%-1.75rem)] w-0.5 bg-border"
-                    />
-                  )}
-                  <Avatar name={name} size="sm" className="relative z-10 shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    {e.kind === "comment" ? (
-                      <div className="rounded-md border border-border bg-muted/30 p-3">
-                        <p className="text-xs text-muted-foreground">
-                          <span className="font-medium text-foreground">{name}</span> commented ·{" "}
-                          {formatDateTime(e.creation)}
-                        </p>
-                        <p className="mt-1 text-sm">{stripHtml(e.comment.content)}</p>
-                      </div>
-                    ) : e.kind === "email" ? (
-                      <div className="rounded-md border border-border bg-muted/30 p-3">
-                        <p className="text-xs text-muted-foreground">
-                          <span className="font-medium text-foreground">{name}</span> emailed {e.email.recipients} ·{" "}
-                          {formatDateTime(e.creation)}
-                        </p>
-                        <p className="mt-1 text-sm font-medium">{e.email.subject}</p>
-                      </div>
-                    ) : (
-                      <p className="pt-1.5 text-sm text-muted-foreground">
-                        <span className="font-medium text-foreground">{name}</span> {summarizeVersion(e.version)} ·{" "}
-                        {formatDateTime(e.creation)}
-                      </p>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-            </SectionCard>
+  if (aside !== undefined) {
+    return (
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+        {/* left: comment box, then the record's activity chain (comments appear in it as blocks) */}
+        <div className="min-w-0 space-y-4">
+          {commentsCard}
+          {chain}
+        </div>
+        {/* right: the document's title with assignments / attachments / tags / sharing */}
+        <div className="space-y-4 lg:sticky lg:top-20">{aside}</div>
+        {emailDialog}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {commentsCard}
+      {emailDialog}
+      {/* Created → changes → comments / files / workflow → emails → linked documents, as a hash-linked chain of blocks */}
+      {chain}
     </div>
   );
 }
@@ -1103,7 +1022,9 @@ export function ActivityTimeline({ doctype, docname }: { doctype: string; docnam
  * stacked sections (no tabs) — used in detail pages (e.g. Journal Entry) right
  * below the document's status/totals row. Comments / Activity are kept separate.
  */
-export function DocActionsPanel({ doctype, docname }: { doctype: string; docname?: string }) {
+export function DocActionsPanel({ doctype, docname, layout = "stack", title, caption }: { doctype: string; docname?: string; layout?: "stack" | "row";
+  /** Optional header bar above the sections (e.g. the document's title in the Activity tab's side panel). */
+  title?: string; caption?: string }) {
   const sections = [
     { key: "assign", label: "Assigned To", content: <AssignedToCard doctype={doctype} docname={docname} inTab /> },
     { key: "attachment", label: "Attachments", content: <AttachmentsCard doctype={doctype} docname={docname} inTab /> },
@@ -1111,8 +1032,10 @@ export function DocActionsPanel({ doctype, docname }: { doctype: string; docname
     { key: "share", label: "Shared With", content: <SharedWithCard doctype={doctype} docname={docname} inTab /> },
   ];
 
-  return (
-    <Card className="grid grid-cols-1 divide-y divide-border overflow-hidden">
+  const body = (
+    <Card className={cn("grid overflow-hidden", title && "rounded-none border-0 shadow-none", layout === "row"
+      ? "grid-cols-1 divide-y divide-border sm:grid-cols-2 sm:divide-y-0 xl:grid-cols-4 [&>*]:border-border sm:[&>*:nth-child(odd)]:border-r xl:[&>*]:border-r xl:[&>*:last-child]:border-r-0 sm:[&>*:nth-child(-n+2)]:border-b xl:[&>*:nth-child(-n+2)]:border-b-0"
+      : "grid-cols-1 divide-y divide-border")}>
       {sections.map((s) => (
         <div key={s.key} className="space-y-3 p-4">
           <h3 className="flex items-center gap-2 text-sm font-semibold">
@@ -1123,6 +1046,19 @@ export function DocActionsPanel({ doctype, docname }: { doctype: string; docname
         </div>
       ))}
     </Card>
+  );
+  if (!title) return body;
+  return (
+    <section className="form-card">
+      <div className="form-card-head">
+        <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><Users className="h-3.5 w-3.5" /></span>
+        <span className="min-w-0">
+          <span className="block truncate text-[13px] font-semibold" title={title}>{title}</span>
+          {caption && <span className="block text-[11px] font-normal text-muted-foreground">{caption}</span>}
+        </span>
+      </div>
+      {body}
+    </section>
   );
 }
 

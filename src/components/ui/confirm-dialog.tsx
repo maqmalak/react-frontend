@@ -34,11 +34,12 @@ export function ConfirmDialog({
           {description ?? "This action cannot be undone."}
         </p>
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose} disabled={loading}>
+          <Button variant="neutral" onClick={onClose} disabled={loading}>
             {cancelLabel}
           </Button>
           <Button
-            variant={destructive ? "destructive" : "primary"}
+            variant={destructive ? "destructive" : "save"}
+            className={destructive ? "rounded-lg shadow-md shadow-destructive/25" : undefined}
             onClick={onConfirm}
             loading={loading}
           >

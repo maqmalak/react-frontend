@@ -1,5 +1,7 @@
 import * as React from "react";
-import { Columns3, Copy, Eye, EyeOff, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Columns3, Copy, Eye, EyeOff, Pencil, Plus, RotateCcw, Settings2, Trash2 } from "lucide-react";
+import toast from "react-hot-toast";
+import { getCall, postCall } from "@/services/frappe";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
@@ -37,6 +39,41 @@ export interface EditableChildTableProps {
   toolbarStart?: React.ReactNode;
   /** Share the available width between the columns (inputs shrink to fit) instead of sizing every column to its widest input; the grid only scrolls sideways once columns would drop below ~150px. */
   fitColumns?: boolean;
+  /**
+   * Enables ERPNext's "Configure Columns": choose the fields and their widths (1–10 column units), stored per user in
+   * User Settings → GridView[child doctype] of the parent doctype — the same setting the desk grid reads and writes.
+   */
+  gridSettings?: { parent: string; child: string };
+}
+
+type GridCol = { fieldname: string; columns: number };
+
+/** The user's saved GridView columns for one child table (shared with the ERPNext desk). */
+function useGridView(key?: { parent: string; child: string }) {
+  const [cols, setCols] = React.useState<GridCol[] | null>(null);
+  const [all, setAll] = React.useState<Record<string, GridCol[]>>({});
+  React.useEffect(() => {
+    if (!key) return;
+    let live = true;
+    getCall<string | Record<string, unknown> | null>("frappe.model.utils.user_settings.get", { doctype: key.parent })
+      .then((raw) => {
+        const us = (typeof raw === "string" ? JSON.parse(raw || "{}") : raw ?? {}) as { GridView?: Record<string, GridCol[]> };
+        if (!live) return;
+        setAll(us.GridView ?? {});
+        setCols(us.GridView?.[key.child]?.length ? us.GridView[key.child] : null);
+      })
+      .catch(() => undefined);
+    return () => { live = false; };
+  }, [key?.parent, key?.child]);
+  const save = async (next: GridCol[] | null) => {
+    if (!key) return;
+    const grid = { ...all };
+    if (next?.length) grid[key.child] = next; else delete grid[key.child];
+    await postCall("frappe.model.utils.user_settings.save", { doctype: key.parent, user_settings: JSON.stringify({ GridView: grid }) });
+    setAll(grid);
+    setCols(next?.length ? next : null);
+  };
+  return { cols, save };
 }
 
 /**
@@ -64,7 +101,10 @@ export function EditableChildTable({
   columnPicker,
   toolbarStart,
   fitColumns,
+  gridSettings,
 }: EditableChildTableProps) {
+  const grid = useGridView(gridSettings);
+  const [configuring, setConfiguring] = React.useState(false);
   const linkFieldnames = React.useMemo(
     () => columns.filter((c) => c.fieldtype === "Link").map((c) => c.fieldname),
     [columns],
@@ -89,14 +129,21 @@ export function EditableChildTable({
   const start = paginate ? page * PAGE : 0;
   const pageRows = (paginate ? rows.slice(start, start + PAGE) : rows).map((row, k) => ({ row, i: start + k }));
 
-  const visibleColumns = React.useMemo(
-    () => columns.filter((c) => !hiddenFields.has(c.fieldname)),
-    [columns, hiddenFields],
-  );
-  const dialogColumns = React.useMemo(
-    () => [...columns, ...(extraDialogColumns ?? [])],
-    [columns, extraDialogColumns],
-  );
+  const dialogColumns = React.useMemo(() => {
+    const seen = new Set(columns.map((c) => c.fieldname));
+    return [...columns, ...(extraDialogColumns ?? []).filter((c) => !seen.has(c.fieldname))];
+  }, [columns, extraDialogColumns]);
+  const visibleColumns = React.useMemo(() => {
+    if (grid.cols) {
+      const byName = new Map(dialogColumns.map((c) => [c.fieldname, c]));
+      const chosen = grid.cols.map((g) => byName.get(g.fieldname)).filter((c): c is FormFieldMeta => Boolean(c));
+      if (chosen.length) return chosen;
+    }
+    return columns.filter((c) => !hiddenFields.has(c.fieldname));
+  }, [columns, hiddenFields, grid.cols, dialogColumns]);
+  // ERPNext column units (1–10): the saved width, else the field's own `columns`, else 2
+  const unitsOf = (c: FormFieldMeta) => grid.cols?.find((g) => g.fieldname === c.fieldname)?.columns ?? (Number((c as { columns?: number }).columns) || 2);
+  const totalUnits = visibleColumns.reduce((a, c) => a + unitsOf(c), 0) || 1;
 
   const toggleField = (fieldname: string) =>
     setHiddenFields((prev) => {
@@ -124,7 +171,7 @@ export function EditableChildTable({
 
   return (
     <div className={cn("space-y-3", className)}>
-      {(toolbarStart || onAddRow || columnPicker || (!readOnly && selectable && selectedRows.size > 0)) && (
+      {(toolbarStart || onAddRow || columnPicker || gridSettings || (!readOnly && selectable && selectedRows.size > 0)) && (
         <div className="flex flex-wrap items-center justify-end gap-2">
           {toolbarStart && <div className="mr-auto min-w-0">{toolbarStart}</div>}
           {!readOnly && selectable && selectedRows.size > 0 && onRemoveRow && (
@@ -132,7 +179,12 @@ export function EditableChildTable({
               <Trash2 className="h-4 w-4" /> Delete Selected ({selectedRows.size})
             </Button>
           )}
-          {columnPicker && (
+          {gridSettings && (
+            <Button variant="outline" size="sm" onClick={() => setConfiguring(true)} title="Choose the fields shown in this table and their widths">
+              <Settings2 className="h-4 w-4" /> Configure columns
+            </Button>
+          )}
+          {columnPicker && !gridSettings && (
             <DropdownMenu
               trigger={
                 <Button variant="outline" size="sm">
@@ -172,9 +224,15 @@ export function EditableChildTable({
           {/* Desktop grid */}
           <div className="hidden overflow-x-auto rounded-md border border-border md:block scrollbar-thin">
             <table
-              className={cn("w-full border-collapse text-sm", fitColumns ? "table-fixed" : "min-w-max")}
-              style={fitColumns ? { minWidth: 112 + visibleColumns.length * 150 } : undefined}
+              className={cn("w-full border-collapse text-sm", fitColumns || grid.cols ? "table-fixed" : "min-w-max")}
+              style={grid.cols ? { minWidth: 112 + totalUnits * 70 } : fitColumns ? { minWidth: 112 + visibleColumns.length * 150 } : undefined}
             >
+              {grid.cols && (
+                <colgroup>
+                  <col style={{ width: 112 }} />
+                  {visibleColumns.map((c) => <col key={c.fieldname} style={{ width: `${(unitsOf(c) * 100) / totalUnits}%` }} />)}
+                </colgroup>
+              )}
               <thead>
                 <tr className="border-b border-border bg-muted/50 text-left">
                   <th className="sticky left-0 z-10 w-28 bg-muted/50 px-3 py-2 text-xs font-semibold text-muted-foreground">
@@ -391,9 +449,8 @@ export function EditableChildTable({
           <div className="mt-4 flex items-center justify-between">
             {!readOnly && onRemoveRow ? (
               <Button
-                variant="outline"
+                variant="danger"
                 size="sm"
-                className="text-destructive hover:bg-destructive/10"
                 onClick={() => {
                   onRemoveRow(editingIndex);
                   setEditingIndex(null);
@@ -404,12 +461,92 @@ export function EditableChildTable({
             ) : (
               <span />
             )}
-            <Button size="sm" onClick={() => setEditingIndex(null)}>
-              Done
+            <Button variant="save" size="sm" onClick={() => setEditingIndex(null)}>
+              <Check className="h-4 w-4" /> Done
             </Button>
           </div>
         </Dialog>
       )}
+      {configuring && gridSettings && (
+        <ConfigureColumns
+          fields={dialogColumns}
+          current={visibleColumns.map((c) => ({ fieldname: c.fieldname, columns: unitsOf(c) }))}
+          onClose={() => setConfiguring(false)}
+          onSave={async (next) => {
+            try { await grid.save(next); toast.success(next ? "Columns saved — also used in the ERPNext desk" : "Columns reset to default"); setConfiguring(false); }
+            catch (e) { toast.error(String((e as Error).message ?? e)); }
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+/** ERPNext-style "Configure Columns": pick fields, order them and give each a width in column units (1–10). */
+function ConfigureColumns({ fields, current, onClose, onSave }: {
+  fields: FormFieldMeta[]; current: GridCol[]; onClose: () => void; onSave: (cols: GridCol[] | null) => void;
+}) {
+  const [cols, setCols] = React.useState<GridCol[]>(current);
+  const [busy, setBusy] = React.useState(false);
+  const labelOf = (fn: string) => fields.find((f) => f.fieldname === fn)?.label ?? fn;
+  const unused = fields.filter((f) => !cols.some((c) => c.fieldname === f.fieldname) && !["Section Break", "Column Break", "Tab Break", "Table", "HTML"].includes(String(f.fieldtype)));
+  const total = cols.reduce((a, c) => a + c.columns, 0);
+  const move = (i: number, d: number) => setCols((p) => { const n = [...p]; const j = i + d; if (j < 0 || j >= n.length) return p; [n[i], n[j]] = [n[j], n[i]]; return n; });
+  const run = async (v: GridCol[] | null) => { setBusy(true); try { await onSave(v); } finally { setBusy(false); } };
+  return (
+    <Dialog open onClose={onClose} title="Configure columns" size="lg">
+      <div className="space-y-4">
+        <p className="text-xs text-muted-foreground">Choose the fields shown in this table, their order and width (1–10 column units, as in ERPNext). Saved for you and shared with the ERPNext desk grid.</p>
+        <div className="overflow-hidden rounded-xl border">
+          <div className="grid grid-cols-[1fr_7rem_5rem] gap-2 border-b bg-muted/50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <span>Field</span><span>Width</span><span className="text-right">Order</span>
+          </div>
+          {cols.map((c, i) => (
+            <div key={c.fieldname} className="grid grid-cols-[1fr_7rem_5rem] items-center gap-2 border-b px-3 py-2 last:border-0">
+              <span className="flex min-w-0 items-center gap-2 text-sm">
+                <button type="button" title="Remove" disabled={cols.length <= 1} onClick={() => setCols((p) => p.filter((x) => x.fieldname !== c.fieldname))}
+                  className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-30"><Trash2 className="h-3.5 w-3.5" /></button>
+                <span className="truncate font-medium">{labelOf(c.fieldname)}</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <input type="range" min={1} max={10} value={c.columns} aria-label={`${labelOf(c.fieldname)} width`}
+                  onChange={(e) => setCols((p) => p.map((x) => (x.fieldname === c.fieldname ? { ...x, columns: Number(e.target.value) } : x)))}
+                  className="h-1 w-16 accent-[hsl(var(--primary))]" />
+                <input type="number" min={1} max={10} value={c.columns} aria-label={`${labelOf(c.fieldname)} columns`}
+                  onChange={(e) => setCols((p) => p.map((x) => (x.fieldname === c.fieldname ? { ...x, columns: Math.min(10, Math.max(1, Number(e.target.value) || 1)) } : x)))}
+                  className="field h-7 w-11 px-1 text-center text-xs" />
+              </span>
+              <span className="flex justify-end gap-0.5">
+                <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="rounded p-1 hover:bg-muted disabled:opacity-30" aria-label="Move up"><ArrowUp className="h-3.5 w-3.5" /></button>
+                <button type="button" onClick={() => move(i, 1)} disabled={i === cols.length - 1} className="rounded p-1 hover:bg-muted disabled:opacity-30" aria-label="Move down"><ArrowDown className="h-3.5 w-3.5" /></button>
+              </span>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center justify-between text-xs">
+          <span className={cn("font-medium", total > 10 ? "text-amber-600" : "text-muted-foreground")}>Total width {total} / 10 units{total > 10 ? " — the table will scroll sideways" : ""}</span>
+        </div>
+        {unused.length > 0 && (
+          <div>
+            <p className="mb-1.5 text-xs font-semibold">Add a field</p>
+            <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto">
+              {unused.map((f) => (
+                <button key={f.fieldname} type="button" onClick={() => setCols((p) => [...p, { fieldname: f.fieldname, columns: 2 }])}
+                  className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs hover:border-primary/40 hover:bg-primary/5">
+                  <Plus className="h-3 w-3" />{f.label ?? f.fieldname}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="flex items-center justify-between gap-2 border-t pt-4">
+          <Button variant="neutral" size="sm" disabled={busy} onClick={() => void run(null)}><RotateCcw className="h-3.5 w-3.5" />Reset to default</Button>
+          <div className="flex gap-2">
+            <Button variant="neutral" size="sm" onClick={onClose}>Cancel</Button>
+            <Button variant="save" size="sm" disabled={busy || !cols.length} onClick={() => void run(cols)}><Check className="h-4 w-4" />Save</Button>
+          </div>
+        </div>
+      </div>
+    </Dialog>
   );
 }

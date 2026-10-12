@@ -16,10 +16,10 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
 } from "recharts";
 import { formatMoney, formatNumber } from "@/utils/currency";
 import { cn } from "@/utils/cn";
+import { useLegendToggle } from "./legend-toggle";
 
 const CHART_COLORS = [
   "hsl(221 83% 53%)", // primary blue
@@ -88,6 +88,7 @@ function valueFormatter(money: boolean | undefined, currency: string, percent?: 
 }
 
 export function BarChart({ data, series, xKey, height = 260, money, currency = "USD", legend, colorKey, stacked, percent, angledLabels }: ChartProps) {
+  const lt = useLegendToggle(); // click a legend entry to hide / show that series
   return (
     <ResponsiveContainer width="100%" height={height}>
       <RCBar data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -109,11 +110,11 @@ export function BarChart({ data, series, xKey, height = 260, money, currency = "
           content={<ChartTooltip formatter={valueFormatter(money, currency, percent)} />}
           cursor={{ fill: "hsl(var(--muted) / 0.4)" }}
         />
-        {legend && <Legend wrapperStyle={{ fontSize: 12 }} />}
+        {legend && lt.legend}
         {series.map((s, i) => (
           <Bar
             key={s.key}
-            dataKey={s.key}
+            dataKey={s.key} hide={lt.hidden.has(s.key)}
             name={s.label}
             fill={s.color ?? CHART_COLORS[i % CHART_COLORS.length]}
             stackId={stacked ? "stack" : undefined}
@@ -129,6 +130,7 @@ export function BarChart({ data, series, xKey, height = 260, money, currency = "
 }
 
 export function LineChart({ data, series, xKey, height = 260, money, currency = "USD", legend, percent, zoom }: ChartProps) {
+  const lt = useLegendToggle(); // click a legend entry to hide / show that series
   return (
     <ResponsiveContainer width="100%" height={height}>
       <RCLine data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -142,12 +144,12 @@ export function LineChart({ data, series, xKey, height = 260, money, currency = 
           domain={zoom ? [(min: number) => Math.floor(min - 1), (max: number) => Math.ceil(max + 1)] : undefined}
         />
         <Tooltip content={<ChartTooltip formatter={valueFormatter(money, currency, percent)} />} />
-        {legend && <Legend wrapperStyle={{ fontSize: 12 }} />}
+        {legend && lt.legend}
         {series.map((s, i) => (
           <Line
             key={s.key}
             type="monotone"
-            dataKey={s.key}
+            dataKey={s.key} hide={lt.hidden.has(s.key)}
             name={s.label}
             stroke={s.color ?? CHART_COLORS[i % CHART_COLORS.length]}
             strokeWidth={2}
@@ -192,6 +194,7 @@ export interface ComboChartProps<T = Record<string, any>> {
 
 /** Bars and lines in a single panel (recharts ComposedChart). */
 export function ComboChart({ data, series, xKey, height = 260, money, currency = "USD", legend, dualAxis }: ComboChartProps) {
+  const lt = useLegendToggle(); // click a legend entry to hide / show that series
   // A money chart can carry a % or count line (export share, OTIF, transit days): format each series on its own.
   const fmtOf = (s: ComboSeries) => s.format ?? (/%\s*$/.test(s.label) ? "percent" : money ? "money" : "number");
   const axisFmt = (side: "left" | "right") => {
@@ -219,15 +222,15 @@ export function ComboChart({ data, series, xKey, height = 260, money, currency =
           content={<ChartTooltip formatter={tooltipValue} />}
           cursor={{ fill: "hsl(var(--muted) / 0.4)" }}
         />
-        {legend && <Legend wrapperStyle={{ fontSize: 12 }} />}
+        {legend && lt.legend}
         {series.map((s, i) => {
           const color = s.color ?? CHART_COLORS[i % CHART_COLORS.length];
           // Bars/lines must name the axis they belong to once `dualAxis` adds a second one.
           const yAxisId = dualAxis && s.axis === "right" ? "right" : "left";
           return s.type === "line" ? (
-            <Line key={s.key} yAxisId={yAxisId} type="monotone" dataKey={s.key} name={s.label} stroke={color} strokeWidth={2} dot={{ r: 3 }} />
+            <Line key={s.key} yAxisId={yAxisId} type="monotone" dataKey={s.key} hide={lt.hidden.has(s.key)} name={s.label} stroke={color} strokeWidth={2} dot={{ r: 3 }} />
           ) : (
-            <Bar key={s.key} yAxisId={yAxisId} dataKey={s.key} name={s.label} fill={color} radius={[4, 4, 0, 0]} maxBarSize={40} />
+            <Bar key={s.key} yAxisId={yAxisId} dataKey={s.key} hide={lt.hidden.has(s.key)} name={s.label} fill={color} radius={[4, 4, 0, 0]} maxBarSize={40} />
           );
         })}
       </RCComposed>
@@ -236,6 +239,7 @@ export function ComboChart({ data, series, xKey, height = 260, money, currency =
 }
 
 export function AreaChart({ data, series, xKey, height = 260, money, currency = "USD", legend, percent }: ChartProps) {
+  const lt = useLegendToggle(); // click a legend entry to hide / show that series
   return (
     <ResponsiveContainer width="100%" height={height}>
       <RCArea data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -251,12 +255,12 @@ export function AreaChart({ data, series, xKey, height = 260, money, currency = 
         <XAxis dataKey={xKey} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
         <YAxis tickFormatter={(v: number) => axisFormatter(!!money, currency, v, percent)} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
         <Tooltip content={<ChartTooltip formatter={valueFormatter(money, currency, percent)} />} />
-        {legend && <Legend wrapperStyle={{ fontSize: 12 }} />}
+        {legend && lt.legend}
         {series.map((s, i) => (
           <Area
             key={s.key}
             type="monotone"
-            dataKey={s.key}
+            dataKey={s.key} hide={lt.hidden.has(s.key)}
             name={s.label}
             stroke={s.color ?? CHART_COLORS[i % CHART_COLORS.length]}
             fill={`url(#grad-${s.key})`}

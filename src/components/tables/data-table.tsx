@@ -268,11 +268,13 @@ export function FrappeDataTable<T extends Record<string, any>>({
   return (
     <div className="w-full space-y-3">
       <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          {title && <h3 className="text-sm font-semibold">{title}</h3>}
-          {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+        {(title || subtitle) && (
+          <div>
+            {title && <h3 className="text-sm font-semibold">{title}</h3>}
+            {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+          </div>
+        )}
+        <div className={cn("flex flex-wrap items-center gap-2", !(title || subtitle) && "w-full lg:justify-between")}>
           {toolbar}
           {selectable && selectedRows.length > 0 && bulkActions && (
             <DropdownMenu
@@ -285,10 +287,7 @@ export function FrappeDataTable<T extends Record<string, any>>({
             />
           )}
           {searchable && (
-            <div className="flex items-center gap-2">
-              <label htmlFor="table-search" className="whitespace-nowrap text-xs font-medium text-muted-foreground">
-                Search
-              </label>
+            <div className={cn("flex items-center gap-2", !(title || subtitle) && "lg:order-first lg:mr-auto")}>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -304,7 +303,7 @@ export function FrappeDataTable<T extends Record<string, any>>({
                     setPage(0);
                   }}
                   placeholder={searchPlaceholder}
-                  className="h-8 w-48 pl-8 text-xs lg:w-56"
+                  className="h-9 w-56 rounded-lg bg-background pl-8 text-sm shadow-sm lg:w-72"
                   aria-label={searchPlaceholder}
                 />
               </div>
@@ -369,12 +368,12 @@ export function FrappeDataTable<T extends Record<string, any>>({
 
       {filters}
 {/* Table */}
-      <div className="overflow-x-auto rounded-md border border-border scrollbar-thin">
+      <div className="overflow-x-auto rounded-xl border border-border bg-background shadow-sm scrollbar-thin">
         <table className="w-full min-w-max border-collapse text-sm">
           <thead>
             <tr className="border-b border-border text-left">
               {selectable && (
-                <th className="w-10 bg-muted px-3 py-2">
+                <th className="w-10 bg-muted px-3 py-2.5">
                   <Checkbox checked={allSelected} onChange={toggleAll} aria-label="Select all rows" />
                 </th>
               )}
@@ -387,7 +386,7 @@ export function FrappeDataTable<T extends Record<string, any>>({
                       headerCellRefs.current[colIdx] = el;
                     }}
                     className={cn(
-                      "whitespace-nowrap bg-muted px-3 py-2 text-xs font-semibold text-muted-foreground",
+                      "whitespace-nowrap bg-muted px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground",
                       col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left",
                       col.headerClassName,
                       col.sortable !== false ? "cursor-pointer select-none" : "",
@@ -412,7 +411,7 @@ export function FrappeDataTable<T extends Record<string, any>>({
                   </th>
                 );
               })}
-              {(rowActions || onRowClick) && <th className="w-10 px-2 py-2" />}
+              {(rowActions || onRowClick) && <th className="w-10 bg-muted px-2 py-2.5" />}
             </tr>
           </thead>
           <tbody>
@@ -451,9 +450,9 @@ export function FrappeDataTable<T extends Record<string, any>>({
                     key={rowKey(row)}
                     onClick={() => onRowClick?.(row)}
                     className={cn(
-                      "border-b border-border last:border-0",
+                      "group/row border-b border-border/70 last:border-0",
                       rowStriped && "bg-accent/40",
-                      onRowClick && "cursor-pointer transition-colors hover:bg-muted/40",
+                      onRowClick && "cursor-pointer transition-colors hover:bg-primary/[0.05]",
                     )}
                   >
                     {selectable && (
@@ -471,7 +470,8 @@ export function FrappeDataTable<T extends Record<string, any>>({
                         <td
                           key={col.key}
                           className={cn(
-                            "px-3 py-2",
+                            "px-3 py-2.5",
+                            colIdx === 0 && onRowClick && "font-medium group-hover/row:text-primary",
                             col.align === "right"
                               ? "text-right tabular-nums"
                               : col.align === "center"
@@ -496,7 +496,7 @@ export function FrappeDataTable<T extends Record<string, any>>({
                         <DropdownMenu
                           trigger={
                             <button
-                              className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                              className="rounded-md p-1 text-muted-foreground opacity-60 transition group-hover/row:opacity-100 hover:bg-accent hover:text-foreground"
                               aria-label="Row actions"
                             >
                               <MoreGlyph />
@@ -543,7 +543,7 @@ export function FrappeDataTable<T extends Record<string, any>>({
       </div>
 {/* Pagination */}
       {!loading && !error && total > 0 && (
-        <div className="flex flex-col items-center justify-between gap-2 sm:flex-row">
+        <div className="flex flex-col items-center justify-between gap-2 px-1 sm:flex-row">
           <p className="text-xs text-muted-foreground">
             Showing <span className="font-medium">{from}</span>–<span className="font-medium">{to}</span> of{" "}
             <span className="font-medium">{total}</span>
@@ -552,7 +552,7 @@ export function FrappeDataTable<T extends Record<string, any>>({
             <div className="flex items-center gap-1.5">
               <span className="text-xs text-muted-foreground">Rows</span>
               <select
-                className="h-7 rounded border border-input bg-transparent text-xs"
+                className="h-8 rounded-lg border border-input bg-background px-1.5 text-xs shadow-sm"
                 value={activePageSize}
                 onChange={(e) => changePageSize(Number(e.target.value))}
               >
@@ -567,20 +567,20 @@ export function FrappeDataTable<T extends Record<string, any>>({
               <Button
                 variant="outline"
                 size="icon"
-                className="h-7 w-7"
+                className="h-8 w-8 rounded-lg"
                 disabled={safePage === 0}
                 onClick={() => goToPage(safePage - 1)}
                 aria-label="Previous page"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="min-w-[4rem] text-center text-xs tabular-nums">
+              <span className="min-w-[4.5rem] rounded-lg bg-muted px-2 py-1.5 text-center text-xs font-medium tabular-nums">
                 {safePage + 1} / {pageCount}
               </span>
               <Button
                 variant="outline"
                 size="icon"
-                className="h-7 w-7"
+                className="h-8 w-8 rounded-lg"
                 disabled={safePage >= pageCount - 1}
                 onClick={() => goToPage(safePage + 1)}
                 aria-label="Next page"

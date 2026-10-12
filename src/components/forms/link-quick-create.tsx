@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useFrappeCreateDoc } from "frappe-react-sdk";
+import { useFrappeCreateDoc, useFrappeGetCall } from "frappe-react-sdk";
 import { useSWRConfig } from "swr";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,25 @@ export function quickCreateLabel(doctype: string): string {
   return QUICK_CREATE[doctype]?.label ?? doctype;
 }
 
+interface QuickMeta { eligible: boolean; reason: string | null; label: string; fields: FormFieldMeta[] }
+
+/**
+ * The "New <Doctype>" form for a Link's "+": the hand-made CRM specs above, otherwise built from the target's own
+ * required / quick-entry fields (server: mm_core.react_ui.quick_entry_meta). Null when inline creation isn't offered
+ * (no create permission, submittable / single / child doctypes, doctypes needing child rows, sensitive masters).
+ */
+export function useQuickCreate(doctype: string, enabled = true): QuickCreateSpec | null {
+  const fixed = QUICK_CREATE[doctype];
+  const { data } = useFrappeGetCall<{ message: QuickMeta }>(
+    "mm_core.react_ui.quick_entry_meta", { doctype },
+    enabled && doctype && !fixed ? `quick-entry.${doctype}` : null,
+    { revalidateOnFocus: false, revalidateIfStale: false, dedupingInterval: 600_000 },
+  );
+  if (fixed) return fixed;
+  const m = data?.message;
+  return m?.eligible && m.fields.length ? { label: m.label, fields: m.fields } : null;
+}
+
 /** Small "New <Doctype>" dialog; calls `onCreated(name)` with the new record's name. */
 export function LinkQuickCreateDialog({
   doctype,
@@ -55,7 +74,10 @@ export function LinkQuickCreateDialog({
   initialValue,
   onClose,
   onCreated,
+  spec: specProp,
 }: {
+  /** Form to show (from useQuickCreate); defaults to the fixed CRM specs. */
+  spec?: QuickCreateSpec | null;
   doctype: string;
   open: boolean;
   /** Pre-fills the name field — usually the text the user had typed into the Link field. */
@@ -63,7 +85,7 @@ export function LinkQuickCreateDialog({
   onClose: () => void;
   onCreated: (name: string) => void;
 }) {
-  const spec = QUICK_CREATE[doctype];
+  const spec = specProp ?? QUICK_CREATE[doctype];
   const { createDoc } = useFrappeCreateDoc<Record<string, any>>();
   const { mutate } = useSWRConfig();
   const [values, setValues] = React.useState<Record<string, any>>({});
@@ -157,10 +179,10 @@ export function LinkQuickCreateDialog({
         </React.Suspense>
         {error && <p className="text-sm text-destructive">{error}</p>}
         <div className="flex justify-end gap-2 border-t pt-4">
-          <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+          <Button type="button" variant="neutral" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button type="button" onClick={() => void submit()} loading={saving}>
+          <Button type="button" variant="save" onClick={() => void submit()} loading={saving}>
             Create
           </Button>
         </div>
