@@ -9,6 +9,7 @@ import { APP_NAVIGATION, APP_LABELS, appSegmentForPath } from "@/app/navigation"
 import { useInstalledApps, tileForPath, appsForPath } from "@/hooks/useInstalledApps";
 import { EmptyState } from "@/components/common/empty-state";
 import { cn } from "@/utils/cn";
+import { SWITCH_KEY } from "./app-context";
 
 /**
  * Authenticated application shell: header + routed content, with a sidebar
@@ -34,9 +35,8 @@ export function AppShell() {
   const { hasApps, isPathAvailable, isLoading: appsLoading, error: appsError } = useInstalledApps();
 
   const ownSegment = appSegmentForPath(location.pathname);
-  // Sticky app context: while working in Real Estate, records of other modules opened from it (a Sales Invoice, Payment
-  // Entry, CRM lead…) keep the Real Estate sidebar, and a bar leads back to the page you came from. Going through the
-  // Desktop launcher (or another app's own home) ends the context.
+  // Sticky app context (see useStickyContext): records of other modules opened from the app you work in keep that
+  // app's sidebar, with a bar back to the page you came from.
   const context = useStickyContext(location.pathname + location.search, ownSegment);
   const segment = context.segment;
   // Drop sidebar links whose page needs a backend app this site doesn't have (e.g. Export Analysis without
@@ -120,8 +120,12 @@ export function AppShell() {
 }
 
 
-/** Apps whose context sticks while their pages open records of other modules (keyed by route segment). */
-const STICKY_APPS = new Set(["re"]);
+/**
+ * Every app keeps its context: the app you work in is the "origin"; a link from it to a record of another module
+ * (a Sales Order's Payment Entry, a Customer's invoice …) keeps the origin's sidebar and shows a bar back to where you
+ * were. Picking another app on purpose — its sidebar, the Desktop / app launcher, global search — switches the origin;
+ * the Desktop and other neutral pages clear it. Per browser tab.
+ */
 const NEUTRAL = new Set(["", "home", "desk", "login", "profile", "settings"]);
 const KEY = "app.context";
 
@@ -133,30 +137,32 @@ function readSticky(): StickyState | null {
 function writeSticky(v: StickyState | null) {
   try { if (v) sessionStorage.setItem(KEY, JSON.stringify(v)); else sessionStorage.removeItem(KEY); } catch { /* per-tab only */ }
 }
+function switchPending(): boolean {
+  try { return sessionStorage.getItem(SWITCH_KEY) === "1"; } catch { return false; }
+}
 
-/**
- * Remember the sticky app and the last page inside it (per browser tab). On a route of another module, report the
- * sticky app as the sidebar segment plus where to go back; on the sticky app's own pages, record them as the return
- * point; on the Desktop / a neutral page, forget it.
- */
+// A full page load (address bar, bookmark, reload) is never "a link from the origin": its app starts a fresh context.
+let firstRoute = true;
+
 function useStickyContext(path: string, own: string) {
   const [, force] = useState(0);
   const st = readSticky();
+  const switching = firstRoute || switchPending();
   useEffect(() => {
-    if (STICKY_APPS.has(own)) {
-      const label = document.title || APP_LABELS[own] || own;
-      writeSticky({ app: own, returnTo: path, returnLabel: label });
-    } else if (NEUTRAL.has(own)) {
-      writeSticky(null);
-    }
+    const cur = readSticky();
+    const sw = firstRoute || switchPending();
+    firstRoute = false;
+    try { sessionStorage.removeItem(SWITCH_KEY); } catch { /* per-tab only */ }
+    if (NEUTRAL.has(own)) writeSticky(null);
+    else if (!cur || sw || cur.app === own) writeSticky({ app: own, returnTo: path, returnLabel: document.title || APP_LABELS[own] || own });
+    // otherwise: a record of another module opened from the origin — keep the origin as it is
   }, [path, own]);
-  // keep the label in step once the page has set its title
+  // keep the return label in step once the origin page has set its title
   useEffect(() => {
-    if (!STICKY_APPS.has(own)) return;
-    const t = setTimeout(() => { const cur = readSticky(); if (cur?.returnTo === path) writeSticky({ ...cur, returnLabel: document.title || cur.returnLabel }); }, 1200);
+    const t = setTimeout(() => { const cur = readSticky(); if (cur?.app === own && cur.returnTo === path) writeSticky({ ...cur, returnLabel: document.title || cur.returnLabel }); }, 1200);
     return () => clearTimeout(t);
   }, [path, own]);
-  const borrowed = st && !STICKY_APPS.has(own) && !NEUTRAL.has(own) && st.app !== own ? st : null;
+  const borrowed = st && !switching && !NEUTRAL.has(own) && st.app !== own ? st : null;
   return {
     segment: borrowed ? borrowed.app : own,
     returnTo: borrowed?.returnTo ?? null,

@@ -4,6 +4,7 @@ import { ChevronRight, ExternalLink, X, LayoutGrid } from "lucide-react";
 import { cn } from "@/utils/cn";
 import type { NavGroup } from "@/app/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { markAppSwitch } from "./app-context";
 import { Logo } from "@/components/common/logo";
 
 /** "/", "/accounting", "/production"… — an app's home link; highlight it only on that exact page, not on every page below it. */
@@ -22,7 +23,7 @@ function navLinkClass({ isActive }: { isActive: boolean }) {
 function BackToDesktop({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="border-b border-white/10 px-3 py-3">
-      <NavLink to="/home" end onClick={onNavigate} className={navLinkClass}>
+      <NavLink to="/home" end onClick={() => { markAppSwitch(); onNavigate?.(); }} className={navLinkClass}>
         <LayoutGrid className="h-4 w-4 shrink-0" />
         <span className="truncate">Desktop</span>
       </NavLink>
@@ -104,14 +105,14 @@ function NavLinks({
             return (
               item.to.startsWith("/desk/") ? (
                 // ERPNext desk screens (no React page): a normal link, so the browser loads the desk
-                <a key={item.to} href={item.to} target="_blank" rel="noopener" onClick={onNavigate} className={linkClass(item.to)({ isActive: false })}
+                <a key={item.to} href={item.to} target="_blank" rel="noopener" onClick={() => { markAppSwitch(); onNavigate?.(); }} className={linkClass(item.to)({ isActive: false })}
                   title="Opens in a new tab (ERPNext desk)">
                   {Icon && <Icon className="h-4 w-4 shrink-0" />}
                   <span className="truncate">{item.label}</span>
                   <ExternalLink className="ml-auto h-3 w-3 shrink-0 opacity-50" />
                 </a>
               ) : (
-              <NavLink key={item.to} to={item.to} end={isAppRoot(item.to)} onClick={onNavigate} className={linkClass(item.to)}>
+              <NavLink key={item.to} to={item.to} end={isAppRoot(item.to)} onClick={() => { markAppSwitch(); onNavigate?.(); }} className={linkClass(item.to)}>
                 {Icon && <Icon className="h-4 w-4 shrink-0" />}
                 <span className="truncate">{item.label}</span>
               </NavLink>

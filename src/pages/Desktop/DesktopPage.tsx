@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { useFrappeGetCall } from "frappe-react-sdk";
 import toast from "react-hot-toast";
@@ -290,6 +291,9 @@ export function DesktopPage() {
           return <AppSection key={sec.group} {...sec} tiles={home?.tiles} oneRow={cols === "all" ? sec.items.length : cols} />;
         })}
 
+        {/* every module's usual flow, always on screen (the tiles also show it on hover) */}
+        <PlaybooksPanel apps={apps} />
+
         {/* last: needs attention (left) beside quick links (right) */}
         {(
 
@@ -389,6 +393,37 @@ const PLAYBOOKS: Record<string, { title: string; steps: { label: string; to: str
     { label: "Stock levels", to: "/inventory/stock" }, { label: "Stock Ledger", to: "/inventory/reports/stock-ledger" }] },
   crm: { title: "Lead to deal", steps: [
     { label: "Leads", to: "/crm/leads" }, { label: "Follow-ups", to: "/crm/follow-ups" }, { label: "Tasks", to: "/crm/tasks" }] },
+  production: { title: "Plan to produce", steps: [
+    { label: "Bills of Materials", to: "/production/boms" }, { label: "Production Plan", to: "/production/production-plans" },
+    { label: "Work Orders", to: "/production/work-orders" }, { label: "Job Cards", to: "/production/job-cards" },
+    { label: "Schedule (Gantt)", to: "/production/schedule" }, { label: "Downtime", to: "/production/downtime" }] },
+  quality: { title: "Inspect and improve", steps: [
+    { label: "Inspection Templates", to: "/quality/templates" }, { label: "Quality Inspections", to: "/quality/inspections" },
+    { label: "Non Conformances", to: "/quality/non-conformances" }, { label: "Quality Actions (CAPA)", to: "/quality/actions" },
+    { label: "Quality Reviews", to: "/quality/reviews" }] },
+  projects: { title: "Plan, track and deliver", steps: [
+    { label: "Projects", to: "/projects/list" }, { label: "Tasks", to: "/projects/tasks" },
+    { label: "Task Board", to: "/projects/board" }, { label: "Timeline (Gantt)", to: "/projects/timeline" }] },
+  hr: { title: "Hire to attend", steps: [
+    { label: "Employees", to: "/hr/employees" }, { label: "Shift Assignments", to: "/hr/shift-assignments" },
+    { label: "Checkins", to: "/hr/checkins" }, { label: "Attendance", to: "/hr/attendance" },
+    { label: "Leave Applications", to: "/hr/leave-applications" }] },
+  payroll: { title: "Structure to payslip", steps: [
+    { label: "Salary Structures", to: "/payroll/salary-structures" }, { label: "Structure Assignments", to: "/payroll/salary-structure-assignments" },
+    { label: "Additional Salary", to: "/payroll/additional-salary" }, { label: "Payroll Entry", to: "/payroll/entries" },
+    { label: "Salary Slips", to: "/payroll/salary-slips" }] },
+  assets: { title: "Acquire to maintain", steps: [
+    { label: "Asset Categories", to: "/asset-management/categories" }, { label: "Assets", to: "/asset-management/register" },
+    { label: "Asset Movements", to: "/asset-management/movements" }, { label: "Repairs", to: "/asset-management/repairs" }] },
+  subcontracting: { title: "Send out, receive back", steps: [
+    { label: "Subcontracting BOMs", to: "/subcontracting/boms" }, { label: "Subcontracting Orders", to: "/subcontracting/orders" },
+    { label: "Subcontracting Receipts", to: "/subcontracting/receipts" }] },
+  support: { title: "Issue to resolution", steps: [
+    { label: "Issue Types", to: "/support/issue-types" }, { label: "Service Level Agreements", to: "/support/slas" },
+    { label: "Issues", to: "/support/issues" }] },
+  workflow: { title: "Approve and automate", steps: [
+    { label: "Approval Workflows", to: "/approvals/workflows" }, { label: "Approvals Inbox", to: "/approvals/inbox" },
+    { label: "Alerts & Notifications", to: "/approvals/notifications" }, { label: "Assignment Rules", to: "/approvals/assignment-rules" }] },
 };
 
 /** A step's icon: the sidebar's icon for that page, else a file. */
@@ -414,8 +449,35 @@ function AppIcon({ app, size = "lg" }: { app: AppTile; size?: "lg" | "sm" }) {
 function AppTileCard({ app, stat }: { app: AppTile; stat?: { value: number; label: string } }) {
   const { isPathAvailable } = useInstalledApps();
   const playbook = playbookFor(app, isPathAvailable);
+  // The playbook pop-up is drawn on top of the whole page (portal, fixed position) so later sections never cover it;
+  // it opens below the tile, or above it when there is no room below, and stays open while the pointer is on it.
+  const tileRef = useRef<HTMLDivElement>(null);
+  const timer = useRef<number>();
+  const [pos, setPos] = useState<{ left: number; top: number; up: boolean } | null>(null);
+  const show = () => {
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => {
+      const r = tileRef.current?.getBoundingClientRect();
+      if (!r) return;
+      const h = 74 + playbook.steps.length * 46 + 44, w = 320, gap = 8;
+      const below = window.innerHeight - r.bottom, above = r.top;
+      const up = below < h + gap && above > below;
+      const top = up ? Math.max(gap, r.top - h - gap) : Math.min(r.bottom + gap, window.innerHeight - h - gap);
+      const left = Math.min(Math.max(gap, r.left + r.width / 2 - w / 2), window.innerWidth - w - gap);
+      setPos({ left, top, up });
+    }, 150);
+  };
+  const hide = () => { window.clearTimeout(timer.current); timer.current = window.setTimeout(() => setPos(null), 180); };
+  useEffect(() => {
+    if (!pos) return;
+    const close = () => setPos(null);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => { window.removeEventListener("scroll", close, true); window.removeEventListener("resize", close); };
+  }, [pos]);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
   return (
-    <div className="group/tile relative">
+    <div ref={tileRef} className="relative" onMouseEnter={show} onMouseLeave={hide} onFocus={show} onBlur={hide}>
     <Link to={app.to} className="group flex w-full flex-col items-center gap-1.5 rounded-2xl p-2 text-center outline-none transition focus-visible:ring-2 focus-visible:ring-primary">
       <AppIcon app={app} />
       <span className="w-full truncate text-[13px] font-semibold leading-tight">{app.label}</span>
@@ -425,11 +487,10 @@ function AppTileCard({ app, stat }: { app: AppTile; stat?: { value: number; labe
         </span>
       ) : app.tagline ? <span className="-mt-1 w-full truncate text-[10px] text-muted-foreground">{app.tagline}</span> : null}
     </Link>
-    {playbook.steps.length > 0 && (
-      // Playbook: appears on hover / keyboard focus, stays while the pointer is over it.
-      <div className="invisible absolute left-1/2 top-full z-30 w-80 -translate-x-1/2 pt-2 opacity-0 transition-all delay-150 duration-200 group-hover/tile:visible group-hover/tile:translate-y-0 group-hover/tile:opacity-100 group-focus-within/tile:visible group-focus-within/tile:opacity-100 translate-y-1">
-        <span aria-hidden className="absolute left-1/2 top-[3px] h-3 w-3 -translate-x-1/2 rotate-45 rounded-sm border-l border-t border-border bg-popover" />
-        <div className="relative overflow-hidden rounded-2xl border border-border bg-popover/95 text-popover-foreground shadow-2xl backdrop-blur">
+    {playbook.steps.length > 0 && pos && createPortal(
+      <div style={{ left: pos.left, top: pos.top }} onMouseEnter={() => window.clearTimeout(timer.current)} onMouseLeave={hide}
+        className="fixed z-[90] w-80">
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground shadow-2xl ring-1 ring-black/5">
           {/* header in the app's colours */}
           <div className={cn("relative overflow-hidden bg-gradient-to-br px-4 py-3 text-white", ICON_GRADIENT[hueOf(app.colorClass)] ?? ICON_GRADIENT.slate)}>
             <span aria-hidden className="pointer-events-none absolute -right-6 -top-10 h-28 w-28 rounded-full bg-white/15 blur-2xl" />
@@ -474,7 +535,8 @@ function AppTileCard({ app, stat }: { app: AppTile; stat?: { value: number; labe
             Open {app.label} <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
-      </div>
+      </div>,
+      document.body,
     )}
     </div>
   );
@@ -791,5 +853,75 @@ function GroupLabel({ children }: { children: React.ReactNode }) {
       <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{children}</span>
       <span className="h-px flex-1 bg-gradient-to-r from-border to-transparent" />
     </div>
+  );
+}
+
+
+/** Every curated playbook on screen (not only on hover): pick a module, its flow shows as numbered, clickable steps. */
+function PlaybooksPanel({ apps }: { apps: AppTile[] }) {
+  const { isPathAvailable } = useInstalledApps();
+  // every module tile on the Desktop gets a chip: its written playbook, else its own menu links in order
+  const books = apps
+    .filter((a) => !HOME_HIDDEN.has(a.id))
+    .map((app) => ({ id: app.id, app, book: playbookFor(app, isPathAvailable) }))
+    .filter((b) => b.book.steps.length > 0);
+  const [pick, setPick] = useState<string>(() => { try { return localStorage.getItem("desktop.playbook") ?? ""; } catch { return ""; } });
+  const [open, setOpen] = useState<boolean>(() => { try { return localStorage.getItem("desktop.playbook.open") !== "0"; } catch { return true; } });
+  if (!books.length) return null;
+  const cur = books.find((b) => b.id === pick) ?? books.find((b) => b.id === "selling") ?? books[0];
+  const choose = (id: string) => { setPick(id); try { localStorage.setItem("desktop.playbook", id); } catch { /* not remembered */ } };
+  const toggle = () => { setOpen((o) => { try { localStorage.setItem("desktop.playbook.open", o ? "0" : "1"); } catch { /* not remembered */ } return !o; }); };
+  const grad = ICON_GRADIENT[hueOf(cur.app.colorClass)] ?? ICON_GRADIENT.slate;
+  return (
+    <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4">
+        <div>
+          <h2 className="text-lg font-semibold leading-tight">Playbooks</h2>
+          <p className="text-xs text-muted-foreground">How each module's work flows — click a step to open it</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {books.map((b) => (
+            <button key={b.id} type="button" onClick={() => choose(b.id)} aria-pressed={b.id === cur.id}
+              className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition",
+                b.id === cur.id ? "border-transparent bg-primary text-primary-foreground shadow" : "bg-card hover:bg-muted")}>
+              <b.app.icon className="h-3.5 w-3.5" />{b.app.label}
+            </button>
+          ))}
+          <button type="button" onClick={toggle} className="ml-1 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">{open ? "Hide" : "Show"}</button>
+        </div>
+      </div>
+      {open && (
+        <div className="p-4">
+          <div className={cn("mb-3 flex items-center gap-3 rounded-xl bg-gradient-to-br px-4 py-2.5 text-white", grad)}>
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 ring-1 ring-inset ring-white/30"><cur.app.icon className="h-5 w-5" /></span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold leading-tight">{cur.app.label} playbook</p>
+              <p className="text-[11px] text-white/85">{cur.book.title}</p>
+            </div>
+            <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ring-white/30">{cur.book.steps.length} steps</span>
+          </div>
+          {/* steps wrap onto as many rows as needed — every step stays visible, nothing to scroll */}
+          <ol className="flex flex-wrap items-center gap-y-3">
+            {cur.book.steps.map((st, i) => {
+              const Icon = stepIcon(st.to);
+              const last = i === cur.book.steps.length - 1;
+              return (
+                <li key={st.to} className="flex items-center">
+                  <Link to={st.to} className="group flex w-36 flex-col gap-2 rounded-xl border bg-background p-3 transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md">
+                    <span className="flex items-center justify-between">
+                      <span className={cn("flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br text-[11px] font-bold text-white shadow", grad)}>{i + 1}</span>
+                      <Icon className="h-4 w-4 text-muted-foreground transition group-hover:text-primary" />
+                    </span>
+                    <span className="text-sm font-semibold leading-tight">{st.label}</span>
+                    <span className="text-[10px] text-muted-foreground">{last ? "Last step" : `Then: ${cur.book.steps[i + 1].label}`}</span>
+                  </Link>
+                  {!last && <ChevronRight aria-hidden className="mx-1 h-4 w-4 shrink-0 text-muted-foreground/70" />}
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      )}
+    </section>
   );
 }

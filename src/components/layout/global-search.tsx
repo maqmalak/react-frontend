@@ -11,6 +11,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/utils/cn";
+import { markAppSwitch } from "./app-context";
 
 /**
  * Global search (Ctrl/Cmd + K).
@@ -207,7 +208,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
   const go = React.useCallback(
     (hit: SearchHit) => {
       if (hit.external) window.location.assign(hit.route);
-      else navigate(hit.route);
+      else { markAppSwitch(); navigate(hit.route); }
       onClose();
       setQuery("");
     },
